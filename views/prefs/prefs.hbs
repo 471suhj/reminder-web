@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>환경 설정 - ComphyCat Reminder</title>
+        <link rel="stylesheet" href="/common.css">
+        <link rel="stylesheet" href="/user_common.css">        
+        <link rel="stylesheet" href="/prefs/prefs.css">
+    </head>
+    <body>
+        <div class="heading">
+            <a href="/home"><img class="logo" src="/aam_online.png" alt="ComphyCat Reminder Online"></a>
+            <div class="user">
+                <a href="/prefs/account"><img src="/images/user" alt=></a>
+                <a href="/prefs/account">{{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
+                <a href="/home/notifications">알림 {{ notificationCnt }}개</a>
+            </div>
+        </div>
+        <div class="frame">
+            <div class="side">
+                <a class="blackLink" href="/home"><div class="sideItem"><img src="/home.png" width="25" height="25"><br>홈</div></a>
+                <a class="blackLink" href="/files"><div class="sideItem"><img src="/files.png" width="25" height="25"><br>파일</div></a>
+                <a class="blackLink" href="/files/shared"><div class="sideItem"><img src="/shared.png" width="25" height="25"><br>공유</div></a>
+                <a class="blackLink" href="/friends"><div class="sideItem"><img src="/friends.png" width="25" height="25"><br>친구</div></a>
+                <a class="blackLink" href="/prefs"><div class="sideItem"><img src="/prefs.png" width="25" height="25"><br>설정</div></a>
+            </div>
+            <div class="main">
+                <div class="prefSide">
+                    <a class="blackLink" href="/prefs/account"><div class="prefSideItem">계정 설정</div></a>
+                    <a class="blackLink" href="/prefs"><div class="prefSideItemSel">환경 설정</div></a>
+                </div>
+                <div class="body">
+                    <div class="bodyItem">
+                        계정 정보
+                    </div>
+                    <div class="bodyItem">
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

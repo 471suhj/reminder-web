@@ -1,0 +1,17 @@
+.main{
+     display: flex;
+     width: calc(100% - 60px);
+     height: 100%;
+     left: 60px;
+     position: relative;
+     flex-direction: row;
+}
+.body{
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    width: 500px;
+    padding: 15px;
+    box-sizing: border-box;
+    flex: 5 5 auto;
+}

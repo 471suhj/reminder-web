@@ -1,0 +1,30 @@
+.heading{
+    position: fixed;
+    display: flex;
+    flex-wrap: wrap;
+    background-color: white;
+    left: 0px;
+    width: 100%;
+    box-sizing: border-box;
+    top: 0px;
+    padding: 15px;
+    margin: 0px;
+    z-index: 100;
+}
+.logo{
+    width: 407px;
+    height: 48px;
+    display: inline;
+}
+.frame{
+    position: absolute;
+    top: 78px;
+    left: 0px;
+    right: 0px;
+    height: calc(100% - 78px);
+    width: calc(100% - 60px);
+}
+.blackLink{
+    text-decoration: none;
+    color: black;
+}

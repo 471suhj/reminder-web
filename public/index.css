@@ -1,0 +1,18 @@
+.frame{
+    flex-wrap: wrap-reverse;
+    display: flex;
+    width: 100%;
+}
+.body{
+    padding: 15px;
+    left: 0px;
+    right: 0px;
+    flex: 7 1 min-content;
+    background-color: antiquewhite;
+    font-size: 30px;
+}
+.login {
+    padding: 15px;
+    flex: 1 1 fit-content;
+    background-color: antiquewhite;
+}

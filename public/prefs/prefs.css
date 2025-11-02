@@ -1,0 +1,46 @@
+.main{
+     display: flex;
+     width: calc(100% - 60px);
+     height: 100%;
+     left: 60px;
+     position: relative;
+     flex-direction: row;
+}
+.prefSide{
+    padding: 15px;
+    height: 100%;
+    width: min-content;
+    display: inline;
+    text-align: left;
+    flex: 1 0 auto;
+    border-right: 2px solid lightgray;
+    box-sizing: border-box;
+}
+.prefSideItem{
+    padding: 15px;
+    margin-top: 10px;
+}
+.prefSideItemSel{
+    padding: 15px;
+    background-color: lightgray;
+    margin-top: 10px;
+}
+.prefSideItem:hover{
+    background-color: lightgray;
+}
+.body{
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    width: 500px;
+    padding: 15px;
+    box-sizing: border-box;
+    flex: 5 5 auto;
+}
+.bodyItem{
+    margin-top: 10px;
+    padding: 10px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: gray;
+}

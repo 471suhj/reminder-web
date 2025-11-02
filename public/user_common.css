@@ -1,0 +1,28 @@
+.user{
+    right: 15px;
+    display: inline;
+    position: absolute;
+    padding: 15px;
+}
+.side{
+    width: 60px;
+    height: calc(100% - 78px);
+    display: inline-flex;
+    position: fixed;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: space-evenly;
+    background-color: beige;
+}
+.sideItem{
+    text-align: center;
+    padding: 10px 0px;
+}
+.sideItemSel{
+    text-align: center;
+    background-color: lightgray;
+    padding: 10px 0px;
+}
+.sideItem:hover{
+    background-color: lightgray;
+}
