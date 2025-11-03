@@ -8,11 +8,12 @@
     left: 0px;
     right: 0px;
     flex: 7 1 min-content;
-    background-color: antiquewhite;
+    background-color: beige;
     font-size: 30px;
+    word-break: keep-all;
 }
 .login {
     padding: 15px;
     flex: 1 1 fit-content;
-    background-color: antiquewhite;
+    background-color: beige;
 }

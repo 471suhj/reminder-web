@@ -4,6 +4,9 @@
     position: absolute;
     padding: 15px;
 }
+.frame{
+    width: calc(100% - 60px);
+}
 .side{
     width: 60px;
     height: calc(100% - 78px);
@@ -13,13 +16,13 @@
     flex-wrap: nowrap;
     justify-content: space-evenly;
     background-color: beige;
+    font-size: small;
+    text-align: center;
 }
 .sideItem{
-    text-align: center;
     padding: 10px 0px;
 }
 .sideItemSel{
-    text-align: center;
     background-color: lightgray;
     padding: 10px 0px;
 }

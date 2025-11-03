@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>알림 - ComphyCat Reminder</title>
+        <link rel="stylesheet" href="/common.css">
+        <link rel="stylesheet" href="/user_common.css">        
+        <link rel="stylesheet" href="/files/files.css">
+    </head>
+    <body>
+        <div class="heading">
+            <a href="/home"><img class="logo" src="/aam_online.png" alt="ComphyCat Reminder Online"></a>
+            <div class="user">
+                <a href="/prefs/account"><img src="/images/user" alt=></a>
+                <a href="/prefs/account">{{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
+                <a href="/home/notifications">알림 {{ notificationCnt }}개</a>
+            </div>
+        </div>
+        <div class="frame">
+            <div class="side">
+                {{#with sideStyle}}
+                <a class="blackLink" href="/home"><div class="sideItem" style="{{home}}"><img src="/home.png" width="25" height="25"><br>홈</div></a>
+                <a class="blackLink" href="/files"><div class="sideItem{{filesSel}}" style="{{files}}"><img src="/files.png" width="25" height="25"><br>파일</div></a>
+                <a class="blackLink" href="/files/bookmarks"><div class="sideItem{{bookmarksSel}}" style="{{bookmarks}}"><img src="/bookmarks.png" width="25" height="25"><br>즐겨찾기</div></a>
+                <a class="blackLink" href="/files/shared"><div class="sideItem{{sharedSel}}" style="{{shared}}"><img src="/shared.png" width="25" height="25"><br>공유</div></a>
+                <a class="blackLink" href="/friends"><div class="sideItem" style="{{friends}}"><img src="/friends.png" width="25" height="25"><br>친구</div></a>
+                <a class="blackLink" href="/prefs"><div class="sideItem" style="{{prefs}}"><img src="/prefs.png" width="25" height="25"><br>설정</div></a>
+                {{/with}}
+            </div>
+            <div class="top">
+                <h1 class="title">알림</h1>
+            </div>
+            <div class="main">
+                <div class="listItem">
+
+                </div>
+                <div class="content">
+                    <h2 class="contentName"><a class="contentName" href="/home/notifications">알림 >></a></h2>
+                    <div class="list">
+                        <div class="listContentA">1. {{ notification1 }}</div>
+                        <div class="listContentB">2. {{ notification2 }}</div>
+                        <div class="listContentA">3. {{ notification3 }}</div>
+                        <div class="listContentB">4. {{ notification4 }}</div>
+                        <div class="listContentA">5. {{ notification5 }}</div>
+                        <div class="listContentB">6. {{ notification6 }}</div>
+                        <div class="listContentA">7. {{ notification7 }}</div>
+                    </div>
+                </div>
+                <div class="content">
+                    <h2 class="contentName"><a class="contentName" href="/files">최근 파일 >></a></h2>
+                    <div class="list">
+                        <div class="listContentA">1. {{ fileName1 }}</div>
+                        <div class="listContentB">2. {{ fileName2 }}</div>
+                        <div class="listContentA">3. {{ fileName3 }}</div>
+                        <div class="listContentB">4. {{ fileName4 }}</div>
+                        <div class="listContentA">5. {{ fileName5 }}</div>
+                        <div class="listContentB">6. {{ fileName6 }}</div>
+                        <div class="listContentA">7. {{ fileName7 }}</div>
+                    </div>
+               </div>
+                <div class="content">
+                    <h2 class="contentName"><a class="contentName" href="/files/shared">공유 자료 >></a></h2>
+                    <div class="list">
+                        <div class="listContentA">1. {{ shared1 }}</div>
+                        <div class="listContentB">2. {{ shared2 }}</div>
+                        <div class="listContentA">3. {{ shared3 }}</div>
+                        <div class="listContentB">4. {{ shared4 }}</div>
+                        <div class="listContentA">5. {{ shared5 }}</div>
+                        <div class="listContentB">6. {{ shared6 }}</div>
+                        <div class="listContentA">7. {{ shared7 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

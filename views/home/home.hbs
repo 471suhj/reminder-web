@@ -21,18 +21,21 @@
         </div>
         <div class="frame">
             <div class="side">
-                <a class="blackLink" href="/home"><div class="sideItemSel"><img src="/home.png" width="25" height="25"><br>홈</div></a>
-                <a class="blackLink" href="/files"><div class="sideItem"><img src="/files.png" width="25" height="25"><br>파일</div></a>
-                <a class="blackLink" href="/files/shared"><div class="sideItem"><img src="/shared.png" width="25" height="25"><br>공유</div></a>
-                <a class="blackLink" href="/friends"><div class="sideItem"><img src="/friends.png" width="25" height="25"><br>친구</div></a>
-                <a class="blackLink" href="/prefs"><div class="sideItem"><img src="/prefs.png" width="25" height="25"><br>설정</div></a>
+                {{#with sideStyle}}
+                <a class="blackLink" href="/home"><div class="sideItemSel" style="{{home}}"><img src="/home.png" width="25" height="25"><br>홈</div></a>
+                <a class="blackLink" href="/files"><div class="sideItem" style="{{files}}"><img src="/files.png" width="25" height="25"><br>파일</div></a>
+                <a class="blackLink" href="/files/bookmarks"><div class="sideItem" style="{{bookmarks}}"><img src="/bookmarks.png" width="25" height="25"><br>즐겨찾기</div></a>
+                <a class="blackLink" href="/files/shared"><div class="sideItem" style="{{shared}}"><img src="/shared.png" width="25" height="25"><br>공유</div></a>
+                <a class="blackLink" href="/friends"><div class="sideItem" style="{{friends}}"><img src="/friends.png" width="25" height="25"><br>친구</div></a>
+                <a class="blackLink" href="/prefs"><div class="sideItem" style="{{prefs}}"><img src="/prefs.png" width="25" height="25"><br>설정</div></a>
+                {{/with}}
             </div>
             <div class="top">
                 <h1>{{ username }}님 환영합니다</h1>
             </div>
             <div class="body">
                 <div class="content">
-                    <h2 class="contentName"><a class="contentName" href="/files/bookmarks">바로 가기 >></a></h2>
+                    <h2 class="contentName"><a class="contentName" href="/files/bookmarks">즐겨찾기 >></a></h2>
                     <div class="list">
                         <div class="listContentA">1. {{ bookmark1 }}</div>
                         <div class="listContentB">2. {{ bookmark2 }}</div>
