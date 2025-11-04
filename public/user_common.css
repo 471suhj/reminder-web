@@ -4,9 +4,6 @@
     position: absolute;
     padding: 15px;
 }
-.frame{
-    width: calc(100% - 60px);
-}
 .side{
     width: 60px;
     height: calc(100% - 78px);
@@ -25,4 +22,11 @@
 .sideItemSel{
     background-color: lightgray;
     padding: 10px 0px;
+}
+.top{
+    left: 60px;
+    width: calc(100% - 60px);
+    background-color: gray;
+    color: white;
+    position: relative;
 }

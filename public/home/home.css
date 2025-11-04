@@ -1,16 +1,11 @@
 .top{
-    background-color: gray;
-    color: white;
     padding: 25px;
-    position: relative;
-    left: 60px;
-    width: 100%;
 }
 .body{
     display: inline-flex;
     flex-wrap: wrap;
     left: 60px;
-    width: 100%;
+    width: calc(100% - 60px);
     position: relative;
 }
 .content{

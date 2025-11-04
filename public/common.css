@@ -28,10 +28,12 @@
 .blackLink{
     text-decoration: none;
     color: black;
+    cursor: pointer;
 }
 .blueLink{
     text-decoration: none;
     color: black;
+    cursor: pointer;
 }
 .blueLink:hover{
     color: blue;
@@ -39,13 +41,29 @@
 .addrLink{
     text-decoration: none;
     color: white;
+    cursor: pointer;
 }
 .addrLink:hover{
     color: yellow;
 }
 .beigeLink:hover{
     background-color: beige;
+    cursor: pointer;
 }
 .grayLink:hover{
-    background-color: gray;
+    background-color: lightgray;
+}
+#messageBox{
+    background-color: beige;
+    border-style: solid;
+    border-width: 1px;
+    display: none;
+    position: fixed;
+    width: calc(100% - 100px);
+    left: 80px;
+    top: calc(100% - 100px);
+    height: 100px;
+}
+#messageBox[data-show="true"]{
+    display: block;
 }

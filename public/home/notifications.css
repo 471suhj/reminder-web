@@ -1,10 +1,5 @@
 .top{
-    background-color: gray;
-    color: white;
     padding: 15px 45px;
-    position: relative;
-    left: 60px;
-    width: 100%;
 }
 .title{
     display: inline;
@@ -28,6 +23,7 @@
     border-style: solid;
     border-width: 1px;
     width: fit-content;
+    height: fit-content;
     background-color: white;
 }
 .toolItem{
@@ -54,9 +50,6 @@
 .listItem[data-unread="true"]{
     border-left: 3px solid blue;
 }
-.listItem:hover{
-    background-color: lightgray;
-}
 .listItemChk{
     color: gray;
     display: inline;
@@ -67,18 +60,4 @@
 }
 #loadMore[data-show="false"]{
     display: none;
-}
-#messageBox{
-    background-color: beige;
-    border-style: solid;
-    border-width: 1px;
-    display: none;
-    position: fixed;
-    width: calc(100% - 100px);
-    left: 80px;
-    top: calc(100% - 100px);
-    height: 100px;
-}
-#messageBox[data-show="true"]{
-    display: block;
 }

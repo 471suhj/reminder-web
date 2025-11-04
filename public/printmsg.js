@@ -5,9 +5,9 @@ lblMsg.setAttribute("data-show", "false");
 lblMsg.addEventListener("mouseleave", function(event){
     event.target.dataset.show = "false";
 })
+const lblMsgBox = document.getElementById("messageBox")
 
 export const showMessage = function(message){
-    const lblMsgBox = document.getElementById("messageBox")
     lblMsgBox.innerText = message;
     lblMsgBox.dataset.show = "true";
     setTimeout(() => {
@@ -15,9 +15,19 @@ export const showMessage = function(message){
     }, 5000);
 }
 
+export const showProgressMessage = function(message){
+    lblMsgBox.innerText = message;
+    lblMsgBox.dataset.show = "true";
+}
+
+export const hideMessage = function(){
+    lblMsgBox.dataset.show = "false";
+}
+
 export const doFetch = async function(link, method, data, msgSuccess, msgFail, process){
     try{
         let result = null;
+        showProgressMessage("처리 중입니다...");
         if (data === ""){
             result = await fetch(link, {method: method});
         } else {
@@ -29,6 +39,8 @@ export const doFetch = async function(link, method, data, msgSuccess, msgFail, p
         await process(result);
         if (msgSuccess !== ""){
             showMessage(msgSuccess);
+        } else {
+            hideMessage();
         }
     } catch (error) {
         if (error instanceof Error){

@@ -1,10 +1,5 @@
 .top{
-    background-color: gray;
-    color: white;
     padding: 15px 45px;
-    position: relative;
-    left: 60px;
-    width: 100%;
 }
 .title{
     display: inline;
@@ -38,15 +33,14 @@
     border-style: solid;
     border-width: 1px;
     width: fit-content;
+    height: fit-content;
+    font-size: large;
     background-color: white;
 }
 .toolItem{
     margin: 2px;
     display: inline;
     cursor: pointer;
-}
-.toolItem:hover{
-    background-color: beige;
 }
 #itemCount{
     color: gray;
@@ -60,23 +54,38 @@
     padding: 10px;
 }
 .listItem{
-    margin: 10px;
-    padding: 10px;
+    padding: 1px;
     cursor: default;
 }
-.listItem[data-unread="true"]{
-    border-left: 3px solid blue;
+.listItemCol{
+    display: inline-block;
+    position: relative;
+    padding: 0px;
+    margin: 0px;
 }
-.listItem:hover{
-    background-color: lightgray;
+.listItemChkbox{
+    width: 20px;
 }
-.listItemChk{
-    color: gray;
-    display: inline;
+.listItemText{
+    width: calc(100% - 162px);
+    height: min-content;
+    left: 21px;
+}
+.itemBookmark{
+    width: 15px;
+    height: 15px;
+}
+.listProfile{
+    width: 60px;
+}
+.listDate{
+    width: 80px;
 }
 #loadMore{
     text-align: center;
     cursor: pointer;
+    margin: 10px;
+    padding: 10px;
 }
 #loadMore[data-show="false"]{
     display: none;

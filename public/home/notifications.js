@@ -62,12 +62,12 @@ printItemCnt(true);
             }
         }
         if (lstDeleteName.length > 0){
-            await doFetch("./notifications/deleteItem", "PUT", JSON.stringify(lstDeleteName), 
+            doFetch("./notifications/deleteItem", "PUT", JSON.stringify(lstDeleteName), 
             "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", function(){
                 for (listItem of lstDelete){
                     listItem.remove();
                 }
-                temCnt -= lstDeleteName.length;
+                itemCnt -= lstDeleteName.length;
                 printItemCnt(false);
             });
         }
@@ -77,7 +77,7 @@ printItemCnt(true);
 {
     let tlbItem = document.getElementById("deleteAll");
     tlbItem.addEventListener("click", async function(){
-        await doFetch("./notifications/deleteAll", "PUT", "", "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", function(){
+        doFetch("./notifications/deleteAll", "PUT", "", "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", function(){
             if (!result.ok){
                 throw new Error(`result error: ${result.status}`);
             }
@@ -86,6 +86,7 @@ printItemCnt(true);
             }
             itemCnt = 0;
             printItemCnt(false);
+            document.getElementById("loadMore").remove();
         });
     });
 }
@@ -114,10 +115,14 @@ printItemCnt(true);
                 newChk.setAttribute("type", "checkbox");
                 newLbl.setAttribute("class", "listItemChk");
                 newLbl.setAttribute("for", newItem.id);
-                newLbl.innerText = newItem.date;
+                newLbl.innerText = "  " + newItem.date;
                 newDiv.setAttribute("class", "listItemText");
                 newDiv.innerText = "\n" + newItem.text;
             }
+            if (resJson[0].loadMore === "false"){
+                document.getElementById("loadMore").remove();
+            }
+            printItemCnt(false);
         });
     });
 }

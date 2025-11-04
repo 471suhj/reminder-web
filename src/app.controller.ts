@@ -105,7 +105,7 @@ export class AppController {
       ],
       countItem: "true",
       itemList: [
-        {id: "list1", unread: "true", text: "고양이<br>고양이", date: "20230228"},
+        {id: "list1", unread: "true", text: "고양이", date: "20230228"},
         {id: "list2", unread: "true", text: "사슴", date: "20220228"},
         {id: "list3", unread: "true", text: "수리부엉이", date: "20220128"},
         {id: "list4", unread: "false", text: "고양이", date: "20230228"},
@@ -147,7 +147,7 @@ export class AppController {
   getNotifMore(){
     return JSON.stringify(
       [
-        {id: "list7", unread: "true", text: "고양이", date: "20230228"},
+        {id: "list7", unread: "true", text: "고양이", date: "20230228", loadMore: "false"},
         {id: "list8", unread: "false", text: "사슴", date: "20220228"},
         {id: "list9", unread: "false", text: "수리부엉이", date: "20220128"}
       ]
