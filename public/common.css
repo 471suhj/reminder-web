@@ -29,3 +29,23 @@
     text-decoration: none;
     color: black;
 }
+.blueLink{
+    text-decoration: none;
+    color: black;
+}
+.blueLink:hover{
+    color: blue;
+}
+.addrLink{
+    text-decoration: none;
+    color: white;
+}
+.addrLink:hover{
+    color: yellow;
+}
+.beigeLink:hover{
+    background-color: beige;
+}
+.grayLink:hover{
+    background-color: gray;
+}

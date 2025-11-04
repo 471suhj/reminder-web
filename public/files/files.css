@@ -20,13 +20,6 @@
     color: black;
     margin: 15px;
 }
-.addrLink{
-    text-decoration: none;
-    color: white;
-}
-.addrLink:hover{
-    color: yellow;
-}
 .main{
     display: inline-flex;
     flex-wrap: nowrap;
@@ -36,50 +29,55 @@
     position: relative;
     padding: 15px;
 }
-.listHr{
-    background-color: lightgray;
-    width: 100%;
-    height: 1px;
+.toolbar{
+    margin: 15px 40px;
+    padding: 2px;
+    position: sticky;
+    top: 82px;
+    z-index: 10;
+    border-style: solid;
+    border-width: 1px;
+    width: fit-content;
+    background-color: white;
 }
-.listItem{
-    box-sizing: border-box;
-
+.toolItem{
+    margin: 2px;
+    display: inline;
+    cursor: pointer;
 }
-.content{
-    display: flex;
-    flex-direction: column;
-    width: 300px;
-    height: 300px;
-    margin: 20px;
-    padding: 15px;
-    box-sizing: border-box;
-    background-color: rgba(175, 238, 238, 0.618);
-    flex: 1 0 auto;
+.toolItem:hover{
+    background-color: beige;
 }
-.contentName{
-    margin: 0px;
-    text-decoration: none;
-    color: black;
+#itemCount{
+    color: gray;
+    margin-left: 40px;
 }
-.contentName:hover{
-    color: blue;
+#itemCount[data-countitem="false"]{
+    display: none;
 }
 .list{
-    width: 100%;
-    height: 100%;
+    margin: 10px;
     padding: 10px;
-    box-sizing: border-box;
-    background-color: white;
 }
-.listContentA{
-    width: 100%;
-    box-sizing: border-box;
-    padding: 5px;
+.listItem{
+    margin: 10px;
+    padding: 10px;
+    cursor: default;
+}
+.listItem[data-unread="true"]{
+    border-left: 3px solid blue;
+}
+.listItem:hover{
     background-color: lightgray;
 }
-.listContentB{
-    width: 100%;
-    box-sizing: border-box;
-    padding: 5px;
-    background-color: white;
+.listItemChk{
+    color: gray;
+    display: inline;
+}
+#loadMore{
+    text-align: center;
+    cursor: pointer;
+}
+#loadMore[data-show="false"]{
+    display: none;
 }
