@@ -11,7 +11,7 @@
     top: 0px;
     padding: 15px;
     margin: 0px;
-    z-index: 100;
+    z-index: 90;
 }
 .logo{
     width: 407px;
@@ -24,6 +24,38 @@
     left: 0px;
     right: 0px;
     height: calc(100% - 78px);
+}
+.user{
+    right: 15px;
+    display: inline;
+    position: absolute;
+    padding: 15px;
+}
+.side{
+    width: 60px;
+    height: calc(100% - 78px);
+    display: inline-flex;
+    position: fixed;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: space-evenly;
+    background-color: beige;
+    font-size: small;
+    text-align: center;
+}
+.sideItem{
+    padding: 10px 0px;
+}
+.sideItemSel{
+    background-color: lightgray;
+    padding: 10px 0px;
+}
+.top{
+    left: 60px;
+    width: calc(100% - 60px);
+    background-color: gray;
+    color: white;
+    position: relative;
 }
 .blackLink{
     text-decoration: none;
@@ -61,9 +93,23 @@
     position: fixed;
     width: calc(100% - 100px);
     left: 80px;
-    top: calc(100% - 100px);
-    height: 100px;
+    bottom: 0px;
+    height: fit-content;
+    z-index: 92;
 }
 #messageBox[data-show="true"]{
     display: block;
+}
+#popup{
+    position: fixed;
+    display: none;
+    width: calc(100% - 50px);
+    height: calc(100% - 40px);
+    left: 25px;
+    top: 20px;
+    background-color: white;
+    border-style: solid;
+    border-width: 1px;
+    border-color: gray;
+    z-index: 91;
 }

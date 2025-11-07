@@ -1,4 +1,4 @@
-import { Controller, Get, Render } from '@nestjs/common';
+import { Controller, Get, Query, Render } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -16,12 +16,12 @@ export class AppController {
   getHome(){
     return { username: "수서", notificationCnt: 3,
       sideItem: [
-        ["/home", "Sel", "/home.png", "홈"],
-        ["/files", "", "/files.png", "파일"],
-        ["/files/bookmarks", "", "/bookmarks.png", "즐겨찾기"],
-        ["/files/shared", "", "/shared.png", "공유"],
-        ["/friends", "", "/friends.png", "친구"],
-        ["/prefs", "", "/prefs.png", "설정"]
+        ["/home", "Sel", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/bgraphics/ookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
       ],
       homeList: [
         {
@@ -96,25 +96,66 @@ export class AppController {
       dirName: "파일",
       dirPath: "<a class=\"addrLink\" href=\"/files\">files</a>",
       sideItem: [
-        ["/home", "", "/home.png", "홈"],
-        ["/files", "Sel", "/files.png", "파일"],
-        ["/files/bookmarks", "", "/bookmarks.png", "즐겨찾기"],
-        ["/files/shared", "", "/shared.png", "공유"],
-        ["/friends", "", "/friends.png", "친구"],
-        ["/prefs", "", "/prefs.png", "설정"]
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "Sel", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
       ],
-      countItem: "true",
-      itemList: [
-        {id: "list1", unread: "true", text: "고양이", date: "20230228"},
-        {id: "list2", unread: "true", text: "사슴", date: "20220228"},
-        {id: "list3", unread: "true", text: "수리부엉이", date: "20220128"},
-        {id: "list4", unread: "false", text: "고양이", date: "20230228"},
-        {id: "list5", unread: "false", text: "사슴", date: "20220228"},
-        {id: "list6", unread: "false", text: "수리부엉이", date: "20220128"}        
-      ],
-      showLoadMore: "true",
+      countItem: "false",
     };
   }
+
+  @Get("/files/loadmore")
+  getFileMore(@Query("startafter") startAfter: string){
+    let loadmore = (startAfter === "loadmore") ? "true" : "false"
+    let arrid = (startAfter === "loadmore") ? ["c1", "c2", "c3"] : ["c4", "c5", "c6"];
+    return JSON.stringify({
+      loadMore: loadmore,
+      arr: [
+        {id: arrid[0], bookmarked: "true", text: "고양이", date: "20230228"},
+        {id: arrid[1], bookmarked: "false", text: "사슴", date: "20220228"},
+        {id: arrid[2], bookmarked: "false", text: "수리부엉이", date: "20220128", isFolder: "false"}
+      ]
+    }
+    )
+  }
+
+  @Get('friends')
+  @Render('friends/friends')
+  getFriends() {
+    return { username: "수서", notificationCnt: 3, 
+      dirName: "파일",
+      dirPath: "<a class=\"addrLink\" href=\"/files\">files</a>",
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "Sel", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
+      ],
+      countItem: "false",
+    };
+  }
+
+  @Get("/friends/loadmore")
+  getFriendsMore(@Query("startafter") startAfter: string){
+    let loadmore = (startAfter === "loadmore") ? "true" : "false"
+    let arrid = (startAfter === "loadmore") ? ["c1", "c2", "c3"] : ["c4", "c5", "c6"];
+    return JSON.stringify({
+      loadMore: loadmore,
+      arr: [
+        {id: arrid[0], bookmarked: "true", text: "고양이", date: "20230228"},
+        {id: arrid[1], bookmarked: "false", text: "사슴", date: "20220228"},
+        {id: arrid[2], bookmarked: "false", text: "수리부엉이", date: "20220128", isFolder: "false"}
+      ]
+    }
+    )
+  }
+
+
 
   @Get('home/notifications')
   @Render('home/notifications')
@@ -123,12 +164,12 @@ export class AppController {
       username: "수서",
       notificationCnt: 3,
       sideItem: [
-        ["/home", "", "/home.png", "홈"],
-        ["/files", "", "/files.png", "파일"],
-        ["/files/bookmarks", "", "/bookmarks.png", "즐겨찾기"],
-        ["/files/shared", "", "/shared.png", "공유"],
-        ["/friends", "", "/friends.png", "친구"],
-        ["/prefs", "", "/prefs.png", "설정"]
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
       ],
       itemCnt: 6,
       itemList: [
@@ -145,12 +186,14 @@ export class AppController {
 
   @Get("/home/notifications/loadMore")
   getNotifMore(){
-    return JSON.stringify(
-      [
-        {id: "list7", unread: "true", text: "고양이", date: "20230228", loadMore: "false"},
+    return JSON.stringify({
+      loadMore: "false",
+      arr: [
+        {id: "list7", unread: "true", text: "고양이", date: "20230228"},
         {id: "list8", unread: "false", text: "사슴", date: "20220228"},
         {id: "list9", unread: "false", text: "수리부엉이", date: "20220128"}
       ]
+    }
     )
   }
 }

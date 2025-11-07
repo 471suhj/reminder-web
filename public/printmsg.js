@@ -24,7 +24,7 @@ export const hideMessage = function(){
     lblMsgBox.dataset.show = "false";
 }
 
-export const doFetch = async function(link, method, data, msgSuccess, msgFail, process){
+export const doFetch = async function(link, method, data, msgSuccess, msgFail, process, fprocess){
     try{
         let result = null;
         showProgressMessage("처리 중입니다...");
@@ -36,9 +36,9 @@ export const doFetch = async function(link, method, data, msgSuccess, msgFail, p
         if (!result.ok) {
             throw new Error(`result error: status ${result.status}`);
         }
-        await process(result);
-        if (msgSuccess !== ""){
-            showMessage(msgSuccess);
+        let msg = await process(result);
+        if (msgSuccess !== "" || msg !== ""){
+            showMessage(msgSuccess + msg);
         } else {
             hideMessage();
         }
@@ -47,6 +47,9 @@ export const doFetch = async function(link, method, data, msgSuccess, msgFail, p
             showMessage(`${msgFail}\n오류: ${error.message}`);
         } else {
             showMessage(msgFail);
+        }
+        if (fprocess !== undefined){
+            fprocess();
         }
     }
 }

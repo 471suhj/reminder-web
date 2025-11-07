@@ -49,9 +49,17 @@
 #itemCount[data-countitem="false"]{
     display: none;
 }
-.list{
+#listHead{
     margin: 10px;
     padding: 10px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+#list{
+    margin: 10px;
+    padding: 10px;
+    margin-top: 0px;
+    padding-top: 0px;
 }
 .listItem{
     padding: 1px;
@@ -66,20 +74,26 @@
 .listItemChkbox{
     width: 20px;
 }
+.listItemType{
+    width: 15px;
+}
+.isFolder[data-visible="false"]{
+    display: none;
+}
 .listItemText{
-    width: calc(100% - 162px);
+    width: calc(100% - 245px);
     height: min-content;
-    left: 21px;
+    left: 0px;
 }
 .itemBookmark{
-    width: 15px;
+    width: 13px;
     height: 15px;
 }
 .listProfile{
     width: 60px;
 }
 .listDate{
-    width: 80px;
+    width: 150px;
 }
 #loadMore{
     text-align: center;

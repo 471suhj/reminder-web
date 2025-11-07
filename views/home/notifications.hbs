@@ -11,7 +11,7 @@
     </head>
     <body>
         <div class="heading">
-            <a href="/home"><img class="logo" src="/aam_online.png" alt="ComphyCat Reminder Online"></a>
+            <a href="/home"><img class="logo" src="/graphics/aam_online.png" alt="ComphyCat Reminder Online"></a>
             <div class="user">
                 <a class="blackLink grayLink" href="/prefs/account"><img src="/images/user">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
@@ -37,7 +37,7 @@
                 <div class="list">
                     {{#each itemList}}
                     <div class="listItem grayLink" id="{{id}}" data-unread="{{unread}}">
-                        <input  type="checkbox" name=""><label class="listItemChk"for="{{id}}">  {{date}}</label>
+                        <input  type="checkbox"><label class="listItemChk"for="{{id}}">  {{date}}</label>
                         <div class="listItemText"><br>{{{text}}}</div>
                         
                     </div>

@@ -54,22 +54,30 @@ printItemCnt(true);
     let tlbItem = document.getElementById("delete");
     tlbItem.addEventListener("click", async function(){
         const lstDeleteName = [];
-        const lstDelete = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
                 lstDeleteName.push(listItem.id);
-                lstDelete.push(listItem);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch("./notifications/deleteItem", "PUT", JSON.stringify(lstDeleteName), 
-            "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", function(){
-                for (listItem of lstDelete){
-                    listItem.remove();
+            doFetch("./notifications/update", "DELETE", JSON.stringify(lstDeleteName), 
+            "", "삭제에 오류가 발생했습니다.", async function(result){
+                const resJson = await result.json();
+                for (listItem of resJson.arr){
+                    try{
+                        document.getElementById(listItem).remove();
+                        itemCnt--;
+                    } catch {
+                        continue;
+                    }
                 }
-                itemCnt -= lstDeleteName.length;
                 printItemCnt(false);
             });
+        }
+        if (resJson.failed.length > 0){
+            return "삭제에 실패한 항목이 있습니다.";
+        } else {
+            return "삭제가 완료되었습니다.";
         }
     });
 }
@@ -82,7 +90,9 @@ printItemCnt(true);
                 throw new Error(`result error: ${result.status}`);
             }
             for (let i = list.children.length - 1; i >= 0; i--){
-                list.children[i].remove();
+                try{
+                    list.children[i].remove();
+                } catch {}
             }
             itemCnt = 0;
             printItemCnt(false);
@@ -93,10 +103,15 @@ printItemCnt(true);
 
 {
     let cmdLoadMore = document.getElementById("loadMore");
-    cmdLoadMore.addEventListener("click", async function(){
+    cmdLoadMore.addEventListener("click", async function(event){
+        if (cmdLoadMore.dataset.enabled === "false"){ // never test for "true". may be undefined
+            return;
+        } else {
+            cmdLoadMore.dataset.enabled = "false";
+        }
         await doFetch("./notifications/loadMore", "GET", "", "", "로드 과정에 오류가 발생했습니다.", async function(result){
             let resJson = await result.json();
-            for (const newItem of resJson){
+            for (const newItem of resJson.arr){
                 let newListItem = null;
                 let newChk = null, newLbl = null, newDiv = null;
                 list.appendChild(newListItem = document.createElement("div"));
@@ -119,10 +134,12 @@ printItemCnt(true);
                 newDiv.setAttribute("class", "listItemText");
                 newDiv.innerText = "\n" + newItem.text;
             }
-            if (resJson[0].loadMore === "false"){
+            if (resJson.loadMore === "false"){
                 document.getElementById("loadMore").remove();
             }
             printItemCnt(false);
+            return "";
         });
+        cmdLoadMore.dataset.enabled = "true";
     });
 }
