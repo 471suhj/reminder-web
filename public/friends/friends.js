@@ -11,7 +11,7 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
-function fncClearSort(){
+function fncResetSort(){
     for (const listItem of tlbSort.children){
         listItem.dataset.set = "0";
     }
@@ -68,7 +68,9 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
     fncPrintCnt();
 
     if (resJson.failed){
-        if (resJson.failed.length > 0){
+        if (resJson.failed.reason){
+            return resJson.failed;
+        } else if (resJson.failed.length > 0){
             return msgPos;
         } else {
             return msgNeg;   
@@ -187,7 +189,9 @@ lblLoadMore.addEventListener("click", function(event){
                 }
             }
             fncPrintCnt();
-            if (resJson.failed.length > 0){
+            if (resJson.failed.reason){
+                return resJson.failed;
+            } else if (resJson.failed.length > 0){
                 return "삭제에 실패한 항목이 있습니다."
             } else {
                 return "삭제가 완료되었습니다.";
@@ -210,7 +214,7 @@ lblLoadMore.addEventListener("click", function(event){
         } else {
             sortMode.criteria = "name";
             sortMode.incr = true;
-            fncClearSort();
+            fncResetSort();
             colItem.dataset.set = "1";
         }
         fncRefresh();
@@ -226,7 +230,7 @@ lblLoadMore.addEventListener("click", function(event){
         } else {
             sortMode.criteria = "date";
             sortMode.incr = true;
-            fncClearSort();
+            fncResetSort();
             colItem.dataset.set = "1";
         }
         fncRefresh();
@@ -241,7 +245,7 @@ lblLoadMore.addEventListener("click", function(event){
         } else {
             sortMode.criteria = "freq";
             sortMode.incr = true;
-            fncClearSort();
+            fncResetSort();
             colItem.dataset.set = "1";
         }
         fncRefresh();
@@ -256,7 +260,7 @@ lblLoadMore.addEventListener("click", function(event){
         } else {
             sortMode.criteria = "added";
             sortMode.incr = true;
-            fncClearSort();
+            fncResetSort();
             colItem.dataset.set = "1";
         }
         fncRefresh();

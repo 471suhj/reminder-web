@@ -18,7 +18,7 @@ export class AppController {
       sideItem: [
         ["/home", "Sel", "/graphics/home.png", "홈"],
         ["/files", "", "/graphics/files.png", "파일"],
-        ["/files/bookmarks", "", "/bgraphics/ookmarks.png", "즐겨찾기"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
         ["/files/shared", "", "/graphics/shared.png", "공유"],
         ["/friends", "", "/graphics/friends.png", "친구"],
         ["/prefs", "", "/graphics/prefs.png", "설정"]
@@ -60,9 +60,14 @@ export class AppController {
   @Render('prefs/account')
   getAcc() {
     return { username: "수서", notificationCnt: 3,
-      sideStyle: {
-        shared: "display:none",
-      }
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "Sel", "/graphics/prefs.png", "설정"]
+      ],
     };
   }
 
@@ -70,22 +75,32 @@ export class AppController {
   @Render('prefs/prefs')
   getPrefs() {
     return { username: "수서", notificationCnt: 3,
-      sideStyle: {
-        shared: "display:none",
-      }
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "Sel", "/graphics/prefs.png", "설정"]
+      ],
     };
   }
 
   @Get('files/bookmarks')
-  @Render('files/files')
+  @Render('files/shared')
   getBookmarks() {
     return { username: "수서", notificationCnt: 3, 
       dirName: "즐겨찾기",
-      dirPath: "<a class=\"addrLink\" href=\"/files/bookmarks\">bookmarks</a>",
-      sideStyle: {
-        shared: "display:none",
-        bookmarksSel: "Sel"
-      }
+      dirPath: "<a class=\"addrLink\" href=\"/files\">files</a><a class=\"addrLink\" href=\"/files/bookmarks\">/bookmarks</a>",
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "Sel", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
+      ],
+      countItem: "false",
     };
   }
   
@@ -109,6 +124,39 @@ export class AppController {
 
   @Get("/files/loadmore")
   getFileMore(@Query("startafter") startAfter: string){
+    let loadmore = (startAfter === "loadmore") ? "true" : "false"
+    let arrid = (startAfter === "loadmore") ? ["c1", "c2", "c3"] : ["c4", "c5", "c6"];
+    return JSON.stringify({
+      loadMore: loadmore,
+      arr: [
+        {id: arrid[0], bookmarked: "true", text: "고양이", date: "20230228"},
+        {id: arrid[1], bookmarked: "false", text: "사슴", date: "20220228"},
+        {id: arrid[2], bookmarked: "false", text: "수리부엉이", date: "20220128", isFolder: "false"}
+      ]
+    }
+    )
+  }
+
+  @Get('files/shared')
+  @Render('files/shared')
+  getShared() {
+    return { username: "수서", notificationCnt: 3, 
+      dirName: "공유",
+      dirPath: "<a class=\"addrLink\" href=\"/files\">files</a><a class=\"addrLink\" href=\"/files/shared\">/shared</a>",
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "Sel", "/graphics/shared.png", "공유"],
+        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
+      ],
+      countItem: "false",
+    };
+  }
+
+  @Get("/files/shared/loadmore")
+  getSharedMore(@Query("startafter") startAfter: string){
     let loadmore = (startAfter === "loadmore") ? "true" : "false"
     let arrid = (startAfter === "loadmore") ? ["c1", "c2", "c3"] : ["c4", "c5", "c6"];
     return JSON.stringify({

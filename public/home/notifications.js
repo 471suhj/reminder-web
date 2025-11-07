@@ -74,7 +74,9 @@ printItemCnt(true);
                 printItemCnt(false);
             });
         }
-        if (resJson.failed.length > 0){
+        if (resJson.failed.reason){
+            return resJson.failed;
+        } else if (resJson.failed.length > 0){
             return "삭제에 실패한 항목이 있습니다.";
         } else {
             return "삭제가 완료되었습니다.";

@@ -32,22 +32,18 @@
                 <div class="toolbar">
                     <div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="upload"><img src="/graphics/toolbars/add.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="download"><img src="/graphics/toolbars/download.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="rename"><img src="/graphics/toolbars/rename.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="share"><img src="/graphics/toolbars/share.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="copy"><img src="/graphics/toolbars/copy.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="move"><img src="/graphics/toolbars/move.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="createFile"><img src="/graphics/toolbars/newfile.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="createDir"><img src="/graphics/toolbars/newfolder.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="delete"><img src="/graphics/toolbars/delete.png" width="20" height="20"></div>
                 </div>
                 <p id="itemCount" data-countitem="{{countItem}}" data-itemcnt="0"></p>
                 <div id="listHead">
                     <input class="listItemChkbox listItemCol" id="selectAll" type="checkbox"><!-
-                    ><div class="listItemType listItemCol"><img class="listItemCol" src="/graphics/toolbars/folder.png" width="15" height="15" style="display:none"></div><!-
+                    ><div class="listOwnerImg listItemCol"><img class="listItemCol ownerImg" src="" width="30" height="30" style="display:none"></div><!-
+                    ><div class="listOwner listItemCol grayLink" id="colOwner" data-set="1">관리자</div><!-
                     ><div class="listItemText listItemCol grayLink" id="colName">이름</div><!-
-                    ><div class="listProfile listItemCol">공유</div><!-
+                    ><div class="listProfile listItemCol" style="font-size:medium">공유</div><!-
                     ><div class="listDate listItemCol grayLink" id="colDate">수정한 날짜</div>
                 </div>
                 <div id="list">
@@ -57,12 +53,6 @@
                 </div>
             </div>
         </div>
-        <dialog id="overwriteDlg">
-            <p>이미 같은 이름의 파일이 있습니다.</p>
-            <button id="buttonoverwrite">덮어쓰기</button>
-            <button id="buttonrrename" autofocus>"이름-2"로 저장</button>
-            <button id="buttoncancel">취소</button>
-        </dialog>
         <div id="popup">
         </div>
         <script type="module" src="shared.js"></script>

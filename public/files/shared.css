@@ -80,14 +80,18 @@
 .listItemChkbox{
     width: 20px;
 }
-.listItemType{
-    width: 15px;
+.listOwnerImg{
+    width: 30px;
+    height: 30px;
 }
-.isFolder[data-visible="false"]{
+.ownerImg[data-visible="false"]{
     display: none;
 }
+.listOwner{
+    width: 100px;
+}
 .listItemText{
-    width: calc(100% - 275px);
+    width: calc(100% - 390px);
     height: min-content;
 }
 .itemBookmark{

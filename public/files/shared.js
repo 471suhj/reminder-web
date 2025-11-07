@@ -1,12 +1,11 @@
 import {doFetch, showMessage} from "/printmsg.js"
 
-let sortMode = {criteria: "name", incr: true};
-const list = document.getElementById("list");
+let sortMode = {criteria: "owner", incr: true};
 const listHead = document.getElementById("listHead");
+const list = document.getElementById("list");
 const lblItemCnt = document.getElementById("itemCount");
 const lblLoadMore = document.getElementById("loadMore");
 const divPopup = document.getElementById("popup");
-const dlgOverwrite = document.getElementById("overwriteDlg");
 let numItemCnt = 0;
 
 function fncResetSort(){
@@ -14,28 +13,6 @@ function fncResetSort(){
         listItem.dataset.set = "0";
     }
 }
-
-const txtRename = document.createElement("input");
-txtRename.setAttribute("type", "text");
-txtRename.style.display = "none";
-async function fncRename(){
-    const newName = txtRename.value;
-    const itemId = txtRename.dataset.itemId;
-    txtRename.style.display = "none";
-    if (newName !== ""){
-        doFetch("./update", "PUT", JSON.stringify({action: "rename", sort: sortMode, id: itemId, name: newName}),
-    "", `${newName}로 이름 바꾸기를 실패했습니다.`, function(){
-        document.getElementById(itemId).childNodes[1].innerText = newName + " ";
-        return "";
-    })
-    }
-}
-txtRename.addEventListener("focusout", fncRename);
-txtRename.addEventListener("keyup", async function(event){
-    if (event.key === "Enter"){
-        fncRename(event);
-    }
-})
 
 function fncClearPopup(){
     while (divPopup.children.length){
@@ -57,11 +34,13 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
         const strHtml = `
         <div class="listItem grayLink" id="${listItem.id}">
             <input class="listItemChkbox listItemCol" type="checkbox"><!-
-            ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" data-visible="${listItem.isFolder}"></div><!-
+            ><div class="listOwnerImg listItemCol"><img class="listItemCol ownerImg" src="${listItem.ownerImg}" width="30" height="30" style="display:none"></div><!-
+            ><div class="listOwner listItemCol">${listItem.ownerName}</div><!-
             ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
             ><div class="listProfile listItemCol">${listItem.shared}</div><!-
             ><div class="listDate listItemCol">${listItem.date}</div>
-        </div>`;
+        </div>
+        `;
         if (!itmAfter){
             if (lblLoadMore.parentNode){
                 lblLoadMore.insertAdjacentHTML("beforebegin", strHtml)
@@ -73,7 +52,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
             itmAfter.insertAdjacentHTML("beforebegin", strHtml);
             itmNew = itmAfter.nextSibling;
         }
-        const divBookmark = itmNew.children[2].firstElementChild;
+        const divBookmark = itmNew.children[3].firstElementChild;
         const imgBookmark = divBookmark.firstElementChild;
         itmNew.firstElementChild.checked = checkItems;
         itmNew.addEventListener("click", function(event){
@@ -188,34 +167,8 @@ async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart){
             doFetch("./update", "POST", JSON.stringify(jsonBody), "",
                 msgNegAll, async function(result){
                     const resJson = await result.json();
-                    if (resJson.alreadyExists){
-                        let btnDlg = document.getElementById("buttonoverwrite");
-                        btnDlg.onclick = async function(){
-                            btnDlg.close();
-                            jsonBody.overwrite = "overwrite";
-                            doFetch("./update", "POST", JSON.stringify(jsonBody), "", msgNegAll, async function(result){
-                                const jsonNew = await result.json();
-                                return fncInsertFile(jsonNew, false, msgPos, msgNegPart);
-                            })
-                        }
-                        btnDlg = document.getElementById("buttonrename");
-                        btnDlg.onclick = async function(){
-                            btnDlg.close();
-                            jsonBody.overwrite = "rename";
-                            doFetch("./update", "POST", JSON.stringify(jsonBody), "", msgNegAll, async function(result){
-                                const jsonNew = await result.json();
-                                return fncInsertFile(jsonNew, false, msgPos, msgNegPart);
-                            })
-                        }
-                        btnDlg = document.getElementById("buttonCancel");
-                        btnDlg.onclick = function(){btnDlg.close();}
-                        dlgOverwrite.showModal();
-                        fncClearPopup();
-                        return "";
-                    } else {
-                        fncClearPopup();
-                        return fncInsertFile(resJson, false, msgPos, msgNegPart);
-                    }
+                    fncClearPopup();
+                    return fncInsertFile(resJson, false, msgPos, msgNegPart);
                 }
             ), fncClearPopup});
     }, fncClearPopup);
@@ -282,122 +235,12 @@ lblLoadMore.addEventListener("click", function(event){
     });
 }
 {
-    let tlbItem = document.getElementById("upload");
-    tlbItem.addEventListener("click", function(){
-        divPopup.style.display = "block";
-        let ctlFile = divPopup.appendChild(document.createElement("input"));
-        ctlFile.setAttribute("type", "file");
-        ctlFile.setAttribute("multiple", "true");
-        ctlFile.setAttribute("accept", ".rmb");
-        
-        let lstFriends = divPopup.appendChild(document.createElement("button"));
-        lstFriends.innerText = "확인"
-        
-
-        lstFriends.addEventListener("click", async function(){
-            const addedFile = ctlFile.files; // must come before removing
-            fncClearPopup();
-            let jsonBody = {action: "upload", sort: sortMode, files: addedFile};
-            doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                const resJson = await result.json(addedFile);
-                if (resJson.alreadyExists){
-                    let btnDlg = document.getElementById("buttonoverwrite");
-                    btnDlg.onclick = async function(){
-                        btnDlg.close();
-                        jsonBody.overwrite = "overwrite";
-                        doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                            const jsonNew = await result.json();
-                            return fncInsertFile(jsonNew, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
-                        })
-                    }
-                    btnDlg = document.getElementById("buttonrename");
-                    btnDlg.onclick = async function(){
-                        btnDlg.close();
-                        jsonBody.overwrite = "rename";
-                        doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                            const jsonNew = await result.json();
-                            return fncInsertFile(jsonNew, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
-                        })
-                    }
-                    btnDlg = document.getElementById("buttonCancel");
-                    btnDlg.onclick = function(){btnDlg.close();}
-                    dlgOverwrite.showModal();
-                    return "";
-                }
-                return fncInsertFile(resJson, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
-            });
-        })
-        
-        lstFriends = divPopup.appendChild(document.createElement("button"));
-        lstFriends.innerText = "취소"
-        lstFriends.addEventListener("click", fncClearPopup);
-    });
-}
-{
     let tlbItem = document.getElementById("download");
     tlbItem.addEventListener("click", function(){
         open("./download", "_blank", "popup=true");
     });
 }
-{
-    let tlbItem = document.getElementById("rename");
-    tlbItem.addEventListener("click", function(){
-        let divSelected = null;
-        for (const listItem of list.children){
-            if (listItem.firstElementChild.checked){
-                if (divSelected){
-                    showMessage("한 개의 항목만 선택해 주십시오.")
-                    divSelected = null;
-                    break;
-                } else {
-                    divSelected = listItem;
-                }
-            }
-        }
-        if (divSelected){
-            txtRename.value = divSelected.children[2].childNodes[1].innerText.trim();
-            divSelected.children[2].appendChild(txtRename);
-            txtRename.dataset.itemId = divSelected.id;
-            txtRename.style.display = "inline";
-            txtRename.focus();
-        }
-    });
-}
-{
-    let tlbItem = document.getElementById("delete");
-    tlbItem.addEventListener("click", async function(){
-        const lstDeleteName = [];
-        const lstDelete = [];
-        for (const listItem of list.children){
-            if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.id);
-                lstDelete.push(listItem);
-            }
-        }
-        if (lstDeleteName.length > 0){
-            doFetch("./update", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
-            "", "삭제에 오류가 발생했습니다.", async function(result){
-                const resJson = await result.json();
-                for (listItem of resJson.arr){
-                    try{
-                        document.getElementById(listItem).remove();
-                        itemCnt--;
-                    } catch {
-                        continue;
-                    }
-                }
-                fncPrintCnt();
-                if (resJson.failed.reason){
-                    return resJson.failed;
-                } else if (resJson.failed.length > 0){
-                    return "삭제에 실패한 항목이 있습니다."
-                } else {
-                    return "삭제가 완료되었습니다.";
-                }
-            });
-        }
-    });
-}
+
 {
     let tlbItem = document.getElementById("share");
     tlbItem.addEventListener("click", async function(){
@@ -455,7 +298,7 @@ lblLoadMore.addEventListener("click", function(event){
                     "공유에 실패했습니다.", async function(result){
                         const resJson = result.json();
                         for (const listItem of resJson.arr){
-                            document.getElementById(listItem.id).children[3].innerText = listItem.friends;
+                            document.getElementById(listItem.id).children[4].innerText = listItem.friends;
                         }
                         fncClearPopup();
                         if (resJson.failed.reason){
@@ -473,46 +316,67 @@ lblLoadMore.addEventListener("click", function(event){
 }
 
 {
+    let tlbItem = document.getElementById("delete");
+    tlbItem.addEventListener("click", async function(){
+        const lstDeleteName = [];
+        const lstDelete = [];
+        for (const listItem of list.children){
+            if (listItem.firstElementChild.checked){
+                lstDeleteName.push(listItem.id);
+                lstDelete.push(listItem);
+            }
+        }
+        if (lstDeleteName.length > 0){
+            doFetch("./update", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
+            "", "삭제에 오류가 발생했습니다.", async function(result){
+                const resJson = await result.json();
+                for (listItem of resJson.arr){
+                    try{
+                        document.getElementById(listItem).remove();
+                        itemCnt--;
+                    } catch {
+                        continue;
+                    }
+                }
+                fncPrintCnt();
+                if (resJson.failed.reason){
+                    return resJson.failed;
+                } else if (resJson.failed.length > 0){
+                    return "삭제에 실패한 항목이 있습니다."
+                } else {
+                    return "삭제가 완료되었습니다.";
+                }
+            });
+        }
+    });
+}
+
+{
     let tlbItem = document.getElementById("copy");
     tlbItem.addEventListener("click", function(){
         fncCopyMove("copy");
     });
 }
 {
-    let tlbItem = document.getElementById("move");
-    tlbItem.addEventListener("click", function(){
-        fncCopyMove("move");
-    });
-}
-{
-    let tlbItem = document.getElementById("createDir");
-    tlbItem.addEventListener("click", function(){
-        let strName = prompt("폴더의 이름을 입력하십시오.", "");
-        if (strName){
-            doFetch("./update", "PUT", JSON.stringify({action: "createDir", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
-                const resJson = await result.json();
-                return fncInsertFile(resJson, false, "", "폴더 추가에 실패했습니다.");
-            })
-        }
-    });
-}{
-    let tlbItem = document.getElementById("createFile");
-    tlbItem.addEventListener("click", function(){
-        let strName = prompt("파일의 이름을 입력하십시오.", "");
-        if (strName){
-            doFetch("./update", "PUT", JSON.stringify({action: "createFile", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
-                const resJson = await result.json();
-                return fncInsertFile(resJson, false, "", "파일 추가에 실패했습니다.");
-            })
-        }
-    });
-}
-
-{
     let tlbItem = document.getElementById("refresh");
     tlbItem.addEventListener("click", fncRefresh);
 }
 
+{
+    let colItem = document.getElementById("colOwner");
+    colItem.addEventListener("click", function(){
+        if (sortMode.criteria === "owner"){
+            sortMode.incr = !sortMode.incr;
+            colItem.dataset.set = sortMode.incr ? "1" : "2";
+        } else {
+            sortMode.criteria = "owner";
+            sortMode.incr = true;
+            fncResetSort();
+            colItem.dataset.set = "1";
+        }
+        fncRefresh();
+    })
+}
 {
     let colItem = document.getElementById("colName");
     colItem.addEventListener("click", function(){
