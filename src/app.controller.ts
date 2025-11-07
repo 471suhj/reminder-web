@@ -126,14 +126,13 @@ export class AppController {
   @Render('friends/friends')
   getFriends() {
     return { username: "수서", notificationCnt: 3, 
-      dirName: "파일",
-      dirPath: "<a class=\"addrLink\" href=\"/files\">files</a>",
+      dirName: "친구",
       sideItem: [
         ["/home", "", "/graphics/home.png", "홈"],
-        ["/files", "Sel", "/graphics/files.png", "파일"],
+        ["/files", "", "/graphics/files.png", "파일"],
         ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
         ["/files/shared", "", "/graphics/shared.png", "공유"],
-        ["/friends", "", "/graphics/friends.png", "친구"],
+        ["/friends", "Sel", "/graphics/friends.png", "친구"],
         ["/prefs", "", "/graphics/prefs.png", "설정"]
       ],
       countItem: "false",

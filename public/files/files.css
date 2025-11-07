@@ -83,7 +83,6 @@
 .listItemText{
     width: calc(100% - 245px);
     height: min-content;
-    left: 0px;
 }
 .itemBookmark{
     width: 13px;

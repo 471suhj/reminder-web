@@ -47,15 +47,15 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
         let itmAfter = null;
         let itmNew = null;
         if (!last && !listItem.before){itmAfter = document.getElementById(listItem.before);}
+        const strHtml = `
+        <div class="listItem grayLink" id="${listItem.id}">
+            <input class="listItemChkbox listItemCol" type="checkbox"><!-
+            ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" data-visible="${listItem.isFolder}"></div><!-
+            ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
+            ><div class="listProfile listItemCol">.</div><!-
+            ><div class="listDate listItemCol">.${listItem.date}</div>
+        </div>`;
         if (!itmAfter){
-            const strHtml = `
-            <div class="listItem grayLink" id="${listItem.id}">
-                <input class="listItemChkbox listItemCol" type="checkbox"><!-
-                ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" data-visible="${listItem.isFolder}"></div><!-
-                ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
-                ><div class="listProfile listItemCol">.</div><!-
-                ><div class="listDate listItemCol">.${listItem.date}</div>
-            </div>`;
             if (lblLoadMore.parentNode){
                 lblLoadMore.insertAdjacentHTML("beforebegin", strHtml)
             } else {
@@ -63,15 +63,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
             }
             itmNew = list.children[list.children.length - 2];
         } else {
-            itmAfter.insertAdjacentHTML("beforebegin", `
-            <div class="listItem grayLink" id="${listItem.id}">
-                <input class="listItemChkbox listItemCol" type="checkbox"><!-
-                ><div class="listItemType listItemCol"><img class="listItemCol" src="/graphics/toolbars/folder.png" width="15" height="15" style="${listItem.folderDisplay}"></div><!-
-                ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
-                ><div class="listProfile listItemCol">.</div><!-
-                ><div class="listDate listItemCol">.${listItem.date}</div>
-            </div>
-            `);
+            itmAfter.insertAdjacentHTML("beforebegin", strHtml);
             itmNew = itmAfter.nextSibling;
         }
         const divBookmark = itmNew.children[2].firstElementChild;
@@ -219,12 +211,6 @@ async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart){
             ), fncClearPopup});
     }, fncClearPopup);
     
-}
-
-for (const listItem of list.children){
-    if (listItem === list.lastElementChild){
-        continue;
-    }
 }
 
 async function fncLoadMore(){
@@ -419,6 +405,7 @@ lblLoadMore.addEventListener("click", function(event){
         doFetch("/friends/list", "GET", "", "", "친구 목록을 불러올 수 없었습니다.", async function(result){
             const txtSearch = divPopup.appendChild(document.createElement("input"));
             txtSearch.type = "text";
+            txtSearch.placeholder = "검색";
             const lstFriends = divPopup.appendChild(document.createElement("select"));
             lstFriends.setAttribute("multiple", "true");
             let cmdOK = null, cmdCancel = null;

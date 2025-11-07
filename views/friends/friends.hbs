@@ -7,7 +7,7 @@
         <title>{{dirName}} - ComphyCat Reminder</title>
         <link rel="stylesheet" href="/common.css">
         <link rel="stylesheet" href="/user_common.css">        
-        <link rel="stylesheet" href="/freiends/friends.css">
+        <link rel="stylesheet" href="/friends/friends.css">
     </head>
     <body>
         <div class="heading">
@@ -21,50 +21,34 @@
         <div class="frame">
             <div class="side">
                 {{#each sideItem}}
-                <a class="blackLink" href="{{[0]}}"><div class="sideItem{{[1]}}"><img src="{{[2]}}" width="25" height="25"><br>{{3}}</div></a>
+                <a class="blackLink grayLink" href="{{[0]}}"><div class="sideItem{{[1]}}"><img src="{{[2]}}" width="25" height="25"><br>{{3}}</div></a>
                 {{/each}}
             </div>
             <div class="top">
                 <h1 class="title">{{dirName}}</h1>
-                <div>{{{dirPath}}}</div>
             </div>
             <div class="main">
-                <div class="toolbar">
-                    <div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|
-                    <!--div class="toolItem grayLink" id="selectAll">모두 선택</div>|-->
-                    <div class="toolItem grayLink" id="upload"><img src="/graphics/toolbars/add.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="download"><img src="/graphics/toolbars/download.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="rename"><img src="/graphics/toolbars/rename.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="share"><img src="/graphics/toolbars/share.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="copy"><img src="/graphics/toolbars/copy.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="move"><img src="/graphics/toolbars/move.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="createFile"><img src="/graphics/toolbars/newfile.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="createDir"><img src="/graphics/toolbars/newfolder.png" width="20" height="20"></div>|
-                    <div class="toolItem grayLink" id="delete"><img src="/graphics/toolbars/delete.png" width="20" height="20"></div>
+                <div class="toolbar toolbarParent">
+                    <div class="toolbar toolbar1">
+                        <div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
+                        ><div class="toolItem grayLink" id="upload"><img src="/graphics/toolbars/add.png" width="20" height="20"></div>|<!-
+                        ><div class="toolItem grayLink" id="rename"><img src="/graphics/toolbars/rename.png" width="20" height="20"></div>|<!-
+                        ><div class="toolItem grayLink" id="delete"><img src="/graphics/toolbars/delete.png" width="20" height="20"></div>
+                    </div>
+                    <div class="toolbar" id="tlbSort">
+                        <div class="toolItem grayLink" id="colName" data-set="1">이름순</div>|<!-
+                        ><div class="toolItem grayLink" id="colDate">공유일자순</div>|<!-
+                        ><div class="toolItem grayLink" id="colFreq">공유빈도순</div>|<!-
+                        ><div class="toolItem grayLink" id="colAdded">추가순</div>
+                    </div>
                 </div>
                 <p id="itemCount" data-countitem="{{countItem}}" data-itemcnt="0"></p>
-                <div id="listHead">
-                    <input class="listItemChkbox listItemCol" id="selectAll" type="checkbox"><!-
-                    ><div class="listItemType listItemCol"><img class="listItemCol" src="/graphics/toolbars/folder.png" width="15" height="15" style="display:none"></div><!-
-                    ><div class="listItemText listItemCol grayLink" id="colName">이름</div><!-
-                    ><div class="listProfile listItemCol">공유</div><!-
-                    ><div class="listDate listItemCol grayLink" id="colDate">수정한 날짜</div>
-                </div>
                 <div id="list">
                     <div class="grayLink" data-show="true" id="loadMore">
                         <input type="checkbox" style="display:none">추가 로드
                     </div>
                 </div>
             </div>
-        </div>
-        <dialog id="overwriteDlg">
-            <p>이미 같은 이름의 파일이 있습니다.</p>
-            <button id="buttonoverwrite">덮어쓰기</button>
-            <button id="buttonrrename" autofocus>"이름-2"로 저장</button>
-            <button id="buttoncancel">취소</button>
-        </dialog>
-        <div id="popup">
         </div>
         <script type="module" src="friends.js"></script>
     </body>

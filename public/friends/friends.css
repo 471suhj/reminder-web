@@ -16,7 +16,7 @@
     margin: 15px;
 }
 .main{
-    display: inline-flex;
+    display: inline-block;
     flex-wrap: nowrap;
     flex-direction: column;
     left: 60px;
@@ -25,22 +25,34 @@
     padding: 15px;
 }
 .toolbar{
-    margin: 15px 40px;
+    margin: 0px;
     padding: 2px;
-    position: sticky;
-    top: 82px;
+    position: relative;
     z-index: 10;
-    border-style: solid;
-    border-width: 1px;
     width: fit-content;
     height: fit-content;
     font-size: large;
     background-color: white;
+    display: inline-block;
+}
+.toolbarParent{
+    position: sticky;
+    top: 82px;
+    margin: 15px 40px;
+    padding: 0px;
+    border-style: solid;
+    border-width: 1px;
 }
 .toolItem{
     margin: 2px;
     display: inline;
     cursor: pointer;
+}
+.toolItem[data-set="1"]{
+    background-color: lightgray;
+}
+.toolItem[data-set="2"]{
+    background-color: lightgreen;
 }
 #itemCount{
     color: gray;
@@ -49,20 +61,12 @@
 #itemCount[data-countitem="false"]{
     display: none;
 }
-#listHead{
-    margin: 10px;
-    padding: 10px;
-    margin-bottom: 0px;
-    padding-bottom: 0px;
-}
 #list{
     margin: 10px;
     padding: 10px;
-    margin-top: 0px;
-    padding-top: 0px;
 }
 .listItem{
-    padding: 1px;
+    padding: 10px;
     cursor: default;
 }
 .listItemCol{
@@ -71,29 +75,9 @@
     padding: 0px;
     margin: 0px;
 }
-.listItemChkbox{
-    width: 20px;
-}
-.listItemType{
-    width: 15px;
-}
-.isFolder[data-visible="false"]{
-    display: none;
-}
-.listItemText{
-    width: calc(100% - 245px);
-    height: min-content;
-    left: 0px;
-}
-.itemBookmark{
-    width: 13px;
-    height: 15px;
-}
-.listProfile{
-    width: 60px;
-}
-.listDate{
-    width: 150px;
+.listSpecs{
+    color: gray;
+    font-size: small;
 }
 #loadMore{
     text-align: center;
