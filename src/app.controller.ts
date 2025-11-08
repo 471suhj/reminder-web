@@ -186,6 +186,24 @@ export class AppController {
       countItem: "false",
     };
   }
+  @Get('friends/profile')
+  @Render('friends/profile')
+  getFriendProf() {
+    return { username: "수서", notificationCnt: 3, 
+      friendNickname: "개포동",
+      friendName: "개포동",
+      friendID: "개포동2",
+      sideItem: [
+        ["/home", "", "/graphics/home.png", "홈"],
+        ["/files", "", "/graphics/files.png", "파일"],
+        ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
+        ["/files/shared", "", "/graphics/shared.png", "공유"],
+        ["/friends", "Sel", "/graphics/friends.png", "친구"],
+        ["/prefs", "", "/graphics/prefs.png", "설정"]
+      ],
+      countItem: "false",
+    };
+  }
 
   @Get("/friends/loadmore")
   getFriendsMore(@Query("startafter") startAfter: string){
@@ -194,7 +212,7 @@ export class AppController {
     return JSON.stringify({
       loadMore: loadmore,
       arr: [
-        {id: arrid[0], bookmarked: "true", text: "고양이", date: "20230228"},
+        {id: arrid[0], bookmarked: "true", text: "고양이", date: "20230228", link: "/friends/profile"},
         {id: arrid[1], bookmarked: "false", text: "사슴", date: "20220228"},
         {id: arrid[2], bookmarked: "false", text: "수리부엉이", date: "20220128", isFolder: "false"}
       ]

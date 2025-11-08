@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{friendNickname}} - ComphyCat Reminder</title>
+        <link rel="stylesheet" href="/common.css">
+        <link rel="stylesheet" href="/friends/profile.css">
+    </head>
+    <body>
+        <div class="heading">
+            <a href="/home"><img class="logo" src="/graphics/aam_online.png" alt="ComphyCat Reminder Online"></a>
+            <div class="user">
+                <a class="blackLink grayLink" href="/prefs/account"><img src="/images/user">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a class="blackLink grayLink" href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
+                <a class="blackLink grayLink" href="/home/notifications">알림 {{ notificationCnt }}개</a>
+            </div>
+        </div>
+        <div class="frame">
+            <div class="side">
+                {{#each sideItem}}
+                <a class="blackLink grayLink" href="{{[0]}}"><div class="sideItem{{[1]}}"><img src="{{[2]}}" width="25" height="25"><br>{{3}}</div></a>
+                {{/each}}
+            </div>
+            <div class="top">
+                <div class="topPane">
+                    <img src="{{friendImg}} width="50" height="50">  <h1 id="title">{{friendNickname}}</h1>  <img id="rename" src="/graphics/toolbars/rename_pencil.png" width="20" height="20">
+                    <div>{{friendName}} (<div id="friendID">{{friendID}}</div>)</div>
+                </div>
+                <div class="topPane">
+                    <div class="topButton grayLink" id="topShare">파일 공유</div>&nbsp;
+                    <div class="topButton grayLink" id="removeFriend">친구 취소</div>
+                </div>
+            </div>
+            <div class="main">
+                <div id="friendInfo">
+                    <div id="friendInfoTitle">사용자 정보</div>
+                    친구 추가 일자: {{dateAdded}}<br>
+                    마지막 공유 일자: <div id="lastDateShared">{{dateShared}}</div>
+                </div>
+                <div class="toolbar">
+                    <div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
+                    ><div class="toolItem grayLink" id="unshare"><img src="/graphics/toolbars/unshare.png" width="20" height="20"></div>
+                </div>
+                <p id="itemCount" data-countitem="{{countItem}}" data-itemcnt="0"></p>
+                <div id="listHead">
+                    <input class="listItemChkbox listItemCol" id="selectAll" type="checkbox"><!-
+                    ><div class="listOwnerImg listItemCol"><img class="listItemCol ownerImg" src="" width="30" height="30" style="display:none"></div><!-
+                    ><div class="listOwner listItemCol grayLink" id="colOwner">관리자</div><!-
+                    ><div class="listItemText listItemCol grayLink" id="colName">이름</div><!-
+                    ><div class="listProfile listItemCol" style="font-size:medium">공유</div><!-
+                    ><div class="listDateShared listItemCol grayLink" id="colDateShared">공유 일자</div><!-
+                    ><div class="listDate listItemCol grayLink" id="colDate" data-set="1">수정한 날짜</div>
+                </div>
+                <div id="list">
+                    <div class="grayLink" data-show="true" id="loadMore">
+                        <input type="checkbox" style="display:none">추가 로드
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="popup">
+        </div>
+        <script type="module" src="profile.js"></script>
+    </body>
+</html>

@@ -144,6 +144,7 @@ async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart){
     doFetch("./list?select=folders", "GET", "", "", "폴더 목록을 불러올 수 없었습니다.", async function(result){
         const txtPath = divPopup.appendChild(document.createElement("div"));
         const lstDir = divPopup.appendChild(document.createElement("select"));
+        lstDir.multiple = true;
         let cmdOK = null, cmdCancel = null;
         divPopup.appendChild(cmdOK = document.createElement("button"));
         cmdOK.innerText = "확인";
@@ -154,9 +155,8 @@ async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart){
         const resJson = await result.json();
         txtPath.innerText = resJson.path;
         for (const listItem of resJson.arr){
-            const ctlOption = null;
-            lstDir.appendChild(ctlOption = document.createElement("option"));
-            ctlOption.innerText = `${listItem.name})`;
+            const ctlOption = lstDir.appendChild(document.createElement("option"));
+            ctlOption.innerText = `${listItem.name}`;
         }
         cmdOK.addEventListener("click", function(){
             if (!lstDir.value){
@@ -257,22 +257,41 @@ lblLoadMore.addEventListener("click", function(event){
             return;
         }
         doFetch("/friends/list", "GET", "", "", "친구 목록을 불러올 수 없었습니다.", async function(result){
+            const optCopy = divPopup.appendChild(document.createElement("input"));
+            optCopy.type = "radio";
+            optCopy.checked = true;
+            let lblNew = divPopup.appendChild(document.createElement("label"));
+            lblNew.innerText = "사본 전달";
+            lblNew.addEventListener("click", function(){optCopy.checked = true;});
+
+            const optShareRead = divPopup.appendChild(document.createElement("input"));
+            optShareRead.type = "raido";
+            lblNew = divPopup.appendChild(document.createElement("label"));
+            lblNew.innerText = "읽기 권한 공유";
+            lblNew.addeventListner("click", function(){optShareRead.checked = true;});
+
+            const optShareEdit = divPopup.appendChild(document.cretaeElement("input"));
+            optShareEdit.type = "radio";
+            lblNew = divPopup.appendChild(document.createElement("label"));
+            lblNew.innerText = "편집 권한 공유";
+            lblNew.addeventListner("click", function(){optShareEdit.checked = true;});
+            lblNew = null;
+            
             const txtSearch = divPopup.appendChild(document.createElement("input"));
             txtSearch.type = "text";
             txtSearch.placeholder = "검색";
             const lstFriends = divPopup.appendChild(document.createElement("select"));
             lstFriends.setAttribute("multiple", "true");
-            let cmdOK = null, cmdCancel = null;
-            divPopup.appendChild(cmdOK = document.createElement("button"));
+
+            const cmdOK = divPopup.appendChild(cmdOK = document.createElement("button"));
             cmdOK.innerText = "확인";
-            divPopup.appendChild(cmdCancel = document.createElement("button"));
+            const cmdCancel = divPopup.appendChild(cmdCancel = document.createElement("button"));
             cmdCancel.innerText = "취소";
             cmdCancel.addEventListener("click", fncClearPopup);
             
             const resJson = await result.json();
             for (const listItem of resJson.arr){
-                const ctlOption = null;
-                lstFriends.appendChild(ctlOption = document.createElement("option"));
+                const ctlOption = lstFriends.appendChild(document.createElement("option"));
                 ctlOption.innerText = `${listItem.name} (${listItem.id})`;
                 ctlOption.dataset.userid = listItem.id;
             }
@@ -316,6 +335,13 @@ lblLoadMore.addEventListener("click", function(event){
 }
 
 {
+    let tlbItem = document.getElementById("up");
+    tlbItem.addEventListener("click", async function(){
+        window.location.href = "/files"
+    })
+}
+
+{
     let tlbItem = document.getElementById("delete");
     tlbItem.addEventListener("click", async function(){
         const lstDeleteName = [];
@@ -328,7 +354,7 @@ lblLoadMore.addEventListener("click", function(event){
         }
         if (lstDeleteName.length > 0){
             doFetch("./update", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
-            "", "삭제에 오류가 발생했습니다.", async function(result){
+            "", "공유 취소에 오류가 발생했습니다.", async function(result){
                 const resJson = await result.json();
                 for (listItem of resJson.arr){
                     try{
@@ -342,9 +368,9 @@ lblLoadMore.addEventListener("click", function(event){
                 if (resJson.failed.reason){
                     return resJson.failed;
                 } else if (resJson.failed.length > 0){
-                    return "삭제에 실패한 항목이 있습니다."
+                    return "공유 취소에 실패한 항목이 있습니다."
                 } else {
-                    return "삭제가 완료되었습니다.";
+                    return "공유 취소가 완료되었습니다.";
                 }
             });
         }

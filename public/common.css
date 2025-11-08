@@ -82,6 +82,9 @@
     background-color: beige;
     cursor: pointer;
 }
+.grayLink{
+    cursor: pointer;
+}
 .grayLink:hover{
     background-color: lightgray;
 }

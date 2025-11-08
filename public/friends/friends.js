@@ -53,6 +53,9 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
                 listChkbox.checked = true;
             }    
         });
+        itmNew.addEventListener("dblclick", function(){
+            window.location.href = listItem.link;
+        })
         numItemCnt++;
     }
     if (resJson.deleteArr){
@@ -167,17 +170,15 @@ lblLoadMore.addEventListener("click", function(event){
     let tlbItem = document.getElementById("delete");
     tlbItem.addEventListener("click", async function(){
         const lstDeleteName = [];
-        const lstDelete = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
                 lstDeleteName.push(listItem.id);
-                lstDelete.push(listItem);
             }
         }
-        if ((lstDeleteName.length <= 0) || !confirm("정말로 친구를 취소하시겠습니까?")){
+        if ((lstDeleteName.length <= 0) || !confirm("정말로 친구를 취소하시겠습니까? 모든 파일들의 공유가 취소됩니다.")){
             return;
         }
-        doFetch("./update", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
+        doFetch("./update", "DELETE", JSON.stringify({sort: sortMode, files: lstDeleteName}), 
         "", "삭제에 오류가 발생했습니다.", async function(result){
             const resJson = await result.json();
             for (listItem of resJson.arr){
