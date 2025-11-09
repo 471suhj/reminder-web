@@ -1,6 +1,9 @@
 import {doFetch, showMessage} from "/printmsg.js"
+import {sortMode, fncSetupHeaderSort} from "/sortmode.js"
+import {insertOpt, fncClearPopup} from "/popup.js"
+import {fncRefresh, fncAutoloadSetup} from "/autoload.js"
+import {fncCopyMove, fncRemoveItems, fncAddItems, fncAnswerDlg, fncCreateOKCancel} from "/filemove.js"
 
-let sortMode = {criteria: "name", incr: true};
 const list = document.getElementById("list");
 const listHead = document.getElementById("listHead");
 const lblItemCnt = document.getElementById("itemCount");
@@ -8,12 +11,6 @@ const lblLoadMore = document.getElementById("loadMore");
 const divPopup = document.getElementById("popup");
 const dlgOverwrite = document.getElementById("overwriteDlg");
 let numItemCnt = 0;
-
-function fncResetSort(){
-    for (const listItem of listHead.children){
-        listItem.dataset.set = "0";
-    }
-}
 
 const txtRename = document.createElement("input");
 txtRename.setAttribute("type", "text");
@@ -23,7 +20,7 @@ async function fncRename(){
     const itemId = txtRename.dataset.itemId;
     txtRename.style.display = "none";
     if (newName !== ""){
-        doFetch("./update", "PUT", JSON.stringify({action: "rename", sort: sortMode, id: itemId, name: newName}),
+        doFetch("", "PUT", JSON.stringify({action: "rename", sort: sortMode, id: itemId, name: newName}),
     "", `${newName}로 이름 바꾸기를 실패했습니다.`, function(){
         document.getElementById(itemId).childNodes[1].innerText = newName + " ";
         return "";
@@ -37,229 +34,25 @@ txtRename.addEventListener("keyup", async function(event){
     }
 })
 
-function fncClearPopup(){
-    while (divPopup.children.length){
-        divPopup.children[0].remove();
-    }
-    divPopup.style.display = "none";
-}
-divPopup.addEventListener("blur", fncClearPopup);
-
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
 function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
-    for (const listItem of resJson.arr){
-        let itmAfter = null;
-        let itmNew = null;
-        if (!last && !listItem.before){itmAfter = document.getElementById(listItem.before);}
-        const strHtml = `
+    const strHtml = function(listItem){
+        return `
         <div class="listItem grayLink" id="${listItem.id}">
-            <input class="listItemChkbox listItemCol" type="checkbox"><!-
-            ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" data-visible="${listItem.isFolder}"></div><!-
-            ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
-            ><div class="listProfile listItemCol">${listItem.shared}</div><!-
-            ><div class="listDate listItemCol">${listItem.date}</div>
+        <input class="listItemChkbox listItemCol" type="checkbox"><!-
+        ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" data-visible="${listItem.isFolder}"></div><!-
+        ><div class="listItemText listItemCol">${listItem.text}  <div class="itemBookmark listItemCol" data-bookmarked="${listItem.bookmarked}"><img src="/graphics/toolbars/bookmark.png" width="15" height="15"></div></div><!-
+        ><div class="listProfile listItemCol">${listItem.shared}</div><!-
+        ><div class="listDate listItemCol">${listItem.date}</div>
         </div>`;
-        if (!itmAfter){
-            if (lblLoadMore.parentNode){
-                lblLoadMore.insertAdjacentHTML("beforebegin", strHtml)
-            } else {
-                list.insertAdjacentHTML("beforeend", strHtml);
-            }
-            itmNew = list.children[list.children.length - 2];
-        } else {
-            itmAfter.insertAdjacentHTML("beforebegin", strHtml);
-            itmNew = itmAfter.nextSibling;
-        }
-        const divBookmark = itmNew.children[2].firstElementChild;
-        const imgBookmark = divBookmark.firstElementChild;
-        itmNew.firstElementChild.checked = checkItems;
-        itmNew.addEventListener("click", function(event){
-            const listChkbox = itmNew.firstElementChild;
-            if (event.target !== listChkbox && event.target !== imgBookmark){
-                for (const tmpListItem of list.children){
-                    tmpListItem.children[0].checked = false;
-                }
-                listChkbox.checked = true;
-            }    
-        });
-        divBookmark.addEventListener("click", async function(){
-            let remove = false;
-            if (divBookmark.dataset.bookmarked === "true"){
-                remove = true;
-            }
-            doFetch("./update", "PUT", JSON.stringify({action: "bookmark", id: itmNew.getAttribute("id"), remove: remove}),
-            "", "처리에 실패했습니다.", async function(result){
-                const resJson = result.json();
-                if (resJson.failed){
-                    return "처리에 실패했습니다."
-                }
-                if (remove){
-                    divBookmark.dataset.bookmarked = "false";
-                    imgBookmark.style.display = "none";
-                } else {
-                    divBookmark.dataset.bookmarked = "true";
-                    imgBookmark.style.display = "block";
-                }
-                return "";
-            });
-        });
-        divBookmark.addEventListener("mouseenter", function(){
-            imgBookmark.style.display = "block";
-        })
-        divBookmark.addEventListener("mouseleave", function(){
-            if (divBookmark.dataset.bookmarked === "false"){
-                imgBookmark.style.display = "none";
-            }
-        })
-        if (divBookmark.dataset.bookmarked === "false"){
-            imgBookmark.style.display = "none";
-        }
-        numItemCnt++;
     }
-    if (resJson.deleteArr){
-        for (const listItem of resJson.deleteArr){
-            try{
-                document.getElementById(listItem).remove();
-                itemCnt--;
-            } catch {
-                continue;
-            }
-        }
-    }
-    fncPrintCnt();
-
-    if (resJson.failed){
-        if (resJson.failed.reason){
-            return resJson.failed;
-        } else if (resJson.failed.length > 0){
-            return msgPos;
-        } else {
-            return msgNeg;   
-        }
-    }
+    fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, true, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-function fncClearList(){
-    while (list.children.length){
-        list.children[0].remove();
-    }
-    list.appendChild(lblLoadMore);
-}
-
-async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart){
-    divPopup.style.display = "block";
-    let arrSelFiles = [];
-    for (const listItem of list.children){
-        if (listItem.firstElementChild.checked){
-            arrSelFiles.push(listItem.id);
-        }
-    }
-    if (!arrSelFiles.length){
-        showMessage("파일이 선택되지 않았습니다.");
-        fncClearPopup();
-        return;
-    }
-    doFetch("./list?select=folders", "GET", "", "", "폴더 목록을 불러올 수 없었습니다.", async function(result){
-        const txtPath = divPopup.appendChild(document.createElement("div"));
-        const lstDir = divPopup.appendChild(document.createElement("select"));
-        lstDir.multiple = true;
-        let cmdOK = null, cmdCancel = null;
-        divPopup.appendChild(cmdOK = document.createElement("button"));
-        cmdOK.innerText = "확인";
-        divPopup.appendChild(cmdCancel = document.createElement("button"));
-        cmdCancel.innerText = "취소";
-        cmdCancel.addEventListener("click", fncClearPopup);
-
-        const resJson = await result.json();
-        txtPath.innerText = resJson.path;
-        for (const listItem of resJson.arr){
-            const ctlOption = lstDir.appendChild(document.createElement("option"));
-            ctlOption.innerText = `${listItem.name})`;
-        }
-        cmdOK.addEventListener("click", function(){
-            if (!lstDir.value){
-                showMessage("선택된 폴더가 없습니다.")
-                return;
-            }
-            let jsonBody = {action: mode, sort: sortMode, files: arrSelFiles, topath: lstDir.value};
-            doFetch("./update", "POST", JSON.stringify(jsonBody), "",
-                msgNegAll, async function(result){
-                    const resJson = await result.json();
-                    if (resJson.alreadyExists){
-                        let btnDlg = document.getElementById("buttonoverwrite");
-                        btnDlg.onclick = async function(){
-                            btnDlg.close();
-                            jsonBody.overwrite = "overwrite";
-                            doFetch("./update", "POST", JSON.stringify(jsonBody), "", msgNegAll, async function(result){
-                                const jsonNew = await result.json();
-                                return fncInsertFile(jsonNew, false, msgPos, msgNegPart);
-                            })
-                        }
-                        btnDlg = document.getElementById("buttonrename");
-                        btnDlg.onclick = async function(){
-                            btnDlg.close();
-                            jsonBody.overwrite = "rename";
-                            doFetch("./update", "POST", JSON.stringify(jsonBody), "", msgNegAll, async function(result){
-                                const jsonNew = await result.json();
-                                return fncInsertFile(jsonNew, false, msgPos, msgNegPart);
-                            })
-                        }
-                        btnDlg = document.getElementById("buttonCancel");
-                        btnDlg.onclick = function(){btnDlg.close();}
-                        dlgOverwrite.showModal();
-                        fncClearPopup();
-                        return "";
-                    } else {
-                        fncClearPopup();
-                        return fncInsertFile(resJson, false, msgPos, msgNegPart);
-                    }
-                }
-            ), fncClearPopup});
-    }, fncClearPopup);
-    
-}
-
-async function fncLoadMore(){
-    lblLoadMore.childNodes[2].textContent = "추가 로드 중입니다...";
-    lblLoadMore.dataset.isbutton = "false"
-    let idCurLast = "loadmore";
-    if (list.children.length !== 1){
-        idCurLast = list.children[list.children.length - 2].id;
-    }
-    await doFetch(`./loadmore?sort=${sortMode.criteria}&sortincr=${sortMode.incr}&startafter=` + idCurLast, "GET", "", "", "추가 로드에 실패했습니다.", async function(result){
-        let resJson = await result.json();
-        fncInsertFile(resJson, true, "", "", lblLoadMore.firstElementChild.checked);
-        fncPrintCnt();
-        if (resJson.loadMore === "false") {
-            lblLoadMore.remove();
-        }
-        return "";
-    });
-    lblLoadMore.childNodes[2].textContent = "추가 로드"
-    lblLoadMore.dataset.isbutton = "true"
-}
-
-fncLoadMore();
-
-function fncRefresh(){
-    fncClearList();
-    fncLoadMore();
-}
-
-document.addEventListener("scroll", async function(){
-    if (lblLoadMore.parentNode && (lblLoadMore.dataset.isbutton === "true") && (document.body.scrollHeight - 45 - lblLoadMore.scrollHeight <= window.innerHeight + window.scrollY)){
-        fncLoadMore();
-    }
-});
-
-lblLoadMore.addEventListener("click", function(event){
-    if (event.target.dataset.isbutton === "true"){
-        fncLoadMore();
-    }
-})
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 
 {
     let tlbItem = document.getElementById("selectAll");
@@ -290,47 +83,21 @@ lblLoadMore.addEventListener("click", function(event){
         ctlFile.setAttribute("multiple", "true");
         ctlFile.setAttribute("accept", ".rmb");
         
-        let lstFriends = divPopup.appendChild(document.createElement("button"));
-        lstFriends.innerText = "확인"
+        const cmdOK = fncCreateOKCancel(divPopup);
         
-
-        lstFriends.addEventListener("click", async function(){
+        cmdOK.addEventListener("click", async function(){
             const addedFile = ctlFile.files; // must come before removing
-            fncClearPopup();
             let jsonBody = {action: "upload", sort: sortMode, files: addedFile};
-            doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
+            fncClearPopup(divPopup);
+            doFetch("", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
                 const resJson = await result.json(addedFile);
                 if (resJson.alreadyExists){
-                    let btnDlg = document.getElementById("buttonoverwrite");
-                    btnDlg.onclick = async function(){
-                        btnDlg.close();
-                        jsonBody.overwrite = "overwrite";
-                        doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                            const jsonNew = await result.json();
-                            return fncInsertFile(jsonNew, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
-                        })
-                    }
-                    btnDlg = document.getElementById("buttonrename");
-                    btnDlg.onclick = async function(){
-                        btnDlg.close();
-                        jsonBody.overwrite = "rename";
-                        doFetch("./update", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                            const jsonNew = await result.json();
-                            return fncInsertFile(jsonNew, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
-                        })
-                    }
-                    btnDlg = document.getElementById("buttonCancel");
-                    btnDlg.onclick = function(){btnDlg.close();}
-                    dlgOverwrite.showModal();
+                    fncAnswerDlg("업로드를 완료했습니다.", "파일 업로드를 실패했습니다.", "업로드에 실패한 파일이 있습니다.", dlgOverwrite);
                     return "";
                 }
                 return fncInsertFile(resJson, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
             });
         })
-        
-        lstFriends = divPopup.appendChild(document.createElement("button"));
-        lstFriends.innerText = "취소"
-        lstFriends.addEventListener("click", fncClearPopup);
     });
 }
 {
@@ -367,37 +134,21 @@ lblLoadMore.addEventListener("click", function(event){
     let tlbItem = document.getElementById("delete");
     tlbItem.addEventListener("click", async function(){
         const lstDeleteName = [];
-        const lstDelete = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
                 lstDeleteName.push(listItem.id);
-                lstDelete.push(listItem);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch("./update", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
+            doFetch("", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
             "", "삭제에 오류가 발생했습니다.", async function(result){
                 const resJson = await result.json();
-                for (listItem of resJson.arr){
-                    try{
-                        document.getElementById(listItem).remove();
-                        itemCnt--;
-                    } catch {
-                        continue;
-                    }
-                }
-                fncPrintCnt();
-                if (resJson.failed.reason){
-                    return resJson.failed;
-                } else if (resJson.failed.length > 0){
-                    return "삭제에 실패한 항목이 있습니다."
-                } else {
-                    return "삭제가 완료되었습니다.";
-                }
+                return fncRemoveItems(resJson, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
             });
         }
     });
 }
+
 {
     let tlbItem = document.getElementById("share");
     tlbItem.addEventListener("click", async function(){
@@ -410,29 +161,11 @@ lblLoadMore.addEventListener("click", function(event){
         }
         if (!arrSelFiles.length){
             showMessage("파일이 선택되지 않았습니다.");
-            fncClearPopup();
+            fncClearPopup(divPopup);
             return;
         }
         doFetch("/friends/list", "GET", "", "", "친구 목록을 불러올 수 없었습니다.", async function(result){
-            const optCopy = divPopup.appendChild(document.createElement("input"));
-            optCopy.type = "radio";
-            optCopy.checked = true;
-            let lblNew = divPopup.appendChild(document.createElement("label"));
-            lblNew.innerText = "사본 전달";
-            lblNew.addEventListener("click", function(){optCopy.checked = true;});
-
-            const optShareRead = divPopup.appendChild(document.createElement("input"));
-            optShareRead.type = "raido";
-            lblNew = divPopup.appendChild(document.createElement("label"));
-            lblNew.innerText = "읽기 권한 공유";
-            lblNew.addeventListner("click", function(){optShareRead.checked = true;});
-
-            const optShareEdit = divPopup.appendChild(document.cretaeElement("input"));
-            optShareEdit.type = "radio";
-            lblNew = divPopup.appendChild(document.createElement("label"));
-            lblNew.innerText = "편집 권한 공유";
-            lblNew.addeventListner("click", function(){optShareEdit.checked = true;});
-            lblNew = null;
+            const {optCopy, optShareRead} = insertOpt(divPopup, document);
 
             const txtSearch = divPopup.appendChild(document.createElement("input"));
             txtSearch.type = "text";
@@ -442,11 +175,7 @@ lblLoadMore.addEventListener("click", function(event){
 
             const txtMessage = divPopup.appendChild(document.createElement("textarea"));
 
-            const cmdOK = divPopup.appendChild(cmdOK = document.createElement("button"));
-            cmdOK.innerText = "확인";
-            const cmdCancel = divPopup.appendChild(cmdCancel = document.createElement("button"));
-            cmdCancel.innerText = "취소";
-            cmdCancel.addEventListener("click", fncClearPopup);
+            const cmdOK = fncCreateOKCancel(divPopup);
             
             const resJson = await result.json();
             for (const listItem of resJson.arr){
@@ -474,13 +203,13 @@ lblLoadMore.addEventListener("click", function(event){
                 }
                 let shareMode = null;
                 if (optCopy.checked){shareMode = "copy"} else if (optShareRead) {shareMode = "read"} else {shareMode = "edit"} 
-                doFetch("./update", "PUT", JSON.stringify({action: "share", files: arrSelFiles, mode: shareMode, message: txtMessage.value, friends: lstFriends.value}), "",
+                doFetch("", "PUT", JSON.stringify({action: "share", files: arrSelFiles, mode: shareMode, message: txtMessage.value, friends: lstFriends.value}), "",
                     "공유에 실패했습니다.", async function(result){
                         const resJson = result.json();
                         for (const listItem of resJson.arr){
                             document.getElementById(listItem.id).children[3].innerText = listItem.friends;
                         }
-                        fncClearPopup();
+                        fncClearPopup(divPopup);
                         if (resJson.failed.reason){
                             return resJson.failed;
                         } else if (resJson.failed.length > 0){
@@ -491,20 +220,20 @@ lblLoadMore.addEventListener("click", function(event){
                     }
                 ), fncClearPopup});
 
-        }, fncClearPopup);
+        }, () => {fncClearPopup(divPopup);});
     });
 }
 
 {
     let tlbItem = document.getElementById("copy");
     tlbItem.addEventListener("click", function(){
-        fncCopyMove("copy");
+        fncCopyMove("copy", "복사를 완료했습니다.", "복사를 실패했습니다.", "복사되지 못한 파일이 있습니다.", divPopup, list, dlgOverwrite);
     });
 }
 {
     let tlbItem = document.getElementById("move");
     tlbItem.addEventListener("click", function(){
-        fncCopyMove("move");
+        fncCopyMove("move", "이동을 완료했습니다.", "이동을 실패했습니다.", "이동되지 못한 파일이 있습니다.", divPopup, list, dlgOverwrite);
     });
 }
 {
@@ -512,7 +241,7 @@ lblLoadMore.addEventListener("click", function(event){
     tlbItem.addEventListener("click", function(){
         let strName = prompt("폴더의 이름을 입력하십시오.", "");
         if (strName){
-            doFetch("./update", "PUT", JSON.stringify({action: "createDir", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
+            doFetch("", "PUT", JSON.stringify({action: "createDir", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
                 const resJson = await result.json();
                 return fncInsertFile(resJson, false, "", "폴더 추가에 실패했습니다.");
             })
@@ -523,7 +252,7 @@ lblLoadMore.addEventListener("click", function(event){
     tlbItem.addEventListener("click", function(){
         let strName = prompt("파일의 이름을 입력하십시오.", "");
         if (strName){
-            doFetch("./update", "PUT", JSON.stringify({action: "createFile", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
+            doFetch("", "PUT", JSON.stringify({action: "createFile", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
                 const resJson = await result.json();
                 return fncInsertFile(resJson, false, "", "파일 추가에 실패했습니다.");
             })
@@ -531,38 +260,4 @@ lblLoadMore.addEventListener("click", function(event){
     });
 }
 
-{
-    let tlbItem = document.getElementById("refresh");
-    tlbItem.addEventListener("click", fncRefresh);
-}
-
-{
-    let colItem = document.getElementById("colName");
-    colItem.addEventListener("click", function(){
-        if (sortMode.criteria === "name"){
-            sortMode.incr = !sortMode.incr;
-            colItem.dataset.set = sortMode.incr ? "1" : "2";
-        } else {
-            sortMode.criteria = "name";
-            sortMode.incr = true;
-            fncResetSort();
-            colItem.dataset.set = "1";
-        }
-        fncRefresh();
-    })
-}
-{
-    let colItem = document.getElementById("colDate");
-    colItem.addEventListener("click", function(){
-        if (sortMode.criteria === "date"){
-            sortMode.incr = !sortMode.incr;
-            colItem.dataset.set = sortMode.incr ? "1" : "2";
-        } else {
-            sortMode.criteria = "date";
-            sortMode.incr = true;
-            fncResetSort();
-            colItem.dataset.set = "1";
-        }
-        fncRefresh();
-    })
-}
+fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt);

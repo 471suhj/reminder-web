@@ -1,0 +1,115 @@
+.top{
+    padding: 15px 45px;
+}
+.title{
+    display: inline;
+    padding: 0px;
+}
+.toolbar{
+    background-color: white;
+    display: inline;
+    position: absolute;
+    right: 0px;
+    width: 20px;
+    height: 10px;
+    color: black;
+    margin: 15px;
+}
+.main{
+    display: inline-flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    left: 60px;
+    width: calc(100% - 60px);
+    position: relative;
+    padding: 15px;
+}
+.toolbar{
+    margin: 15px 40px;
+    padding: 2px;
+    position: sticky;
+    top: 82px;
+    z-index: 10;
+    border-style: solid;
+    border-width: 1px;
+    width: fit-content;
+    height: fit-content;
+    font-size: large;
+    background-color: white;
+}
+.toolItem{
+    margin: 2px;
+    display: inline;
+    cursor: pointer;
+}
+#itemCount{
+    color: gray;
+    margin-left: 40px;
+}
+#itemCount[data-countitem="false"]{
+    display: none;
+}
+#listHead{
+    margin: 10px;
+    padding: 10px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+#list{
+    margin: 10px;
+    padding: 10px;
+    margin-top: 0px;
+    padding-top: 0px;
+}
+.listItem{
+    padding: 1px;
+    cursor: default;
+}
+.listItemCol{
+    display: inline-block;
+    position: relative;
+    padding: 0px;
+    margin: 0px;
+}
+.listItemCol[data-set="1"]{
+    background-color: lightgray;
+}
+.listItemCol[data-set="2"]{
+    background-color: lightgreen;
+}
+.listItemChkbox{
+    width: 20px;
+}
+.listItemType{
+    width: 15px;
+}
+.isFolder[data-visible="false"]{
+    display: none;
+}
+.listItemText{
+    width: calc(100% - 410px);
+    height: min-content;
+}
+.itemBookmark{
+    width: 13px;
+    height: 15px;
+}
+.listPath{
+    width: 125px;
+    font-size: small;
+}
+.listDelDate{
+    width: 125px;
+}
+.listDate{
+    width: 125px;
+}
+#loadMore{
+    text-align: center;
+    cursor: pointer;
+    margin: 10px;
+    padding: 10px;
+}
+#loadMore[data-show="false"]{
+    display: none;
+}

@@ -33,19 +33,14 @@
                     <div class="toolItem" id="deleteAll">전체 삭제</div>
                 </div>
                 <p id="newItemCount" data-itemcnt="{{itemCnt}}"></p>
-                <div class="list">
-                    {{#each itemList}}
-                    <div class="listItem grayLink" id="{{id}}" data-unread="{{unread}}">
-                        <input  type="checkbox"><label class="listItemChk"for="{{id}}">  {{date}}</label>
-                        <div class="listItemText"><br>{{{text}}}</div>
-                        
-                    </div>
-                    {{/each}}
+                <div id="list">
                 </div>
                 <div class="listItem grayLink" data-show="{{showLoadMore}}" id="loadMore">
                     추가 로드
                 </div>
             </div>
+        </div>
+        <div id="popup">
         </div>
         <script type="module" src="notifications.js"></script>
     </body>

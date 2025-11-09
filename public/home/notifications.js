@@ -1,11 +1,15 @@
 import {doFetch} from "/printmsg.js"
+import {loadNotificationDetails} from "./notification.detail.js"
 
-const list = document.getElementsByClassName("list")[0];
+const list = document.getElementById("list");
 const lblItemCnt = document.getElementById("newItemCount");
+const divPopup = document.getElementById("popup");
+const cmdLoadMore = document.getElementById("loadMore");
+let linkID = 0;
 
 let unreadCnt = 0;
 let itemCnt = Number(lblItemCnt.dataset.itemcnt);
-const printItemCnt = function(printNew){
+function printItemCnt(printNew){
     if (printNew){
         if (unreadCnt){
             lblItemCnt.innerText = `${unreadCnt}개의 새 알림이 있습니다.\n`;
@@ -18,19 +22,55 @@ const printItemCnt = function(printNew){
     lblItemCnt.innerText += `총 ${itemCnt}개의 알림이 있습니다. 알림은 최근 100개만 저장됩니다.`;
 }
 
-for (const listItem of list.children){
-    listItem.addEventListener("click", function(event){
-        const listChkbox = listItem.firstElementChild;
-        if (event.target !== listChkbox){
-            listChkbox.checked = !listChkbox.checked;
-        }    
-    });    
-    if (listItem.dataset.unread === "true"){
-        unreadCnt++;
-    }    
-}    
+async function fncLoadMore(){
+    if (cmdLoadMore.dataset.enabled === "false"){ // never test for "true". may be undefined
+        return;
+    } else {
+        cmdLoadMore.dataset.enabled = "false";
+    }
+    await doFetch("./notifications/loadMore", "GET", "", "", "로드 과정에 오류가 발생했습니다.", async function(result){
+        let resJson = await result.json();
+        for (const listItem of resJson.arr){
+            list.insertAdjacentHTML("beforeend", `
+                    <div class="listItem grayLink" id="${listItem.id}" data-unread="${listItem.unread}">
+                        <input  type="checkbox"><label class="listItemChk"for="${listItem.id}">  ${listItem.date}</label>
+                        <div class="listItemText"><br>${listItem.text}</div><br>
+                        <div class="listItemDetails" id="listDetail_${linkID}">상세 보기</div>
+                    </div>
+                `);
+            document.getElementById("listDetail_" + String(linkID)).addEventListener("click", function(){
+                loadNotificationDetails(divPopup, listItem, listItem.link);
+            });
+            linkID++;
+        }
+        if (resJson.loadMore === "false"){
+            document.getElementById("loadMore").remove();
+        }
+        printItemCnt(false);
+        return "";
+    });
+    cmdLoadMore.dataset.enabled = "true";
+}
+cmdLoadMore.addEventListener("click", fncLoadMore);
 
-printItemCnt(true);
+async function fncInitLoad(){
+    await fncLoadMore();
+
+    for (const listItem of list.children){
+        listItem.addEventListener("click", function(event){
+            const listChkbox = listItem.firstElementChild;
+            if (event.target !== listChkbox){
+                listChkbox.checked = !listChkbox.checked;
+            }    
+        });    
+        if (listItem.dataset.unread === "true"){
+            unreadCnt++;
+        }    
+    }
+    printItemCnt(true);
+}
+
+fncInitLoad();
 
 {
     let tlbItem = document.getElementById("selectAll");
@@ -60,26 +100,11 @@ printItemCnt(true);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch("./notifications/update", "DELETE", JSON.stringify(lstDeleteName), 
+            doFetch("./notifications/update", "DELETE", JSON.stringify({action: "delete", files: lstDeleteName}), 
             "", "삭제에 오류가 발생했습니다.", async function(result){
                 const resJson = await result.json();
-                for (listItem of resJson.arr){
-                    try{
-                        document.getElementById(listItem).remove();
-                        itemCnt--;
-                    } catch {
-                        continue;
-                    }
-                }
-                printItemCnt(false);
+                fncRemoveItems(resJson, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
             });
-        }
-        if (resJson.failed.reason){
-            return resJson.failed;
-        } else if (resJson.failed.length > 0){
-            return "삭제에 실패한 항목이 있습니다.";
-        } else {
-            return "삭제가 완료되었습니다.";
         }
     });
 }
@@ -87,9 +112,10 @@ printItemCnt(true);
 {
     let tlbItem = document.getElementById("deleteAll");
     tlbItem.addEventListener("click", async function(){
-        doFetch("./notifications/deleteAll", "PUT", "", "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", function(){
-            if (!result.ok){
-                throw new Error(`result error: ${result.status}`);
+        doFetch("./notifications/update", "DELETE", JSON.stringify({action: "deleteAll"}), "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", async function(result){            
+            const resJson = await result.json();
+            if (resJson.failed){
+                return "삭제에 오류가 발생했습니다."
             }
             for (let i = list.children.length - 1; i >= 0; i--){
                 try{
@@ -99,49 +125,7 @@ printItemCnt(true);
             itemCnt = 0;
             printItemCnt(false);
             document.getElementById("loadMore").remove();
-        });
-    });
-}
-
-{
-    let cmdLoadMore = document.getElementById("loadMore");
-    cmdLoadMore.addEventListener("click", async function(event){
-        if (cmdLoadMore.dataset.enabled === "false"){ // never test for "true". may be undefined
-            return;
-        } else {
-            cmdLoadMore.dataset.enabled = "false";
-        }
-        await doFetch("./notifications/loadMore", "GET", "", "", "로드 과정에 오류가 발생했습니다.", async function(result){
-            let resJson = await result.json();
-            for (const newItem of resJson.arr){
-                let newListItem = null;
-                let newChk = null, newLbl = null, newDiv = null;
-                list.appendChild(newListItem = document.createElement("div"));
-                newListItem.appendChild(newChk = document.createElement("input"));
-                newListItem.appendChild(newLbl = document.createElement("label"));
-                newListItem.appendChild(newDiv = document.createElement("div"));
-                newListItem.setAttribute("class", "listItem grayLink");
-                newListItem.setAttribute("id", newItem.id);
-                newListItem.setAttribute("data-unread", newItem.unread);
-                newListItem.addEventListener("click", function(event){
-                    const listChkbox = newListItem.firstElementChild;
-                    if (event.target !== listChkbox){
-                        listChkbox.checked = !listChkbox.checked;
-                    }    
-                });
-                newChk.setAttribute("type", "checkbox");
-                newLbl.setAttribute("class", "listItemChk");
-                newLbl.setAttribute("for", newItem.id);
-                newLbl.innerText = "  " + newItem.date;
-                newDiv.setAttribute("class", "listItemText");
-                newDiv.innerText = "\n" + newItem.text;
-            }
-            if (resJson.loadMore === "false"){
-                document.getElementById("loadMore").remove();
-            }
-            printItemCnt(false);
             return "";
         });
-        cmdLoadMore.dataset.enabled = "true";
     });
 }

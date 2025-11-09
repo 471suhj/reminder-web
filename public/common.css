@@ -106,13 +106,14 @@
 #popup{
     position: fixed;
     display: none;
-    width: calc(100% - 50px);
-    height: calc(100% - 40px);
-    left: 25px;
-    top: 20px;
+    width: calc(100% - 80px);
+    height: calc(100% - 60px);
+    left: 40px;
+    top: 30px;
     background-color: white;
     border-style: solid;
     border-width: 1px;
     border-color: gray;
+    overflow-y: scroll;
     z-index: 91;
 }

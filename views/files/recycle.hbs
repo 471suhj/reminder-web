@@ -6,7 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{dirName}} - ComphyCat Reminder</title>
         <link rel="stylesheet" href="/common.css">
-        <link rel="stylesheet" href="/files/shared.css">
+        <link rel="stylesheet" href="/files/recycle.css">
     </head>
     <body>
         <div class="heading">
@@ -29,20 +29,18 @@
             </div>
             <div class="main">
                 <div class="toolbar">
-                    <div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div>|<!-
+                    <a href="{{uplink}}"><div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div></a>|<!-
                     ><div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="download"><img src="/graphics/toolbars/download.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="share"><img src="/graphics/toolbars/share.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="copy"><img src="/graphics/toolbars/copy.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="delete"><img src="/graphics/toolbars/unshare.png" width="20" height="20"></div>
+                    ><div class="toolItem beigeLink" id="restore">복원</div>|<!-
+                    ><div class="toolItem beigeLink" id="delete">영구 삭제</div>
                 </div>
                 <p id="itemCount" data-countitem="{{countItem}}" data-itemcnt="0"></p>
                 <div id="listHead">
                     <input class="listItemChkbox listItemCol" id="selectAll" type="checkbox"><!-
-                    ><div class="listOwnerImg listItemCol"><img class="listItemCol ownerImg" src="" width="30" height="30" style="display:none"></div><!-
-                    ><div class="listOwner listItemCol grayLink colLink" id="colOwner" data-set="1">관리자</div><!-
-                    ><div class="listItemText listItemCol grayLink colLink" id="colName">이름</div><!-
-                    ><div class="listProfile listItemCol" style="font-size:medium">공유</div><!-
+                    ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" style="display:none"></div><!-
+                    ><div class="listItemText listItemCol grayLink colLink" id="colName" data-set="1">이름</div><!-
+                    ><div class="listPath listItemCol grayLink colLink" id="colPath" style="font-size:medium;">경로</div><!-
+                    ><div class="listDelDate listItemCol grayLink colLink" id="colDelDate">삭제 날짜</div><!-
                     ><div class="listDate listItemCol grayLink colLink" id="colDate">수정한 날짜</div>
                 </div>
                 <div id="list">
@@ -52,15 +50,6 @@
                 </div>
             </div>
         </div>
-        <dialog id="overwriteDlg">
-            <p>이미 같은 이름의 파일이 있습니다.</p>
-            <button id="buttonoverwrite">덮어쓰기</button>
-            <button id="buttonrrename" autofocus>"이름-2"로 저장</button>
-            <button id="buttonskip">건너뛰기</button>
-            <button id="buttoncancel">취소</button>
-        </dialog>
-        <div id="popup">
-        </div>
-        <script type="module" src="shared.js"></script>
+        <script type="module" src="recycle.js"></script>
     </body>
 </html>

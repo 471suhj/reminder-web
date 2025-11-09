@@ -7,7 +7,7 @@ lblMsg.addEventListener("mouseleave", function(event){
 })
 const lblMsgBox = document.getElementById("messageBox")
 
-export const showMessage = function(message){
+export function showMessage(message){
     lblMsgBox.innerText = message;
     lblMsgBox.dataset.show = "true";
     setTimeout(() => {
@@ -15,16 +15,16 @@ export const showMessage = function(message){
     }, 5000);
 }
 
-export const showProgressMessage = function(message){
+export function showProgressMessage(message){
     lblMsgBox.innerText = message;
     lblMsgBox.dataset.show = "true";
 }
 
-export const hideMessage = function(){
+export function hideMessage(){
     lblMsgBox.dataset.show = "false";
 }
 
-export const doFetch = async function(link, method, data, msgSuccess, msgFail, process, fprocess){
+export async function doFetch(link, method, data, msgSuccess, msgFail, process, fprocess){
     try{
         let result = null;
         showProgressMessage("처리 중입니다...");

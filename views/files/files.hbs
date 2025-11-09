@@ -45,9 +45,9 @@
                 <div id="listHead">
                     <input class="listItemChkbox listItemCol" id="selectAll" type="checkbox"><!-
                     ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" style="display:none"></div><!-
-                    ><div class="listItemText listItemCol grayLink" id="colName" data-set="1">이름</div><!-
+                    ><div class="listItemText listItemCol grayLink colLink" id="colName" data-set="1">이름</div><!-
                     ><div class="listProfile listItemCol" style="font-size:medium">공유</div><!-
-                    ><div class="listDate listItemCol grayLink" id="colDate">수정한 날짜</div>
+                    ><div class="listDate listItemCol grayLink colLink" id="colDate">수정한 날짜</div>
                 </div>
                 <div id="list">
                     <div class="grayLink" data-show="true" id="loadMore">
@@ -60,6 +60,7 @@
             <p>이미 같은 이름의 파일이 있습니다.</p>
             <button id="buttonoverwrite">덮어쓰기</button>
             <button id="buttonrrename" autofocus>"이름-2"로 저장</button>
+            <button id="buttonskip">건너뛰기</button>
             <button id="buttoncancel">취소</button>
         </dialog>
         <div id="popup">

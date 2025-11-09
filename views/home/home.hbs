@@ -32,14 +32,15 @@
                     <h2 class="contentName"><a class="blueLink" href="{{link}}">{{title}} >></a></h2>
                     <div class="list">
                     {{#each Item}}
-                    <a href="{{[3]}}" class="blueLink">
-                       <div class="listContent{{[0]}}">{{[1]}}. {{[2]}}</div>
-                    </a>
+                       <div class="listContent listContent{{[0]}} blueLink" data-popup="{{[3]}}" data-link="{{[4]}}">{{[1]}}. {{[2]}}</div>
                     {{/each}}
                     </div>
                 </div>
                 {{/each}}
             </div>
         </div>
+        <div id="popup">
+        </div>
+        <script src="home.js" type="module"
     </body>
 </html>
