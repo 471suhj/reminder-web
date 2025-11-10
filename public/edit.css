@@ -1,0 +1,99 @@
+*{
+    box-sizing: border-box;
+    margin: 0px;
+}
+p{
+    height: 21px;
+}
+.grayLink{
+    cursor: pointer;
+}
+.grayLink:hover{
+    background-color: lightgray;
+}
+.inlines{
+    display: inline-block;
+}
+.grayText{
+    color: gray;
+}
+#heading{
+    height: 60px;
+    width: 100%;
+    border-bottom: 1px solid black;
+    display: flex;
+    flex-wrap: nowrap;
+}
+#fileName{
+    font-size: 24px;
+}
+#shared{
+    font-size: 13px;
+}
+#accountInfo{
+    text-align: end;
+    padding: 5px;
+}
+#head0{
+    margin: 5px;
+    padding: 0px;
+    flex: 0 0 40px;
+}
+#head1{
+    flex: 3 1 fit-content;
+}
+#shareOptions{
+    cursor: pointer;
+}
+#head3{
+    flex: 2 1 fit-content;
+    font-size: 16px;
+}
+#head4{
+    flex: 2 1 fit-content;
+    font-size: 13px;
+}
+#frame{
+    width: 100%;
+    height: calc(100% - 60px);
+    display: flex;
+    flex-wrap: nowrap;
+    position: absolute;
+}
+#indexPane{
+    padding: 10px;
+    border-right: 1px solid black;
+    display: flex;
+    flex-direction: column;
+    width: 150px;
+}
+#editPane{
+    padding: 20px;
+    width: calc(100% - 150px);
+}
+.button{
+    cursor: pointer;
+    border: 1px solid black;
+    height: 24px;
+    font-size: 16px;
+    text-align: center;
+}
+#indexList{
+    height: calc(100% - 145px);
+}
+#frontPart, #backPart{
+    position: absolute;
+    display: block;
+    width: calc(100% - 190px);
+    height: calc(100% - 40px);
+    top: 20px;
+    left: 170px;
+}
+#mainText, #backText{
+    resize: none;
+    border-style: solid;
+    border-width: 2px;
+    border-color: gray;
+    width: calc(100%);
+    height: calc(100%);
+}

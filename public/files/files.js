@@ -203,13 +203,14 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                 }
                 let shareMode = null;
                 if (optCopy.checked){shareMode = "copy"} else if (optShareRead) {shareMode = "read"} else {shareMode = "edit"} 
-                doFetch("", "PUT", JSON.stringify({action: "share", files: arrSelFiles, mode: shareMode, message: txtMessage.value, friends: lstFriends.value}), "",
+                const jsonBody = {action: "share", files: arrSelFiles, mode: shareMode, message: txtMessage.value, friends: lstFriends.value};
+                fncClearPopup(divPopup);
+                doFetch("", "PUT", JSON.stringify(jsonBody), "",
                     "공유에 실패했습니다.", async function(result){
                         const resJson = result.json();
                         for (const listItem of resJson.arr){
                             document.getElementById(listItem.id).children[3].innerText = listItem.friends;
                         }
-                        fncClearPopup(divPopup);
                         if (resJson.failed.reason){
                             return resJson.failed;
                         } else if (resJson.failed.length > 0){
@@ -217,11 +218,10 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                         } else {
                             return "공유가 완료되었습니다.";
                         }
-                    }
-                ), fncClearPopup});
-
-        }, () => {fncClearPopup(divPopup);});
-    });
+                });
+            }, () => {fncClearPopup(divPopup);});
+        });
+    })
 }
 
 {

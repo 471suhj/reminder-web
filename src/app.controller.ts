@@ -8,7 +8,19 @@ export class AppController {
   @Get()
   @Render('index')
   getHello() {
-    return {};
+  }
+
+  @Get('edit')
+  @Render('edit')
+  getEdit(){
+    return {
+      fileName: "제목없음",
+      sharedAccounts: "공유중이지 않음",
+      shared: "false",
+      filePath: "/files/제목없음",
+      userName: "수서",
+    };
+
   }
 
   @Get('home')
@@ -28,7 +40,7 @@ export class AppController {
           link: "/files/bookmarks",
           title: "즐겨찾기",
           Item: [
-            ["A", 1, "강아지", "false", "/files"], ["B", 2, "고양이", "false", "/files"], ["A", 3, "강아지", "false", "/files"], ["B", 4, "고양이", "false", "/files"] 
+            ["A", 1, "제목없음", "false", "/edit"], ["B", 2, "고양이", "false", "/files"], ["A", 3, "강아지", "false", "/files"], ["B", 4, "고양이", "false", "/files"] 
           ]
         },
         {

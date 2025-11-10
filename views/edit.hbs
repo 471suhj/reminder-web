@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{fileName}} - ComphyCat Reminder</title>
+        <link rel="stylesheet" href="/edit.css">
+    </head>
+
+    <body>
+        <div id="heading">
+            <img id="head0" class="inlines" src="/graphics/aam4.png" width="40" height="40"><!-
+            ><div class="inlines" id="head1">
+                <div id="fileName">{{fileName}}</div>
+                <div class="inlines" style="font-size:13px">공유 상태:</div> <div class="inlines" id="shared" data-shared="{{shared}}">{{sharedAccounts}}</div>
+                <div class="inlines" id="shareOptions">
+                    <img id="optOneUser" src="/graphics/edit/user.png" width="16" height="16">
+                </div>
+            </div><!-
+            ><div class="inlines" id="head3">
+                <div class="grayText"><div class="inlines" id="saveState">저장 완료</div>  (<div class="inlines" id="saveSec">-</div>초)</div>
+                <div class="filePath">{{filePath}}</div>
+            </div><!-
+            ><div class="inlines" id="head4">
+                <div id="accountInfo">{{userName}}님</div>
+                <div class="grayText" id="curUsers">-</div>
+            </div>
+        </div>
+        <div id="frame">
+            <div id="indexPane">
+                <div class="button grayLink" id="deleteCurItems">항목 삭제</div>
+                <p>&nbsp</p>
+                <div class="button grayLink" id="deleteCurItems">항목 복제</div>
+                <p>&nbsp</p>
+                <div class="button grayLink" id="addItems">항목 추가</div>
+                <p>&nbsp</p>
+                <select size="15" id="indexList">
+
+                </select>
+            </div>
+
+            <div id="editPane">
+                <div id="backPart">
+                    <div id="backText">ddd</div>
+                </div>
+                <div id="frontPart">
+                    <textarea id="mainText">ddd</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="popup">
+        </div>
+    </body>
+</html>
