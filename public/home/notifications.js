@@ -29,8 +29,8 @@ async function fncLoadMore(){
         cmdLoadMore.dataset.enabled = "false";
     }
     await doFetch("./notifications/loadMore", "GET", "", "", "로드 과정에 오류가 발생했습니다.", async function(result){
-        let resJson = await result.json();
-        for (const listItem of resJson.arr){
+        let jsnRes = await result.json();
+        for (const listItem of jsnRes.arr){
             list.insertAdjacentHTML("beforeend", `
                     <div class="listItem grayLink" id="${listItem.id}" data-unread="${listItem.unread}">
                         <input  type="checkbox"><label class="listItemChk"for="${listItem.id}">  ${listItem.date}</label>
@@ -43,8 +43,9 @@ async function fncLoadMore(){
             });
             linkID++;
         }
-        if (resJson.loadMore === "false"){
-            document.getElementById("loadMore").remove();
+        if (jsnRes.loadMore === "false"){
+            cmdLoadMore.style.display = "none";
+            document.body.appendChild(cmdLoadMore);
         }
         printItemCnt(false);
         return "";
@@ -102,8 +103,8 @@ fncInitLoad();
         if (lstDeleteName.length > 0){
             doFetch("./notifications/update", "DELETE", JSON.stringify({action: "delete", files: lstDeleteName}), 
             "", "삭제에 오류가 발생했습니다.", async function(result){
-                const resJson = await result.json();
-                fncRemoveItems(resJson, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
+                const jsnRes = await result.json();
+                fncRemoveItems(jsnRes, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
             });
         }
     });
@@ -113,8 +114,8 @@ fncInitLoad();
     let tlbItem = document.getElementById("deleteAll");
     tlbItem.addEventListener("click", async function(){
         doFetch("./notifications/update", "DELETE", JSON.stringify({action: "deleteAll"}), "삭제가 완료되었습니다.", "삭제에 오류가 발생했습니다.", async function(result){            
-            const resJson = await result.json();
-            if (resJson.failed){
+            const jsnRes = await result.json();
+            if (jsnRes.failed){
                 return "삭제에 오류가 발생했습니다."
             }
             for (let i = list.children.length - 1; i >= 0; i--){
@@ -124,7 +125,8 @@ fncInitLoad();
             }
             itemCnt = 0;
             printItemCnt(false);
-            document.getElementById("loadMore").remove();
+            cmdLoadMore.style.display = "none";
+            document.body.appendChild(cmdLoadMore);
             return "";
         });
     });

@@ -38,7 +38,7 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
-function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
+function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
         <div class="listItem grayLink" id="${listItem.id}">
@@ -49,7 +49,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
         ><div class="listDate listItemCol">${listItem.date}</div>
         </div>`;
     }
-    fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, true, 2, lblLoadMore, numItemCnt, fncPrintCnt);
+    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, true, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
 fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
@@ -90,12 +90,12 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
             let jsonBody = {action: "upload", sort: sortMode, files: addedFile};
             fncClearPopup(divPopup);
             doFetch("", "POST", JSON.stringify(jsonBody), "", "파일 업로드를 실패했습니다.", async function(result){
-                const resJson = await result.json(addedFile);
-                if (resJson.alreadyExists){
+                const jsnRes = await result.json(addedFile);
+                if (jsnRes.alreadyExists){
                     fncAnswerDlg("업로드를 완료했습니다.", "파일 업로드를 실패했습니다.", "업로드에 실패한 파일이 있습니다.", dlgOverwrite);
                     return "";
                 }
-                return fncInsertFile(resJson, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
+                return fncInsertFile(jsnRes, false, "업로드를 완료했습니다.", "업로드에 실패한 파일이 있습니다.");
             });
         })
     });
@@ -142,8 +142,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         if (lstDeleteName.length > 0){
             doFetch("", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
             "", "삭제에 오류가 발생했습니다.", async function(result){
-                const resJson = await result.json();
-                return fncRemoveItems(resJson, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
+                const jsnRes = await result.json();
+                return fncRemoveItems(jsnRes, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
             });
         }
     });
@@ -177,8 +177,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 
             const cmdOK = fncCreateOKCancel(divPopup);
             
-            const resJson = await result.json();
-            for (const listItem of resJson.arr){
+            const jsnRes = await result.json();
+            for (const listItem of jsnRes.arr){
                 const ctlOption = lstFriends.appendChild(document.createElement("option"));
                 ctlOption.innerText = `${listItem.name} (${listItem.id})`;
                 ctlOption.dataset.userid = listItem.id;
@@ -207,13 +207,13 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                 fncClearPopup(divPopup);
                 doFetch("", "PUT", JSON.stringify(jsonBody), "",
                     "공유에 실패했습니다.", async function(result){
-                        const resJson = result.json();
-                        for (const listItem of resJson.arr){
+                        const jsnRes = result.json();
+                        for (const listItem of jsnRes.arr){
                             document.getElementById(listItem.id).children[3].innerText = listItem.friends;
                         }
-                        if (resJson.failed.reason){
-                            return resJson.failed;
-                        } else if (resJson.failed.length > 0){
+                        if (jsnRes.failed.reason){
+                            return jsnRes.failed;
+                        } else if (jsnRes.failed.length > 0){
                             return "공유에 실패한 항목이 있었습니다.";
                         } else {
                             return "공유가 완료되었습니다.";
@@ -242,8 +242,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         let strName = prompt("폴더의 이름을 입력하십시오.", "");
         if (strName){
             doFetch("", "PUT", JSON.stringify({action: "createDir", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
-                const resJson = await result.json();
-                return fncInsertFile(resJson, false, "", "폴더 추가에 실패했습니다.");
+                const jsnRes = await result.json();
+                return fncInsertFile(jsnRes, false, "", "폴더 추가에 실패했습니다.");
             })
         }
     });
@@ -253,8 +253,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         let strName = prompt("파일의 이름을 입력하십시오.", "");
         if (strName){
             doFetch("", "PUT", JSON.stringify({action: "createFile", sort: sortMode, name: strName}), "", "파일 추가에 실패했습니다.", async function(result){
-                const resJson = await result.json();
-                return fncInsertFile(resJson, false, "", "파일 추가에 실패했습니다.");
+                const jsnRes = await result.json();
+                return fncInsertFile(jsnRes, false, "", "파일 추가에 실패했습니다.");
             })
         }
     });

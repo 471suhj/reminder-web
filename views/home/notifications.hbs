@@ -5,7 +5,8 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>알림 - ComphyCat Reminder</title>
-        <link rel="stylesheet" href="/common.css">
+        <link rel="stylesheet" href="/common.frame.css">
+        <link rel="stylesheet" href="/common.comp.css">
         <link rel="stylesheet" href="notifications.css">
     </head>
     <body>
@@ -17,7 +18,7 @@
                 <a class="blackLink grayLink" href="/home/notifications">알림 {{ notificationCnt }}개</a>
             </div>
         </div>
-        <div class="frame">
+        <div id="frame">
             <div class="side">
                 {{#each sideItem}}
                 <a class="blackLink" href="{{[0]}}"><div class="sideItem{{[1]}}"><img src="{{[2]}}" width="25" height="25"><br>{{3}}</div></a>

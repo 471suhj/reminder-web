@@ -17,7 +17,7 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
-function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
+function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
         <div class="listItem grayLink" id="${listItem.id}">
@@ -30,7 +30,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
             ><div class="listDate listItemCol">${listItem.date}</div>
         </div>`;
     }
-    fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
+    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
 fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
@@ -51,7 +51,7 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 }
 
 {
-    let tlbItem = document.getElementById("unshare");
+    let tlbItem = document.getElementById("delete");
     tlbItem.addEventListener("click", function(){
         let arrSelFiles = [];
         for (const listItem of list.children){
@@ -66,11 +66,19 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         if (!confirm("공유를 취소하시겠습니까?")){
             return;
         }
-        doFetch("", "PUT", JSON.stringify({action: "unshare", files: arrSelFiles, friend: lblID, sort: sortMode}),
-            "공유가 취소되었습니다.", "공유 취소를 실패했습니다.", async function(result){
-                const resJson = await result.json();
-                fncRemoveItems(resJson, fncPrintCnt, "공유 취소에 실패한 항목이 있습니다.", "공유 취소가 완료되었습니다.");
+        divPopup.style.display = "block";
+        divPopup.appendChild("p").innerText = "전송할 메시지를 입력하십시오.";
+        const txtMsg = divPopup.appendChild(document.createElement("textarea"));
+        const cmdOK = fncCreateOKCancel(divPopup);
+        cmdOK.addEventListener("click", function(){
+            const txtBody = JSON.stringify({action: "selected", files: arrSelFiles, friend: lblID, sort: sortMode, message: txtMsg.value});
+            fncClearPopup(divPopup);
+            doFetch("", "DELETE", txtBody,
+                "공유가 취소되었습니다.", "공유 취소를 실패했습니다.", async function(result){
+                const jsnRes = await result.json();
+                fncRemoveItems(jsnRes, fncPrintCnt, "공유 취소에 실패한 항목이 있습니다.", "공유 취소가 완료되었습니다.");
             });
+        });
     });
 }
 
@@ -87,13 +95,13 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
             lstFiles.multiple = true;
             const cmdOK = fncCreateOKCancel(divPopup);
 
-            const resJson = await result.json();
-            txtPath.innerText = resJson.path;
-            for (const listItem of resJson.dirarr){
+            const jsnRes = await result.json();
+            txtPath.innerText = jsnRes.path;
+            for (const listItem of jsnRes.dirarr){
                 const ctlOption = lstDir.appendChild(document.createElement("option"));
                 ctlOption.innerText = `${listItem.name}`;
             }
-            for (const listItem of resJson.filearr){
+            for (const listItem of jsnRes.filearr){
                 const ctlOption = lstFiles.appendChild(document.createElement("option"));
                 ctlOption.innerText = `${listItem.name}`;
             }
@@ -108,9 +116,9 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                 let jsonBody = {action: "share", mode: shareMode, sort: sortMode, files: arrSelFiles, fromPath: lstDir.value, file: lstFiles.value};
                 doFetch("", "POST", JSON.stringify(jsonBody), "", "공유를 실패했습니다.",
                     async function(result){
-                        const resJson = await result.json();
+                        const jsnRes = await result.json();
                         fncClearPopup(divPopup);
-                        return fncInsertFile(resJson, false, "공유가 완료되었습니다.", "공유되지 못한 파일이 있습니다.");
+                        return fncInsertFile(jsnRes, false, "공유가 완료되었습니다.", "공유되지 못한 파일이 있습니다.");
                     }
                 ), fncClearPopup});
         }, () => {fncClearPopup(divPopup);});
@@ -125,10 +133,10 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         }
         await doFetch("", "DELETE", JSON.stringify({sort: sortMode, files: [lblID.innerText]}), 
         "", "삭제에 오류가 발생했습니다.", async function(result){
-            const resJson = await result.json();
-            if (resJson.failed.reason){
-                return resJson.failed;
-            } else if ((resJson.arr.length !== 1) || (resJson.failed.length > 0)){
+            const jsnRes = await result.json();
+            if (jsnRes.failed.reason){
+                return jsnRes.failed;
+            } else if ((jsnRes.arr.length !== 1) || (jsnRes.failed.length > 0)){
                 return "친구 최소에 실패했습니다."
             } else {
                 document.location.href = "/friends"

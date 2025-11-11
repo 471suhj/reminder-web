@@ -6,10 +6,10 @@ export function fncRefresh(lblLoadMore, list, sortMode, fncInsertFile, fncPrintC
 }
 
 export function fncClearList(lblLoadMore){
-    while (list.children.length){
+    list.appendChild(lblLoadMore);
+    while (list.children.length > 1){
         list.children[0].remove();
     }
-    list.appendChild(lblLoadMore);
 }
 
 export async function fncLoadMore(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt){
@@ -20,11 +20,12 @@ export async function fncLoadMore(lblLoadMore, list, sortMode, fncInsertFile, fn
         idCurLast = list.children[list.children.length - 2].id;
     }
     await doFetch(`./loadmore?sort=${sortMode.criteria}&sortincr=${sortMode.incr}&startafter=` + idCurLast, "GET", "", "", "추가 로드에 실패했습니다.", async function(result){
-        let resJson = await result.json();
-        fncInsertFile(resJson, true, "", "", lblLoadMore.firstElementChild.checked);
+        let jsnRes = await result.json();
+        fncInsertFile(jsnRes, true, "", "", lblLoadMore.firstElementChild.checked);
         fncPrintCnt();
-        if (resJson.loadMore === "false") {
-            lblLoadMore.remove();
+        if (jsnRes.loadMore === "false") {
+            lblLoadMore.style.display = "none";
+            document.body.appendChild(lblLoadMore);
         }
         return "";
     });

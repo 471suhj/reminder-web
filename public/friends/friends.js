@@ -13,7 +13,7 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
-function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
+function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
         <div class="listItem grayLink" id="${listItem.id}">
@@ -26,7 +26,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
             </div>
         </div>`;
     }
-    fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
+    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
 fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
@@ -84,8 +84,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
         }
         doFetch("", "DELETE", JSON.stringify({sort: sortMode, files: lstDeleteName}), 
         "", "삭제에 오류가 발생했습니다.", async function(result){
-            const resJson = await result.json();
-            fncRemoveItems(resJson, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
+            const jsnRes = await result.json();
+            fncRemoveItems(jsnRes, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
         });
     });
 }

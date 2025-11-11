@@ -1,8 +1,8 @@
 import {fncClearPopup} from "/popup.js"
 import {doFetch} from "/printmsg.js"
 
-export async function fncRemoveItems(resJson, fncPrintCnt, msgNeg, msgPos){
-    for (listItem of resJson.arr){
+export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
+    for (listItem of jsnRes.arr){
         try{
             document.getElementById(listItem).remove();
             itemCnt--;
@@ -11,17 +11,17 @@ export async function fncRemoveItems(resJson, fncPrintCnt, msgNeg, msgPos){
         }
     }
     fncPrintCnt();
-    if (resJson.failed.reason){
-        return resJson.failed;
-    } else if (resJson.failed.length > 0){
+    if (jsnRes.failed.reason){
+        return jsnRes.failed;
+    } else if (jsnRes.failed.length > 0){
         return msgNeg;
     } else {
         return msgPos;
     }
 }
 
-export function fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, includeBookmark, childLoc, lblLoadMore, numItemCnt, fncPrintCnt){
-    for (const listItem of resJson.arr){
+export function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, includeBookmark, childLoc, lblLoadMore, numItemCnt, fncPrintCnt){
+    for (const listItem of jsnRes.arr){
         let itmAfter = null;
         let itmNew = null;
         if (!last && !listItem.before){itmAfter = document.getElementById(listItem.before);}
@@ -64,8 +64,8 @@ export function fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, str
             }
             doFetch("", action, JSON.stringify({action: "bookmark", id: itmNew.getAttribute("id")}),
             "", "처리에 실패했습니다.", async function(result){
-                const resJson = result.json();
-                if (resJson.failed){
+                const jsnRes = result.json();
+                if (jsnRes.failed){
                     return "처리에 실패했습니다."
                 }
                 if (action === "DELETE"){
@@ -91,8 +91,8 @@ export function fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, str
         }
     }
 
-    resJson.arr = resJson.deleteArr;
-    fncRemoveItems(resJson, fncPrintCnt, msgNeg, msgPos)
+    jsnRes.arr = jsnRes.deleteArr;
+    fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos)
 }
 
 export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite){
@@ -136,9 +136,9 @@ export function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list,
         lstDir.multiple = true;
         const cmdOK = fncCreateOKCancel(divPopup);
 
-        const resJson = await result.json();
-        txtPath.innerText = resJson.path;
-        for (const listItem of resJson.arr){
+        const jsnRes = await result.json();
+        txtPath.innerText = jsnRes.path;
+        for (const listItem of jsnRes.arr){
             const ctlOption = lstDir.appendChild(document.createElement("option"));
             ctlOption.innerText = `${listItem.name}`;
         }
@@ -151,12 +151,12 @@ export function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list,
             fncClearPopup(divPopup);
             doFetch("", "POST", JSON.stringify(jsonBody), "",
                 msgNegAll, async function(result){
-                    const resJson = await result.json();
-                    if (resJson.alreadyExists){
+                    const jsnRes = await result.json();
+                    if (jsnRes.alreadyExists){
                         fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite);
                         return "";
                     } else {
-                        return fncInsertFile(resJson, false, msgPos, msgNegPart);
+                        return fncInsertFile(jsnRes, false, msgPos, msgNegPart);
                     }
                 });
             });

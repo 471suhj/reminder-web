@@ -17,7 +17,7 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
 }
 
-function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
+function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
         <div class="listItem grayLink" id="${listItem.id}">
@@ -29,7 +29,7 @@ function fncInsertFile(resJson, last, msgPos, msgNeg, checkItems){
             ><div class="listDate listItemCol">${listItem.date}</div>
         </div>`;
     }
-    fncAddItems(resJson, last, msgPos, msgNeg, checkItems, list, strHtml, true, 3, lblLoadMore, numItemCnt, fncPrintCnt);
+    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, true, 3, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
 fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
@@ -87,8 +87,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 
             const cmdOK = fncCreateOKCancel(divPopup);
             
-            const resJson = await result.json();
-            for (const listItem of resJson.arr){
+            const jsnRes = await result.json();
+            for (const listItem of jsnRes.arr){
                 const ctlOption = lstFriends.appendChild(document.createElement("option"));
                 ctlOption.innerText = `${listItem.name} (${listItem.id})`;
                 ctlOption.dataset.userid = listItem.id;
@@ -117,13 +117,13 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                 fncClearPopup(divPopup);
                 doFetch("", "PUT", JSON.stringify(jsonBody), "",
                     "공유에 실패했습니다.", async function(result){
-                        const resJson = result.json();
-                        for (const listItem of resJson.arr){
+                        const jsnRes = result.json();
+                        for (const listItem of jsnRes.arr){
                             document.getElementById(listItem.id).children[4].innerText = listItem.friends;
                         }
-                        if (resJson.failed.reason){
-                            return resJson.failed;
-                        } else if (resJson.failed.length > 0){
+                        if (jsnRes.failed.reason){
+                            return jsnRes.failed;
+                        } else if (jsnRes.failed.length > 0){
                             return "공유에 실패한 항목이 있었습니다.";
                         } else {
                             return "공유가 완료되었습니다.";
@@ -143,23 +143,33 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 
 {
     let tlbItem = document.getElementById("delete");
-    tlbItem.addEventListener("click", async function(){
-        if (!confirm("공유를 취소하시겠습니까?")){
-            return;
-        }
+    tlbItem.addEventListener("click", function(){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
                 lstDeleteName.push(listItem.id);
             }
         }
-        if (lstDeleteName.length > 0){
-            doFetch("", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
-            "", "공유 취소에 오류가 발생했습니다.", async function(result){
-                const resJson = await result.json();
-                fncRemoveItems(resJson, fncPrintCnt, "공유 취소에 실패한 항목이 있습니다.", "공유 취소가 완료되었습니다.");
-            });
+        if (lstDeleteName.length <= 0){
+            showMessage("파일이 선택되지 않았습니다.");
+            return;
         }
+        if (!confirm("공유를 취소하시겠습니까?")){
+            return;
+        }
+        divPopup.style.display = "block";
+        divPopup.appendChild("p").innerText = "전송할 메시지를 입력하십시오.";
+        const txtMsg = divPopup.appendChild(document.createElement("textarea"));
+        const cmdOK = fncCreateOKCancel(divPopup);
+        cmdOK.addEventListener("click", function(){
+            const jsonBody = {action: "selected", sort: sortMode, files: lstDeleteName, message: txtMsg.value};
+            fncClearPopup(divPopup);
+            doFetch("", "DELETE", JSON.stringify(jsonBody), 
+            "", "공유 취소에 오류가 발생했습니다.", async function(result){
+                const jsnRes = await result.json();
+                fncRemoveItems(jsnRes, fncPrintCnt, "공유 취소에 실패한 항목이 있습니다.", "공유 취소가 완료되었습니다.");
+            });
+        });
     });
 }
 

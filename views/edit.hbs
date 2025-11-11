@@ -5,52 +5,60 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{fileName}} - ComphyCat Reminder</title>
+        <link rel="stylesheet" href="/common.comp.css">
         <link rel="stylesheet" href="/edit.css">
     </head>
 
     <body>
         <div id="heading">
-            <img id="head0" class="inlines" src="/graphics/aam4.png" width="40" height="40"><!-
+            <img id="head0" src="/graphics/aam4.png" width="40" height="40"><!-
             ><div class="inlines" id="head1">
-                <div id="fileName">{{fileName}}</div>
-                <div class="inlines" style="font-size:13px">공유 상태:</div> <div class="inlines" id="shared" data-shared="{{shared}}">{{sharedAccounts}}</div>
+                <div id="fileName" data-fileid="{{fileID}}">{{fileName}}</div>
+                <span style="font-size:13px">공유 상태:</span> <span id="shared"></span>
                 <div class="inlines" id="shareOptions">
-                    <img id="optOneUser" src="/graphics/edit/user.png" width="16" height="16">
+                    <img id="imgShareOptions" data-shared="false" src="/graphics/edit/user.png" width="25" height="25">
                 </div>
             </div><!-
-            ><div class="inlines" id="head3">
-                <div class="grayText"><div class="inlines" id="saveState">저장 완료</div>  (<div class="inlines" id="saveSec">-</div>초)</div>
+            ><div id="head3">
+                <div class="grayText"><span id="saveState">불러오는 중...</span>  (<span id="saveSec">-</span>초)</div>
                 <div class="filePath">{{filePath}}</div>
             </div><!-
-            ><div class="inlines" id="head4">
+            ><div id="head4">
                 <div id="accountInfo">{{userName}}님</div>
-                <div class="grayText" id="curUsers">-</div>
+                <span class="grayText">현재 접속:&nbsp;</span><span class="grayText" id="curUsers">-</span>
             </div>
         </div>
         <div id="frame">
             <div id="indexPane">
                 <div class="button grayLink" id="deleteCurItems">항목 삭제</div>
-                <p>&nbsp</p>
-                <div class="button grayLink" id="deleteCurItems">항목 복제</div>
-                <p>&nbsp</p>
-                <div class="button grayLink" id="addItems">항목 추가</div>
-                <p>&nbsp</p>
+                <p class="vertSpace">&nbsp</p>
+                <div class="button grayLink" id="duplicateCurItems">항목 복제</div>
+                <p class="vertSpace">&nbsp</p>
+                <div class="button grayLink" id="addItem">항목 추가</div>
+                <p class="vertSpace">&nbsp</p>
+                <div><div class="button grayLink inlines" id="moveItemUp">위로</div><div class="button grayLink inlines" id="moveItemDown">아래로</div></div>
+                <p class="vertSpace">&nbsp</p>
                 <select size="15" id="indexList">
-
                 </select>
             </div>
 
             <div id="editPane">
                 <div id="backPart">
-                    <div id="backText">ddd</div>
+                    <div id="backText"></div>
                 </div>
                 <div id="frontPart">
-                    <textarea id="mainText">ddd</textarea>
+                    <textarea id="mainText"></textarea>
                 </div>
             </div>
         </div>
-
+        <div id="shareMenu" tabindex="0">
+            <div id="shareCopy" class="grayLink" data-action="copy">사본 전송</div>
+            <div id="shareRead" class="grayLink" data-action="read">읽기 공유</div>
+            <div id="shareEdit" class="grayLink" data-action="edit">편집 공유</div>
+            <div id="shareForceRead" class="grayLink" data-action="forceRead">편집 권한 제한</div>
+        </div>
         <div id="popup">
         </div>
+        <script src="edit.js" type="module"></script>
     </body>
 </html>

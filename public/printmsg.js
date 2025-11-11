@@ -1,5 +1,5 @@
 let lblMsg = null;
-document.body.getElementsByClassName("frame")[0].appendChild(lblMsg = document.createElement("div"));
+document.getElementById("frame").appendChild(lblMsg = document.createElement("div"));
 lblMsg.setAttribute("id", "messageBox");
 lblMsg.setAttribute("data-show", "false");
 lblMsg.addEventListener("mouseleave", function(event){

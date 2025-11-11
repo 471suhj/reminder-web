@@ -8,6 +8,7 @@ export class AppController {
   @Get()
   @Render('index')
   getHello() {
+    return {};
   }
 
   @Get('edit')
@@ -15,10 +16,29 @@ export class AppController {
   getEdit(){
     return {
       fileName: "제목없음",
-      sharedAccounts: "공유중이지 않음",
-      shared: "false",
       filePath: "/files/제목없음",
       userName: "수서",
+    };
+
+  }
+
+  @Get('test')
+  @Render('test')
+  getTest(){
+    return {};
+  }
+
+  @Get('edit/inter')
+  getEditInter(){
+    return {
+      sharedState: false,
+      sharedAccounts: "",
+      readOnly: false,
+      curUsers: "-",
+      itmUsers: ["", "", "", "", "", "", "", ""],
+      itmCur: 3,
+      txtCur: "To C or not to C, that is the question. 한글 확인.",
+      curLoc: [],
     };
 
   }

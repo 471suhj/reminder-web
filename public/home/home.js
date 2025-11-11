@@ -8,7 +8,7 @@ for (const listItem of items){
         if (listItem.dataset.popup === "true"){
             loadNotificationDetails(divPopup, listItem, document);
         } else {
-            document.location.href = listItem.dataset.link;
+            window.open(listItem.dataset.link);
         }
     })
 }

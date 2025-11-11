@@ -2,14 +2,8 @@
     box-sizing: border-box;
     margin: 0px;
 }
-p{
-    height: 21px;
-}
-.grayLink{
-    cursor: pointer;
-}
-.grayLink:hover{
-    background-color: lightgray;
+.vertSpace{
+    height: 10px;
 }
 .inlines{
     display: inline-block;
@@ -77,9 +71,13 @@ p{
     height: 24px;
     font-size: 16px;
     text-align: center;
+    width: 129px;
+}
+#moveItemUp, #moveItemDown{
+    width: 64px;
 }
 #indexList{
-    height: calc(100% - 145px);
+    height: calc(100% - 136px);
 }
 #frontPart, #backPart{
     position: absolute;
@@ -96,4 +94,24 @@ p{
     border-color: gray;
     width: calc(100%);
     height: calc(100%);
+    font-family: "Gulim" sans-serif;
+    font-size: xx-large;
+}
+#shareMenu{
+    display: none;
+    position: absolute;
+    background-color: white;
+    border: 1px solid black;
+}
+.userCaretA{
+    font-size: 13px;
+    height: 17px;
+    max-width: 30px;
+    background-color: blue;
+    color: white;
+    z-index: 90;
+}
+.userCaretB{
+    background-color: blue;
+    z-index: 90;
 }

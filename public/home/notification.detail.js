@@ -1,11 +1,5 @@
 import {doFetch} from "/printmsg.js"
-
-function fncClearPopup(divPopup){
-    while (divPopup.children.length){
-        divPopup.children[0].remove();
-    }
-    divPopup.style.display = "none";
-}
+import {fncClearPopup} from "/popup.js"
 
 export function loadNotificationDetails(divPopup, listItem, link){
     divPopup.style.display = "block";

@@ -1,4 +1,4 @@
-.frame{
+#frame{
     flex-wrap: wrap-reverse;
     display: flex;
     width: 100%;
