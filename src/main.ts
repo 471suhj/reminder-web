@@ -2,9 +2,17 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
 import { AppModule } from './app.module';
+import {readFileSync} from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const httpsOptions = {
+    pfx: readFileSync('test_cert.pfx'),
+    passphrase: process.env.PFX_PASS, // passed from pfx_pass.env as written in package.json
+  };
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    httpsOptions,
+  });
 
   app.useStaticAssets(path.join(__dirname, '..', 'public'));
   app.setBaseViewsDir(path.join(__dirname, '..', 'views'));
