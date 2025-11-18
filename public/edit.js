@@ -61,7 +61,7 @@ function fncSetCaret(curLoc){
         rngLoc.setEnd(txtBack, locItem.selEnd);
         const rctSelect = rngLoc.getClientRects();
         userCaretB.style.left = toPx(rctSelect.x); userCaretB.style.top = toPx(rctSelect.y);
-        userCaretB.style.width = toPx(rctSelect.width); userCaretB.style.height = toPx(rctSelect.height);
+        userCaretB.style.height = toPx(rctSelect.height);
         userCaretA.style.left = toPx(rctSelect.x); userCaretA.style.top = toPx(rctSelect.y - 17);
 
         userCaret.dataset.age = intAgeCnt;

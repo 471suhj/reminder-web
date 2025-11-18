@@ -114,4 +114,5 @@
 .userCaretB{
     background-color: blue;
     z-index: 90;
+    width: 5px;
 }
