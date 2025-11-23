@@ -5,3 +5,5 @@
 *.ico binary
 *.bmp binary
 *.jpg binary
+*.pptx binary
+*.xlsx binary

@@ -1,0 +1,90 @@
+create database reminder_web;
+use reminder_web;
+
+create table user (
+	user_serial int unsigned not null auto_increment primary key,
+	user_id char(25) not null unique key,
+	name char(25) not null,
+	auto_receive_files ENUM('false', 'true') not null default 'true',
+	save_recent ENUM('false', 'true') not null default 'true',
+	side_bookmarks ENUM('false', 'true') not null default 'true',
+	side_shared ENUM('false', 'true') not null default 'true',
+	home_bookmarks ENUM('false', 'true') not null default 'true',
+	home_notifs ENUM('false', 'true') not null default 'true',
+	home_files ENUM('false', 'true') not null default 'true',
+	home_shared ENUM('false', 'true') not null default 'true',
+	user_deleted ENUM('false', 'true') not null default 'false',
+	last_updated timestamp not null default current_timestamp on update current_timestamp
+);
+
+create table old_id (
+	user_id varchar(25) not null primary key,
+	user_serial int unsigned not null,
+	last_updated timestamp not null default current_timestamp on update current_timestamp
+);
+
+create table friend_mono (
+	user_serial_to int unsigned not null,
+	user_serial_from int unsigned not null,
+	nickname char(25) not null default '',
+	primary key (user_serial_to, user_serial_from),
+	foreign key (user_serial_to) references user (user_serial),
+	foreign key (user_serial_from) references user (user_serial)
+);
+
+create table friend (
+	user_serial_to int unsigned not null,
+	user_serial_from int unsigned not null,
+	date_added timestamp not null default current_timestamp,
+	primary key (user_serial_to, user_serial_from),
+	key (user_serial_from, user_serial_to),
+	foreign key (user_serial_to, user_serial_from) references friend_mono (user_serial_to, user_serial_from),
+	foreign key (user_serial_from, user_serial_to) references friend_mono (user_serial_to, user_serial_from)
+);
+
+create table file (
+	user_serial int unsigned not null,
+	bookmarked ENUM('false', 'true') not null default 'false',
+	parent_serial bigint unsigned not null,
+	type ENUM('sysdir', 'dir', 'rmb0.3') not null default 'dir',
+	file_name char(40) not null,
+	file_serial bigint unsigned not null auto_increment unique key,
+	last_renamed timestamp not null default current_timestamp,
+	last_modified timestamp not null default current_timestamp,
+	last_opened timestamp not null default current_timestamp,
+	primary key (user_serial, parent_serial, type, file_name),
+	foreign key (user_serial) references user (user_serial),
+	foreign key (parent_serial) references file (file_serial)
+);
+
+create table recycle (
+	user_serial int unsigned not null,
+	parent_serial bigint unsigned not null,
+	type ENUM('other', 'dir', 'rmb0.3') not null default 'dir',
+	file_name varchar(40) not null,
+	file_serial bigint unsigned not null unique key,
+	last_renamed timestamp not null default current_timestamp,
+	last_modified timestamp not null,
+	del_type ENUM('direct', 'recursive') not null,
+	primary key (user_serial, type, file_name, file_serial),
+	foreign key (user_serial) references user (user_serial)
+);
+
+create table shared_def (
+	user_serial_to int unsigned not null,
+	user_serial_from int unsigned not null,
+	file_serial bigint unsigned not null auto_increment unique key,
+	file_name char(40) not null,
+	date_shared timestamp not null default current_timestamp,
+	share_type ENUM('read', 'edit') not null,
+	bookmarked ENUM('false', 'true') not null default 'false',
+	last_opened timestamp not null default current_timestamp,
+	primary key (user_serial_to, user_serial_from, file_serial),
+	foreign key (user_serial_to, user_serial_from) references friend_mono (user_serial_to, user_serial_from)
+);
+
+create table user_google (
+	user_serial int unsigned not null primary key,
+	token char(30),
+	refresh_token char(30),
+);
