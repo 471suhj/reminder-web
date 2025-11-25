@@ -1,11 +1,10 @@
-let lblMsg = null;
-document.getElementById("frame").appendChild(lblMsg = document.createElement("div"));
-lblMsg.setAttribute("id", "messageBox");
-lblMsg.setAttribute("data-show", "false");
-lblMsg.addEventListener("mouseleave", function(event){
+let lblMsgBox = null;
+document.getElementById("frame").appendChild(lblMsgBox = document.createElement("div"));
+lblMsgBox.setAttribute("id", "messageBox");
+lblMsgBox.setAttribute("data-show", "false");
+lblMsgBox.addEventListener("mouseleave", function(event){
     event.target.dataset.show = "false";
 })
-const lblMsgBox = document.getElementById("messageBox")
 
 export function showMessage(message){
     lblMsgBox.innerText = message;

@@ -12,8 +12,18 @@
     font-size: 30px;
     word-break: keep-all;
 }
-.login {
+#signpane {
     padding: 15px;
     flex: 1 1 fit-content;
     background-color: beige;
+}
+.grayText{
+    font-size: small;
+    color: gray;
+}
+#popup{
+    padding: 15px;
+}
+#signup_msg{
+    color: red;
 }

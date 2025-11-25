@@ -23,9 +23,41 @@
                     Reminder 묶음 파일을 웹에서도 관리하고 공유할 수 있습니다.
                 </p>
             </div>
-            <div class="login">
-                <a href="/home">로그인하세요.로그인하세요.로그인하세요.로그인하세요.</a>
+            <div id="signpane">
+                <h1>로그인</h1>
+                <label for="signin_id">아이디</label>
+                <input type="text" id="signin_id"><br>
+                <label for="signin_password">비밀 번호</label>
+                <input type="password" id="signin_password">
+                <input type="button" id="signin" value="로그인"><br>
+                <span class="grayText" id="signin_message">&nbsp;</span>
+                <br><br>
+                <span class="grayLink" id="signup">회원 가입</span><br><br>
+                <a class="grayLink blackLink" href="/etc/privacy.txt">개인정보 처리방침</a> |
+                <a class="grayLink blackLink" href="/etc/users.txt">이용 약관</a> |
+                <a class="grayLink blackLink" href="/etc/legal.txt">법적 고지</a><br>
+                <p class="grayLink" id="signin_google">google로 로그인</p>
             </div>
         </div>
+        <div id="popup">
+            <h1>회원 가입</h1><br>
+            <label for="signup_id">아이디&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>
+            <input type="text" id="signup_id"><br>
+            <span class="grayText" id="signup_id_unique" data-valid="false">7자 이상의 아이디를 입력하십시오</span><br><br>
+            <label for="signup_username">사용자 이름</label>
+            <input type="text" id="signup_username"><br><br><br>
+            <label for="signup_password1">비밀 번호&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</label>
+            <input type="password" id="signup_password1"><br>
+            <span class="grayText" id="signup_pw_valid" data-valid="false">7자 이상의 비밀 번호를 입력하십시오</span><br><br>
+            <label for="signup_password2">비밀 번호 다시 입력</label>
+            <input type="password" id="signup_password2"><br>
+            <span class="grayText" id="signup_pw_match" data-valid="false">&nbsp;</span><br>
+            <input type="checkbox" id="signup_agree">
+            <label for="signup_agree"><a href="/etc/privacy.txt" target="_blank">개인정보 처리방침</a> 및 <a href="/etc/users.txt" target="_blank">이용 약관</a>에 동의합니다.</label><br><br>
+            <span id="signup_msg"></span><br>
+            <input type="button" id="signup_ok" value="회원 가입">&nbsp;&nbsp;&nbsp;
+            <input type="button" id="signup_cancel" value="취소">
+        </div>
+        <script src="index.js" type="module"></script>
     </body>
 </html>

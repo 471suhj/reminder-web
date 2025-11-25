@@ -207,7 +207,7 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
                 fncClearPopup(divPopup);
                 doFetch("", "PUT", JSON.stringify(jsonBody), "",
                     "공유에 실패했습니다.", async function(result){
-                        const jsnRes = result.json();
+                        const jsnRes = await result.json();
                         for (const listItem of jsnRes.arr){
                             document.getElementById(listItem.id).children[3].innerText = listItem.friends;
                         }
