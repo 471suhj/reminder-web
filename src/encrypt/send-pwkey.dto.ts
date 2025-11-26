@@ -1,3 +1,5 @@
+import {KeyObject} from "node:crypto";
+
 export class SendPWKeyDto {
-    value: string;
+    value: KeyObject;
 }

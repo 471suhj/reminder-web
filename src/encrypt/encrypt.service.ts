@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { MysqlService } from '../mysql/mysql.service';
-import { generateKeyPair, RSAKeyPairOptions, privateDecrypt, constants } from 'node:crypto';
+import { generateKeyPair, RSAKeyPairOptions, privateDecrypt, constants, KeyObject } from 'node:crypto';
 import { promisify } from 'node:util';
 import { EncryptError } from './encrypt-error';
 
 @Injectable()
 export class EncryptService {
-    #keyOptions: RSAKeyPairOptions<'der', 'pem'> = {
+    #keyOptions: RSAKeyPairOptions<'jwk', 'pem'> = {
         modulusLength: 4096,
-        publicKeyEncoding: {type: 'spki', format: 'der'},
+        publicKeyEncoding: {type: 'spki', format: 'jwk'},
         privateKeyEncoding: {type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase : process.env.ENCR_PASS}
     };
-    #publicPWKey: string;
-    #privatePWKey: string;
+    #publicPWKey: KeyObject;
+    #privatePWKey: KeyObject;
     #updating: boolean = true;
 
     constructor(private mysqlService: MysqlService){
@@ -26,12 +26,12 @@ export class EncryptService {
         const prmKeyPair = promisify(generateKeyPair);
         try{
             const {publicKey, privateKey} = await prmKeyPair('rsa', this.#keyOptions);// object, string
-            this.#publicPWKey = publicKey.toString('base64');
+            this.#publicPWKey = publicKey;
             this.#privatePWKey = privateKey;
+            console.log(privateKey)
             return;
         } catch (err){
             console.log('encrypt.service.ts createpublickey generatekeypair error: see below');
-            console.log(err);
             return;
         } finally {
             this.#updating = false;
@@ -48,7 +48,7 @@ export class EncryptService {
         }*/
     }
 
-    async getPublicPWKey(): Promise<string>{
+    async getPublicPWKey(): Promise<KeyObject>{
         while (this.#updating){
             Promise.resolve();
         }
@@ -59,7 +59,7 @@ export class EncryptService {
         while (this.#updating){
             Promise.resolve();
         }
-        if (pubKey !== this.#publicPWKey){
+        if (JSON.stringify(pubKey) !== JSON.stringify(this.#publicPWKey)){
             throw new EncryptError("expired");
         }
         try{

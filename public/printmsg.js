@@ -38,7 +38,7 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
             throw new Error(`result error: status ${result.status}`);
         }
         let msg = await process(result);
-        if (msgSuccess !== '' || msg !== ''){
+        if (msgSuccess !== '' || (msg !== '' && msg !== undefined)){
             showMessage(msgSuccess + msg);
         } else {
             hideMessage();

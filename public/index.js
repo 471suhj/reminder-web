@@ -43,7 +43,7 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
             return;
         }
         showProgressMessage('처리 중입니다.');
-        const ckPubKey = await window.crypto.subtle.importKey('spki', Uint8Array.fromBase64(strPubKey), {name: 'RSA-OAEP', hash: 'SHA-256'}, false, ['encrypt']);
+        const ckPubKey = await window.crypto.subtle.importKey('jwk', strPubKey, {name: 'RSA-OAEP', hash: 'SHA-256'}, false, ['encrypt']);
         const abPWEncr = await window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, ckPubKey, txtEncoder.encode(jsnReq.password));
         jsnReq.password = btoa(String.fromCharCode(...new Uint8Array(abPWEncr)));
         jsnReq.key = strPubKey;
