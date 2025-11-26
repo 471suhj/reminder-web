@@ -1,28 +1,28 @@
-import {doFetch, showMessage} from "/printmsg.js"
-import {sortMode, fncSetupHeaderSort} from "/sortmode.js"
-import {fncRefresh, fncAutoloadSetup} from "/autoload.js"
-import {fncAddItems} from "/filemove.js"
+import {doFetch, showMessage} from '/printmsg.js';
+import {sortMode, fncSetupHeaderSort} from '/sortmode.js';
+import {fncRefresh, fncAutoloadSetup} from '/autoload.js';
+import {fncAddItems} from '/filemove.js';
 
-const list = document.getElementById("list");
-const listHead = document.getElementById("listHead");
-const lblItemCnt = document.getElementById("itemCount");
-const lblLoadMore = document.getElementById("loadMore");
+const list = document.getElementById('list');
+const listHead = document.getElementById('listHead');
+const lblItemCnt = document.getElementById('itemCount');
+const lblLoadMore = document.getElementById('loadMore');
 let numItemCnt = 0;
 
 function fncPrintCnt(){
-    lblItemCnt.textContent = String(numItemCnt) + "개의 항목"
+    lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
 }
 
 function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class="listItem grayLink" id="${listItem.id}">
-            <input class="listItemChkbox listItemCol" type="checkbox"><!-
-            ><div class="listItemType listItemCol"><img class="listItemCol isFolder" src="/graphics/toolbars/folder.png" width="15" height="15" style="display:none"></div><!-
-            ><div class="listItemText listItemCol">${listItem.text}</div><!-
-            ><div class="listPath listItemCol">${listItem.origPath}</div><!-
-            ><div class="listDelDate listItemCol">${listItem.dateDeleted}</div><!-
-            ><div class="listDate listItemCol">${listItem.date}</div>
+        <div class='listItem grayLink' id='${listItem.id}'>
+            <input class='listItemChkbox listItemCol' type='checkbox'><!-
+            ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' style='display:none'></div><!-
+            ><div class='listItemText listItemCol'>${listItem.text}</div><!-
+            ><div class='listPath listItemCol'>${listItem.origPath}</div><!-
+            ><div class='listDelDate listItemCol'>${listItem.dateDeleted}</div><!-
+            ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
@@ -31,8 +31,8 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
 
 {
-    let tlbItem = document.getElementById("selectAll");
-    tlbItem.addEventListener("click", function(){
+    let tlbItem = document.getElementById('selectAll');
+    tlbItem.addEventListener('click', function(){
         let allchecked = true;
         for (const listItem of list.children){
             if (!listItem.firstElementChild.checked){
@@ -51,8 +51,8 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
     });
 }
 {
-    let tlbItem = document.getElementById("delete");
-    tlbItem.addEventListener("click", async function(){
+    let tlbItem = document.getElementById('delete');
+    tlbItem.addEventListener('click', async function(){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
@@ -60,18 +60,18 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch("", "DELETE", JSON.stringify({action: "selected", sort: sortMode, files: lstDeleteName}), 
-            "", "삭제에 오류가 발생했습니다.", async function(result){
+            doFetch('', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, files: lstDeleteName}), 
+            '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, "삭제에 실패한 항목이 있습니다.", "삭제가 완료되었습니다.");
+                fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
             });
         }
     });
 }
 
 {
-    let tlbItem = document.getElementById("restore");
-    tlbItem.addEventListener("click", async function(){
+    let tlbItem = document.getElementById('restore');
+    tlbItem.addEventListener('click', async function(){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
@@ -79,12 +79,12 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch("", "PUT", JSON.stringify({action: "restore", sort: sortMode, files: lstDeleteName}), 
-            "", "삭제에 오류가 발생했습니다.", async function(result){
+            doFetch('', 'PUT', JSON.stringify({action: 'restore', sort: sortMode, files: lstDeleteName}), 
+            '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, "복원에 실패한 항목이 있습니다.", "복원이 완료되었습니다.");
+                fncRemoveItems(jsnRes, fncPrintCnt, '복원에 실패한 항목이 있습니다.', '복원이 완료되었습니다.');
                 if (jsnRes.alreadyExists){
-                    alert("같은 파일명이 존재한 경우가 있었으며, 이 경우 파일명에 -2가 추가되었습니다.");
+                    alert('같은 파일명이 존재한 경우가 있었으며, 이 경우 파일명에 -2가 추가되었습니다.');
                 }
             });
         }

@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
 import { AppModule } from './app.module';
-import {readFileSync} from 'fs';
+import { readFileSync } from 'fs';
 
 async function bootstrap() {
   const httpsOptions = {
