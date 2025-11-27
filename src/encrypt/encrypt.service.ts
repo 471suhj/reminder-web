@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { MysqlService } from '../mysql/mysql.service';
+import { Logger, Injectable } from '@nestjs/common';
 import { generateKeyPair, RSAKeyPairOptions, privateDecrypt, constants, KeyObject } from 'node:crypto';
 import { promisify } from 'node:util';
 import { EncryptError } from './encrypt-error';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class EncryptService {
@@ -15,37 +15,32 @@ export class EncryptService {
     #privatePWKey: KeyObject;
     #updating: boolean = true;
 
-    constructor(private mysqlService: MysqlService){
+    private readonly logger = new Logger('encrypt.service');
+
+    constructor(){
         console.log('start: EncryptService');
         this.createPublicPWKey();
         console.log('end: EncryptService');
     }
 
+    @Cron('0 0 3 * * *')
     private async createPublicPWKey(): Promise<void>{
-        //const mysql = await this.mysqlService.getSQL();
+        this.logger.log('cron job: begin: creating new public key at encrypt.service');
         const prmKeyPair = promisify(generateKeyPair);
+        this.#updating = true;
         try{
             const {publicKey, privateKey} = await prmKeyPair('rsa', this.#keyOptions);// object, string
             this.#publicPWKey = publicKey;
             this.#privatePWKey = privateKey;
-            console.log(privateKey)
             return;
         } catch (err){
-            console.log('encrypt.service.ts createpublickey generatekeypair error: see below');
+            this.logger.log('encrypt.service.ts createpublickey generatekeypair error: see below');
+            console.log(err);
             return;
         } finally {
             this.#updating = false;
+            this.logger.log('cron job: done: creating new public key at encrypt.service');
         }
-        /*try {
-            const [results, fields] = await mysql.query(
-                ''
-            );
-
-            console.log(results); // results contains rows returned by server
-            console.log(fields); // fields contains extra meta data about results, if available
-        } catch (err) {
-            console.log(err);
-        }*/
     }
 
     async getPublicPWKey(): Promise<KeyObject>{
@@ -55,7 +50,7 @@ export class EncryptService {
         return this.#publicPWKey;
     }
 
-    async decryptPW(pubKey: string, encrPW: string): Promise<string>{
+    async decryptPW(pubKey: KeyObject, encrPW: string): Promise<string>{
         while (this.#updating){
             Promise.resolve();
         }

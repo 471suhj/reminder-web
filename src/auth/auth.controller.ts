@@ -3,10 +3,16 @@ import { GetPWDto } from './get-pw.dto';
 import { EncryptService } from '../encrypt/encrypt.service';
 import { EncryptError } from '../encrypt/encrypt-error';
 import { RespondLoginDto } from './respond-login.dto';
+import { HashPasswordService } from '../hash-password/hash-password.service';
+import { AuthService } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private encryptService: EncryptService){}
+    constructor(
+        private encryptService: EncryptService,
+        private hashPasswordService: HashPasswordService,
+        private authService: AuthService
+    ){}
 
     @Post('auth')
     async authPassword (@Body() body: GetPWDto): Promise<RespondLoginDto>{
@@ -32,7 +38,9 @@ export class AuthController {
         } else if (!body.nokey) {
             throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST);
         }
-        console.log(body.password);
+
+        let strToken = await this.hashPasswordService.getHash();
+
         return resLogin;
     }
 }
