@@ -1,18 +1,28 @@
-import { Injectable } from '@nestjs/common';
-import { scrypt } from 'node:crypto';
-import { promisify } from 'node:util';
+import { Injectable, Logger } from '@nestjs/common';
+import { MysqlService } from 'src/mysql/mysql.service';
+import mysql from 'mysql2/promise';
+import { HashPasswordService } from '../hash-password/hash-password.service';
 
 @Injectable()
 export class AuthService {
-    constructor(){}
 
-    private async hashPW(PW: string, salt: string): Promise<string>{
-        const prmScrypt = promisify(scrypt);
-        return (await prmScrypt(PW, salt, 100) as Buffer).toString('base64');
-    }
+    private readonly logger = new Logger('auth service');
 
-    async authenticate_user(ID: string, PW: string): Promise<string|null>{
-        await this.hashPW(PW.normalize(), 'cat');
-        return null;
+    constructor(private mysqlService: MysqlService, private hashPasswordService: HashPasswordService){}
+
+    async AuthUser(ID: string, PW: string): Promise<false | number>{ // max_int of number is greater than int unsigned of mysql
+        const pool: mysql.Pool = await this.mysqlService.getSQL();
+        const result = await pool.execute<mysql.RowDataPacket[]>('select user_serial, password, salt from user where user_id=?', [ID]);
+        if (result.length <= 0){
+            return false;
+        } else if (result.length >= 2){
+            this.logger.error('mysql has more than one record with user_id=' + ID);
+        }
+        const boolAuth = await this.hashPasswordService.comparePW(PW, result['salt'], result['password']);
+        if (boolAuth){
+            return result['user_serial'] as number;
+        } else {
+            return false;
+        }
     }
 }

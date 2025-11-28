@@ -27,9 +27,9 @@ export class EncryptService {
     private async createPublicPWKey(): Promise<void>{
         this.logger.log('cron job: begin: creating new public key at encrypt.service');
         const prmKeyPair = promisify(generateKeyPair);
-        this.#updating = true;
         try{
             const {publicKey, privateKey} = await prmKeyPair('rsa', this.#keyOptions);// object, string
+            this.#updating = true;
             this.#publicPWKey = publicKey;
             this.#privatePWKey = privateKey;
             return;
@@ -45,14 +45,14 @@ export class EncryptService {
 
     async getPublicPWKey(): Promise<KeyObject>{
         while (this.#updating){
-            Promise.resolve();
+            await new Promise(function(resolve, _){setImmediate(resolve)});;
         }
         return this.#publicPWKey;
     }
 
     async decryptPW(pubKey: KeyObject, encrPW: string): Promise<string>{
         while (this.#updating){
-            Promise.resolve();
+            await new Promise(function(resolve, _){setImmediate(resolve)});;
         }
         if (JSON.stringify(pubKey) !== JSON.stringify(this.#publicPWKey)){
             throw new EncryptError("expired");

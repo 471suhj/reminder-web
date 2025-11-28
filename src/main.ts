@@ -4,6 +4,8 @@ import * as path from 'path';
 import { AppModule } from './app.module';
 import { readFileSync } from 'fs';
 import { ValidationPipe } from '@nestjs/common';
+import { HeaderInterceptor } from './header/header.interceptor';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const httpsOptions = {
@@ -20,6 +22,8 @@ async function bootstrap() {
   app.setViewEngine('hbs');
 
   app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalInterceptors(new HeaderInterceptor());
+  app.use(cookieParser());
 
   await app.listen(process.env.PORT ?? 3000);
 }

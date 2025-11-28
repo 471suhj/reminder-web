@@ -45,7 +45,13 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
         showProgressMessage('처리 중입니다.');
         const ckPubKey = await window.crypto.subtle.importKey('jwk', strPubKey, {name: 'RSA-OAEP', hash: 'SHA-256'}, false, ['encrypt']);
         const abPWEncr = await window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, ckPubKey, txtEncoder.encode(jsnReq.password));
-        jsnReq.password = btoa(String.fromCharCode(...new Uint8Array(abPWEncr)));
+        jsnReq.password = "";
+	let iaEncr = new Uint8Array(abPWEncr);
+	for (let i = 0; i < iaEncr.length; i++){
+	    jsnReq.password += String.fromCharCode(iaEncr[i]);
+	}
+	jsnReq.password = btoa(jsnReq.password);
+	//jsnReq.password = btoa(String.fromCharCode(...new Uint8Array(abPWEncr)));
         jsnReq.key = strPubKey;
     } else {
         jsnReq.nokey = true;
@@ -89,6 +95,10 @@ const lblPWValid = document.getElementById('signup_pw_valid');
 const lblPWMatch = document.getElementById('signup_pw_match');
 const txtSignupID = document.getElementById('signup_id');
 const txtSignupUsername = document.getElementById('signup_username');
+const lblSignupUsernameValid = document.getElementById('signup_username_valid');
+const txtSignupEmail = document.getElementById('signup_email');
+const txtSignupEmailVer = document.getElementById('signup_email_verify');
+const lblSignupEmailStatus = document.getElementById('signup_email_status');
 const txtSignupPW1 = document.getElementById('signup_password1');
 const txtSignupPW2 = document.getElementById('signup_password2');
 const chkAgree = document.getElementById('signup_agree');
@@ -99,8 +109,11 @@ txtSignupID.addEventListener('input', function(){
     if (txtSignupID.value.length < 7){
         lblIDUnique.innerText = '7자 이상의 아이디를 입력하십시오';
         lblIDUnique.dataset.valid = 'false';
+    } else if (txtSignupID.value.length > 25){
+        lblIDUnique.innerText = '25자 이하의 아이디를 입력하십시오';
+        lblIDUnique.dataset.valid = 'false';
     } else {
-        doFetch('/auth/signup', 'PUT', JSON.stringify({action: 'checkid', id: txtSignupID.value}), '', '', async function(result){
+        doFetch('/signup/checkid', 'PUT', JSON.stringify({id: txtSignupID.value}), '', '', async function(result){
             const jsnRes = await result.json();
             if (jsnRes.valid === true){
                 lblIDUnique.innerText = '사용 가능한 아이디입니다.';
@@ -119,8 +132,57 @@ txtSignupID.addEventListener('input', function(){
     }
 });
 
+txtSignupUsername.addEventListener('input', function(){
+    if (txtSignupUsername.value.length > 25){
+        lblSignupUsernameValid.innerText = '25자 이하의 이름을 입력하십시오';
+        lblSignupUsernameValid.dataset.valid = 'false';
+    } else if (txtSignupUsername.value.length <= 0){
+        lblSignupUsernameValid.innerText = '필수 항목입니다.';
+        lblSignupUsernameValid.dataset.valid = 'false';
+    } else {
+        lblSignupUsernameValid.innerText = ' ';
+        lblSignupUsernameValid.dataset.valid = 'true';
+    }
+})
+
 txtSignupUsername.addEventListener('change', function(){
     txtSignupUsername.value = txtSignupUsername.value.trim();
+})
+
+txtSignupEmail.addEventListener('input', function(){
+    txtSignupEmail.value = txtSignupEmail.value.trim();
+})
+
+txtSignupEmailVer.addEventListener('input', function(){
+    txtSignupEmailVer.value = txtSignupEmailVer.value.trim();
+})
+
+document.getElementById('signup_email_send').addEventListener('click', async function(){
+    txtSignupEmail.dataset.address = txtSignupEmail.value;
+    await doFetch('/signup/email', 'POST', JSON.stringify({email: txtSignupEmail.value}), '', '', function(){
+        document.getElementById('signup_email_sent').innerText = '인증 번호가 발송되었습니다.';
+    }, function(){
+        doucment.getElementById('signup_email_sent').innerText = '인증 번호 발송에 실패했습니다.';
+    });
+})
+
+document.getElementById('signup_email_verify').addEventListener('click', async function(){
+    if (txtSignupEmail.dataset.address === undefined){ // 인증 대상이 어디인지
+        return;
+    }
+    const address = txtSignupEmail.dataset.address;
+    await doFetch('/signup/verify', 'PUT', JSON.stringify({email: txtSignupEmail.dataset.address, code: txtSignupEmailVer.value}), '', '인증 과정에서 서버와의 통신에 실패했습니다.',
+        async function(result){
+            const jsnRes = await result.json();
+            if (jsnRes.success === true){
+                lblSignupEmailStatus.innerText = address + '인증이 완료되었습니다.';
+                lblSignupEmailStatus.dataset.valid = 'true';
+                lblSignupEmailStatus.dataset.veremail = address; // 인증된 주소는 어디인지 
+            } else {
+                lblSignupEmailStatus.innerText = '잘못된 코드입니다.';
+                lblSignupEmailStatus.dataset.valid = 'false';
+            }
+        })
 })
 
 function checkSignupPWMatch(){
@@ -137,6 +199,9 @@ txtSignupPW1.addEventListener('input', function(){
     txtSignupPW1.value = txtSignupPW1.value.trim();
     if (txtSignupPW1.value.length < 7){
         lblPWValid.innerText = '7자 이상의 비밀 번호를 입력하십시오';
+        lblPWValid.dataset.valid = 'false';
+    } else if (txtSignupPW1.value.length > 30) {
+        lblPWValid.innerText = '30자 이하의 비밀 번호를 입력하십시오';
         lblPWValid.dataset.valid = 'false';
     } else {
         lblPWValid.innerText = '사용 가능한 비밀 번호입니다.';
@@ -159,6 +224,17 @@ document.getElementById('signup_ok').addEventListener('click', async function(){
         lblSignupMsg.innerText = '사용자 이름을 입력해 주십시오.';
         return;
     }
+    if (lblSignupUsernameValid.dataset.valid !== 'true'){
+        lblSignupMsg.innerText = '사용자 이름이 유효하지 않습니다.';
+        return;
+    }
+    if (lblSignupEmailStatus.dataset.valid !== 'true'){
+        lblSignupMsg.innerText = '이메일이 인증되지 않았습니다.';
+        return;
+    } else if (lblSignupEmailStatus.dataset.veremail !== txtSignupEmail.dataset.address){
+        lblSignupMsg.innerText = '입력된 이메일이 인증된 이메일과 다릅니다.';
+        return;
+    }
     if (lblPWValid.dataset.valid !== 'true'){
         lblSignupMsg.innerText = '유효하지 않은 비밀 번호입니다.';
         return;
@@ -172,9 +248,14 @@ document.getElementById('signup_ok').addEventListener('click', async function(){
         return;
     }
 
-    await sendPWReq({id: txtSignupID.value, pw: txtSignupPW2.value, username: txtSignupUsername.value}, '/auth/signup', function(){
-        lblSignupMsg.innerText = '회원 가입이 정상적으로 완료되었습니다. 회원 가입한 계정으로 로그인해 주시기 바랍니다.';
-        clearSignup();
+    await sendPWReq({id: txtSignupID.value, password: txtSignupPW2.value, username: txtSignupUsername.value, email: lblSignupEmailStatus.dataset.veremail}, '/signup/register', async function(result){
+        const resJson = await result.json();
+        if (resJson.success === true){
+            alert('회원 가입이 정상적으로 완료되었습니다. 회원 가입한 계정으로 로그인해 주시기 바랍니다.');
+            clearSignup();
+        } else {
+            alert('회원 가입에 실패했습니다.\n' + resJson.message);
+        }
     }, function(msg){
         alert('회원 가입이 실패했습니다.\n' + msg);
     });
