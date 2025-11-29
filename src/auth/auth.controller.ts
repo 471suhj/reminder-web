@@ -68,8 +68,9 @@ export class AuthController {
             body.password = body.password.slice(0, 30);
             alreadyFalse = true;
         }
-
+        
         body.id = body.id.normalize();
+        body.id = body.id.toLowerCase();
         body.password = body.password.normalize();
         const userSerial = await this.authService.AuthUser(body.id, body.password);
         if (userSerial && !alreadyFalse){
@@ -126,7 +127,7 @@ export class AuthController {
 
         let success: boolean = false;
         this.mysqlService.doTransaction('auth google response', async function(conn: mysql.PoolConnection){
-            const [result] = await conn.execute<RowDataPacket[]>('select token from google_consent where token=?', [state]);
+            const [result] = await conn.execute<RowDataPacket[]>('select token from google_consent where token=? for update', [state]);
             if (result.length > 0){
                 await conn.execute<RowDataPacket[]>('delete from google_consent where token=? order by last_updated asc limit 1', [state]);
                 success = true;

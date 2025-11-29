@@ -15,8 +15,10 @@ export class SignupService {
     async registerUser(id: string, pw: string, username: string, email: string, mode?: 'google', googleObj?: any)
     : Promise<{success: boolean, message?: string}>{
         id = id.normalize();
+        id = id.toLowerCase();
         pw = pw.normalize();
         username = username.normalize();
+        email = email.toLowerCase();
 
         const salt: string = await this.hashPasswordService.getSalt();
         let pwEncr: string = '';
@@ -29,7 +31,7 @@ export class SignupService {
             let retVal: {success: boolean, message?: string, user_serial?: number} = {success: false};
             await this.mysqlService.doTransaction('signup register', async function(conn){
                 if (mode === 'google'){
-                    id = ('google-' + email).slice(0, 20);
+                    id = ('google-' + email).slice(0, 20).toLowerCase();
                 }
                 let [result1] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from old_id where user_id=? for share', [id]);
                 let [result2] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? or email=? for update', [id, email]);
@@ -52,7 +54,7 @@ export class SignupService {
                 }
                 let [result] = await conn.execute<mysql.RowDataPacket[]>('insert into user (user_id, name, password, email) value (?, ?, ?, ?)', [id, username, pwEncr, email]);
                 if (mode === 'google'){
-                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=?', [id]);
+                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
                     await conn.execute<mysql.RowDataPacket[]>('insert into user_google (user_serial, token, refresh_token, google_id) value (?,?,?,?)',
                         [Number(result[0]['user_serial']), googleObj.tokens.access_token, googleObj.tokens.refresh_token, googleObj.id]);
                 }

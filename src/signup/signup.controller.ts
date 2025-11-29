@@ -35,6 +35,7 @@ export class SignupController {
     async checkId(@Body() body: CheckidDto): Promise<{valid: boolean, alreadyExists?: boolean, message?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.id = body.id.normalize();
+        body.id = body.id.toLowerCase();
         if (body.id.slice(0, 7) === 'google-'){
             return {valid: false, alreadyExists: true};
         }
@@ -59,6 +60,7 @@ export class SignupController {
     @Post('email')
     async emailCode(@Body() body: EmailDto): Promise<{success: boolean, message?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
+        body.email = body.email.toLowerCase();
         try {
             const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
             if (result.length > 0){
@@ -79,6 +81,7 @@ export class SignupController {
     @Put('verify')
     async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
+        body.email = body.email.toLowerCase();
         try {
             const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select code from email_verification where email=?', [body.email]);
             if (result.length <= 0){
