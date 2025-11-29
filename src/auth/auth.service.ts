@@ -12,15 +12,15 @@ export class AuthService {
 
     async AuthUser(ID: string, PW: string): Promise<false | number>{ // max_int of number is greater than int unsigned of mysql
         const pool: mysql.Pool = await this.mysqlService.getSQL();
-        const result = await pool.execute<mysql.RowDataPacket[]>('select user_serial, password, salt from user where user_id=?', [ID]);
+        const [result] = await pool.execute<mysql.RowDataPacket[]>('select user_serial, password, salt from user where user_id=?', [ID]);
         if (result.length <= 0){
             return false;
         } else if (result.length >= 2){
             this.logger.error('mysql has more than one record with user_id=' + ID);
         }
-        const boolAuth = await this.hashPasswordService.comparePW(PW, result['salt'], result['password']);
+        const boolAuth = await this.hashPasswordService.comparePW(PW, result[0]['salt'], result[0]['password']);
         if (boolAuth){
-            return result['user_serial'] as number;
+            return result[0]['user_serial'] as number;
         } else {
             return false;
         }

@@ -1,4 +1,4 @@
-import { Logger, Injectable } from '@nestjs/common';
+import { Logger, Injectable, InternalServerErrorException } from '@nestjs/common';
 import mysql from 'mysql2/promise';
 
 @Injectable()
@@ -36,5 +36,24 @@ export class MysqlService {
             await new Promise(function(resolve, _){setImmediate(resolve)});
         }
         return this.#pool;;
+    }
+
+    writeError(servicename: string, err: Error): void{
+        this.logger.error('mysql error occured at ' + servicename + '. see below.');
+        console.log(err);
+    }
+
+    async doTransaction(servicename: string, process: (connection: mysql.PoolConnection)=>Promise<void>): Promise<void>{
+        const conn: mysql.PoolConnection = await (await this.getSQL()).getConnection();
+        try{
+            console.log(await conn.execute('start transaction'));
+            await process(conn);
+            console.log(await conn.execute('commit'));
+        } catch (err) {
+            this.writeError(servicename, err);
+            throw new InternalServerErrorException();
+        } finally {
+            conn.release();
+        }
     }
 }

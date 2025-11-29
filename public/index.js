@@ -158,15 +158,26 @@ txtSignupEmailVer.addEventListener('input', function(){
 })
 
 document.getElementById('signup_email_send').addEventListener('click', async function(){
+    if (txtSignupEmail.value === ''){
+        return;
+    }
     txtSignupEmail.dataset.address = txtSignupEmail.value;
-    await doFetch('/signup/email', 'POST', JSON.stringify({email: txtSignupEmail.value}), '', '', function(){
-        document.getElementById('signup_email_sent').innerText = '인증 번호가 발송되었습니다.';
+    await doFetch('/signup/email', 'POST', JSON.stringify({email: txtSignupEmail.value}), '', '', async function(result){
+        const jsnRes = await result.json();
+        const lblMsgTmp = document.getElementById('signup_email_sent');
+        if (jsnRes.success){
+            lblMsgTmp.innerText = '인증 번호가 발송되었습니다.';
+        } else if (typeof jsnRes.message === 'string'){
+            lblMsgTmp.innerText = jsnRes.message;
+	} else {
+            lblMsgTmp.innerText = '인증 번호 발송에 실패했습니다.';
+        }
     }, function(){
-        doucment.getElementById('signup_email_sent').innerText = '인증 번호 발송에 실패했습니다.';
+        document.getElementById('signup_email_sent').innerText = '인증 번호 발송에 실패했습니다.';
     });
 })
 
-document.getElementById('signup_email_verify').addEventListener('click', async function(){
+document.getElementById('signup_email_verify_cmd').addEventListener('click', async function(){
     if (txtSignupEmail.dataset.address === undefined){ // 인증 대상이 어디인지
         return;
     }

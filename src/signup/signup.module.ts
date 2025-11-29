@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { SignupController } from './signup.controller';
 import { SignupService } from './signup.service';
-import { HashPasswordService } from '../hash-password/hash-password.service';
-import { EncryptService } from '../encrypt/encrypt.service';
+import { HashPasswordModule } from '../hash-password/hash-password.module';
+import { EncryptModule } from '../encrypt/encrypt.module';
 
 @Module({
-  imports: [HashPasswordService, EncryptService],
+  imports: [HashPasswordModule, EncryptModule],
   controllers: [SignupController],
   providers: [SignupService]
 })
