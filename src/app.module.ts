@@ -6,10 +6,11 @@ import { MysqlModule } from './mysql/mysql.module';
 import { APP_PIPE, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthGuard } from './auth/auth.guard';
+import { DeleteExpiredModule } from './delete-expired/delete-expired.module';
 
 @Module({
   imports: [AuthModule, MysqlModule, 
-    ScheduleModule.forRoot()
+    ScheduleModule.forRoot(), DeleteExpiredModule
   ],
   controllers: [AppController],
   providers: [

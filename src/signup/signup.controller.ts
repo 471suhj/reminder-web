@@ -62,14 +62,14 @@ export class SignupController {
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
         try {
-            const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
-            if (result.length > 0){
-                return {success: false, message: "이미 사용중인 이메일입니다."};
-            }
+            // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
+            // if (result.length > 0){
+            //     return {success: false, message: "이미 사용중인 이메일입니다."};
+            // }
             const strCode: string = await this.hashPasswordService.getVerifiCode();
             await sqlPool.execute(
-                'insert into email_verification (email, code) value (?, ?) on duplicate key update code=?',
-                [body.email, strCode, strCode]);
+                'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
+                [body.email.slice(0,65), body.email.slice(65), strCode, strCode]);
             return {success: true};
         } catch (err) {
             this.logger.error('signup email mysql error. see below');
@@ -83,7 +83,8 @@ export class SignupController {
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
         try {
-            const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select code from email_verification where email=?', [body.email]);
+            const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
+            ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
             if (result.length <= 0){
                 throw new BadRequestException();
             } else {

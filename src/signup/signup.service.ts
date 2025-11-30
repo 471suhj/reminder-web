@@ -13,53 +13,75 @@ export class SignupService {
     private readonly logger = new Logger(SignupService.name);
 
     async registerUser(id: string, pw: string, username: string, email: string, mode?: 'google', googleObj?: any)
-    : Promise<{success: boolean, message?: string}>{
+    : Promise<{success: boolean, message?: string, serial: number}>{
         id = id.normalize();
         id = id.toLowerCase();
         pw = pw.normalize();
         username = username.normalize();
         email = email.toLowerCase();
 
-        const salt: string = await this.hashPasswordService.getSalt();
-        let pwEncr: string = '';
-        if (pw !== ''){
-            pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString();
-        }
-
-        
         try{
-            let retVal: {success: boolean, message?: string, user_serial?: number} = {success: false};
+            let retVal: {success: boolean, message?: string, serial: number} = {success: false, serial: 0};
             await this.mysqlService.doTransaction('signup register', async function(conn){
+                let updateinfo = false;
+                let result: mysql.RowDataPacket[];
                 if (mode === 'google'){
-                    id = ('google-' + email).slice(0, 20).toLowerCase();
-                }
-                let [result1] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from old_id where user_id=? for share', [id]);
-                let [result2] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? or email=? for update', [id, email]);
-                if (result1.length > 0 || result2.length > 0){
-                    if (mode === 'google'){
-                        const origIdLen = id.length;
-                        const regId = id + '[0-9]*';
-                        [result1] = await conn.execute<mysql.RowDataPacket[]>(
-                            'select user_id from user, old_id where user.user_id regexp ? or old_id.user_id regexp ? order by user_id desc limit 1 for update', [regId, regId]);
-                        id = id + String(Number(result1[0]['user_id'].slice(origIdLen, 25)) + 1);
-                        if (id.length > 25){
-                            this.logger.error('signup service: id number exceeded limit! id=' + id);
-                            throw new InternalServerErrorException();
+                    [result] = await conn.execute<mysql.RowDataPacket[]>('select google_id from user_google where google_id=? for update', [googleObj.id]);
+                    if (result.length > 0){
+                        updateinfo = true;
+                        if (googleObj.tokens.refresh_token){
+                            await conn.execute('update user_google set token=?, refresh_token=?, email=?, email2=?, email_verified=? where google_id=?',
+                                [googleObj.tokens.access_token, googleObj.tokens.refresh_token, email.slice(0, 65), email.slice(65), String(googleObj.verified_email), googleObj.id]);
+                        } else {
+                            await conn.execute('update user_google set token=?, email=?,email2=?, email_verified=? where google_id=?',
+                                [googleObj.tokens.access_token, , email.slice(0, 65), email.slice(65), String(googleObj.verified_email), googleObj.id]);
                         }
                     } else {
-                        retVal.success = false;
-                        retVal.message = '사용할 수 없는 아이디입니다.';
-                        return;
+                        if (googleObj.tokens.refresh_token === undefined){
+                            this.logger.error('signup service: google signup error: no refresh_token provided');
+                            googleObj.tokens.refresh_token = '';
+                        }
                     }
                 }
-                let [result] = await conn.execute<mysql.RowDataPacket[]>('insert into user (user_id, name, password, email) value (?, ?, ?, ?)', [id, username, pwEncr, email]);
-                if (mode === 'google'){
-                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
-                    await conn.execute<mysql.RowDataPacket[]>('insert into user_google (user_serial, token, refresh_token, google_id) value (?,?,?,?)',
-                        [Number(result[0]['user_serial']), googleObj.tokens.access_token, googleObj.tokens.refresh_token, googleObj.id]);
+                if (!updateinfo){
+                    if (mode === 'google'){
+                        id = ('google-' + email).slice(0, 20).toLowerCase();
+                    }
+                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_id from all_id where user_id=? for share', [id]);
+                    if (result.length > 0){
+                        if (mode === 'google'){
+                            const origIdLen = id.length;
+                            const regId = id + '[0-9]*';
+                            [result] = await conn.execute<mysql.RowDataPacket[]>(
+                                'select user_id from all_id where user_id regexp ? order by user_id desc limit 1 for update', [regId]);
+                                id = id + String(Number(result[0]['user_id'].slice(origIdLen, 25)) + 1);
+                            if (id.length > 25){
+                                this.logger.error('signup service: id number exceeded limit! id=' + id);
+                                throw new InternalServerErrorException();
+                            }
+                        } else {
+                            retVal.success = false;
+                            retVal.message = '사용할 수 없는 아이디입니다.';
+                            return; // caution: return to just outside of transaction!
+                        }
+                    }
+                    const salt: string = await this.hashPasswordService.getSalt();
+                    let pwEncr: string = '';
+                    if (pw !== ''){
+                        pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString();
+                        [result] = await conn.execute<mysql.RowDataPacket[]>(
+                            'insert into user (user_id, name, password, email, email2, salt) value (?,?,?,?,?,?)', [id, username, pwEncr, email.slice(0, 65), email.slice(65), salt]);
+                    }
+                }
+                [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
+                retVal.serial = Number(result[0]['user_serial']);
+                if (mode === 'google' && !updateinfo){
+                    await conn.execute<mysql.RowDataPacket[]>('insert into user_google (user_serial, token, refresh_token, google_id, email, email2, email_verified) value (?,?,?,?,?,?,?)',
+                        [retVal.serial, googleObj.tokens.access_token, googleObj.tokens.refresh_token, googleObj.id, email.slice(0, 65), email.slice(65), String(googleObj.verified_email)]);
                 }
                 retVal.success = true;
             });
+            // transaction 내부에서 return하는 경우가 있음. 따라서 이 곳에서 작업하는 경우 주의
             return retVal;
         } catch (err) {
             if (!(err instanceof InternalServerErrorException)){
@@ -67,7 +89,7 @@ export class SignupService {
                 console.log(err);
                 throw new InternalServerErrorException();
             }
-            return {success: false, message: '입력이 잘못되었거나 서버 오류가 발생했습니다.'};
+            return {success: false, message: '입력이 잘못되었거나 서버 오류가 발생했습니다.', serial: 0};
         }
         
     }

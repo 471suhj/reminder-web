@@ -90,6 +90,10 @@ document.getElementById('signin').addEventListener('click', async function(){
     });
 });
 
+document.getElementById('signin_google').addEventListener('click', function(){
+    window.location.href = '/auth/google';
+});
+
 const lblIDUnique = document.getElementById('signup_id_unique');
 const lblPWValid = document.getElementById('signup_pw_valid');
 const lblPWMatch = document.getElementById('signup_pw_match');
@@ -105,12 +109,9 @@ const chkAgree = document.getElementById('signup_agree');
 const lblSignupMsg = document.getElementById('signup_msg');
 
 txtSignupID.addEventListener('input', function(){
-    txtSignupID.value = txtSignupID.value.trim();
+    txtSignupID.value = txtSignupID.value.trim().slice(0, 25);
     if (txtSignupID.value.length < 7){
         lblIDUnique.innerText = '7자 이상의 아이디를 입력하십시오';
-        lblIDUnique.dataset.valid = 'false';
-    } else if (txtSignupID.value.length > 25){
-        lblIDUnique.innerText = '25자 이하의 아이디를 입력하십시오';
         lblIDUnique.dataset.valid = 'false';
     } else {
         doFetch('/signup/checkid', 'PUT', JSON.stringify({id: txtSignupID.value}), '', '', async function(result){
@@ -133,10 +134,8 @@ txtSignupID.addEventListener('input', function(){
 });
 
 txtSignupUsername.addEventListener('input', function(){
-    if (txtSignupUsername.value.length > 25){
-        lblSignupUsernameValid.innerText = '25자 이하의 이름을 입력하십시오';
-        lblSignupUsernameValid.dataset.valid = 'false';
-    } else if (txtSignupUsername.value.length <= 0){
+    txtSignupUsername.value = txtSignupUsername.value.slice(0, 25);
+    if (txtSignupUsername.value.length <= 0){
         lblSignupUsernameValid.innerText = '필수 항목입니다.';
         lblSignupUsernameValid.dataset.valid = 'false';
     } else {
@@ -150,7 +149,7 @@ txtSignupUsername.addEventListener('change', function(){
 })
 
 txtSignupEmail.addEventListener('input', function(){
-    txtSignupEmail.value = txtSignupEmail.value.trim();
+    txtSignupEmail.value = txtSignupEmail.value.trim().slice(0, 320);
 })
 
 txtSignupEmailVer.addEventListener('input', function(){
@@ -207,12 +206,9 @@ function checkSignupPWMatch(){
 }
 
 txtSignupPW1.addEventListener('input', function(){
-    txtSignupPW1.value = txtSignupPW1.value.trim();
+    txtSignupPW1.value = txtSignupPW1.value.trim().slice(0, 30);
     if (txtSignupPW1.value.length < 7){
         lblPWValid.innerText = '7자 이상의 비밀 번호를 입력하십시오';
-        lblPWValid.dataset.valid = 'false';
-    } else if (txtSignupPW1.value.length > 30) {
-        lblPWValid.innerText = '30자 이하의 비밀 번호를 입력하십시오';
         lblPWValid.dataset.valid = 'false';
     } else {
         lblPWValid.innerText = '사용 가능한 비밀 번호입니다.';
