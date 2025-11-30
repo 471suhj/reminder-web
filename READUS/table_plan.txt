@@ -105,7 +105,7 @@ create table user_google (
 	google_id varchar(255) not null,
 	email char(65) not null,
 	email2 varchar(255) not null,
-	email_verified char(5) not null,
+	email_verified ENUM('false', 'true') not null,
 	foreign key (user_serial) references user (user_serial)
 );
 
