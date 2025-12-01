@@ -10,6 +10,7 @@ const lblItemCnt = document.getElementById('itemCount');
 const lblLoadMore = document.getElementById('loadMore');
 const divPopup = document.getElementById('popup');
 const dlgOverwrite = document.getElementById('overwriteDlg');
+const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
 const txtRename = document.createElement('input');
@@ -52,7 +53,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, true, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
 
 {
     let tlbItem = document.getElementById('selectAll');
@@ -260,4 +261,4 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
     });
 }
 
-fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt);
+fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);

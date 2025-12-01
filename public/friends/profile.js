@@ -33,7 +33,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblNickname.dataset.path);
 
 {
     let tlbItem = document.getElementById('rename');
@@ -147,4 +147,4 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
     })
 }
 
-fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt);
+fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, lblNickname.dataset.path);

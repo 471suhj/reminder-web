@@ -7,6 +7,7 @@ const list = document.getElementById('list');
 const lblItemCnt = document.getElementById('itemCount');
 const lblLoadMore = document.getElementById('loadMore');
 const tlbSort = document.getElementById('tlbSort');
+const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
 function fncPrintCnt(){
@@ -29,7 +30,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
 
 {
     let tlbItem = document.getElementById('upload');
@@ -90,4 +91,4 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
     });
 }
 
-fncSetupHeaderSort(fncRefresh, document.getElementById('tlbSort'), lblLoadMore, list, fncInsertFile, fncPrintCnt);
+fncSetupHeaderSort(fncRefresh, document.getElementById('tlbSort'), lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);

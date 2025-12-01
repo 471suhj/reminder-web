@@ -1,6 +1,6 @@
 export let sortMode = {criteria: 'colName', incr: true};
 
-export function fncResort(colName, colItem, fncRefresh, fncResetSort, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt){
+export function fncResort(colName, colItem, fncRefresh, fncResetSort, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, path){
     if (sortMode.criteria === colName){
         sortMode.incr = !sortMode.incr;
         colItem.dataset.set = sortMode.incr ? '1' : '2';
@@ -10,7 +10,7 @@ export function fncResort(colName, colItem, fncRefresh, fncResetSort, listHead, 
         fncResetSort(listHead);
         colItem.dataset.set = '1';
     }
-    fncRefresh(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt);
+    fncRefresh(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, path);
 }
 
 export function fncResetSort(listHead){
@@ -19,11 +19,11 @@ export function fncResetSort(listHead){
     }
 }
 
-export function fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt){
+export function fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, path){
     const colLink = document.getElementsByClassName('colLink');
     for (const colItem of colLink){
         colItem.addEventListener('click', function(event){
-            fncResort(event.target.id, colItem, fncRefresh, fncResetSort, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt);
+            fncResort(event.target.id, colItem, fncRefresh, fncResetSort, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, path);
         });
     }
 }
