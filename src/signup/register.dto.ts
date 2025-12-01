@@ -24,6 +24,10 @@ export class RegisterDto{
     @Length(1, 320)
     email: string;
 
+    @IsString()
+    @IsNotEmpty()
+    emailkey: string;
+
     @IsOptional()
     key?: KeyObject;
 

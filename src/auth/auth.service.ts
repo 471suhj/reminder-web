@@ -2,7 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import mysql from 'mysql2/promise';
 import { HashPasswordService } from '../hash-password/hash-password.service';
-import { Response } from 'express';
+import type { Response } from 'express';
+
+export class setCookie{
+    static setTokenCookie(response: Response, value: string){
+        // lax: allow direct login from remote, without first being redirected to home
+        response.cookie('__Host-Http-userToken', value, {maxAge: 7*24*60*60*1000, httpOnly: true, secure: true, sameSite: 'lax'});
+    }
+}
 
 @Injectable()
 export class AuthService {
@@ -75,7 +82,7 @@ export class AuthService {
         return success;
     }
 
-    async getToken(userSerial, response): Promise<void>{
+    async getToken(userSerial, response: Response): Promise<void>{
         let strToken: string = await this.hashPasswordService.getToken();
         await this.mysqlService.doTransaction('auth controller', async function(conn){
             let result: mysql.RowDataPacket[];
@@ -84,7 +91,6 @@ export class AuthService {
             } while (result.length > 0)
             console.log(await conn.execute('insert into session (user_serial, token) value (?, ?)', [userSerial, strToken]));
         });
-        response.cookie('userToken', strToken);
-
+        setCookie.setTokenCookie(response, strToken);
     }
 }

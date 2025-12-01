@@ -28,6 +28,9 @@ export class SignupController {
         if (!body.nokey) {
             body.password = await this.encryptService.decryptPW(body.key as KeyObject, body.password);
         }
+        if ((await this.hashPasswordService.decryptEmail(body.emailkey)) !== body.email.normalize()){
+            return {success: false, message: '이메일 주소의 인증을 확인하는 것에 실패했습니다.'};
+        }
         return await this.signupService.registerUser(body.id, body.password, body.username, body.email);
     }
 
@@ -79,7 +82,7 @@ export class SignupController {
     }
 
     @Put('verify')
-    async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean}>{
+    async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
         try {
@@ -92,7 +95,7 @@ export class SignupController {
                     this.logger.error('duplicate in email_verification with email=' + body.email);
                 }
                 if (result[0]['code'] === body.code){
-                    return {success: true};
+                    return {success: true, key: await this.hashPasswordService.encryptEmail(body.email)};
                 } else {
                     return {success: false};
                 }

@@ -7,6 +7,7 @@ import { EncryptModule } from '../encrypt/encrypt.module';
 @Module({
   imports: [HashPasswordModule, EncryptModule],
   controllers: [SignupController],
-  providers: [SignupService]
+  providers: [SignupService],
+  exports: [SignupService]
 })
 export class SignupModule {}

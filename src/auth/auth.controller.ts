@@ -21,7 +21,6 @@ export class AuthController {
 
     constructor(
         private encryptService: EncryptService,
-        private hashPasswordService: HashPasswordService,
         private authService: AuthService,
         private mysqlService: MysqlService,
         private httpService: HttpService,

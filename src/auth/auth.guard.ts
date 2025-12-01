@@ -38,7 +38,7 @@ export class AuthGuard implements CanActivate {
       const ctx: HttpArgumentsHost = context.switchToHttp();
       const request: Request = ctx.getRequest<Request>();
       const response: Response = ctx.getResponse<Response>();
-      const token: undefined|string = request.cookies['userToken'];
+      const token: undefined|string = request.cookies['__Host-Http-userToken'];
       let user: false|number;
       if (token){
         user = await this.inspectToken(token);

@@ -187,6 +187,7 @@ document.getElementById('signup_email_verify_cmd').addEventListener('click', asy
             if (jsnRes.success === true){
                 lblSignupEmailStatus.innerText = address + '인증이 완료되었습니다.';
                 lblSignupEmailStatus.dataset.valid = 'true';
+                lblSignupEmailStatus.dataset.key = String(jsnRes.key);
                 lblSignupEmailStatus.dataset.veremail = address; // 인증된 주소는 어디인지 
             } else {
                 lblSignupEmailStatus.innerText = '잘못된 코드입니다.';
@@ -255,7 +256,7 @@ document.getElementById('signup_ok').addEventListener('click', async function(){
         return;
     }
 
-    await sendPWReq({id: txtSignupID.value, password: txtSignupPW2.value, username: txtSignupUsername.value, email: lblSignupEmailStatus.dataset.veremail}, '/signup/register', async function(result){
+    await sendPWReq({id: txtSignupID.value, password: txtSignupPW2.value, username: txtSignupUsername.value, email: lblSignupEmailStatus.dataset.veremail, emailkey: lblSignupEmailStatus.dataset.key}, '/signup/register', async function(result){
         const resJson = await result.json();
         if (resJson.success === true){
             alert('회원 가입이 정상적으로 완료되었습니다. 회원 가입한 계정으로 로그인해 주시기 바랍니다.');

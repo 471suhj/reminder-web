@@ -1,6 +1,7 @@
-import { Controller, Get, Query, Render } from '@nestjs/common';
+import { Controller, Get, Query, Render, Req, Res } from '@nestjs/common';
 import { AppService } from './app.service';
 import { AuthDec } from './auth/auth.decorator';
+import type { Request, Response } from 'express';
 
 @Controller()
 export class AppController {
@@ -9,7 +10,7 @@ export class AppController {
   @AuthDec('anony-only')
   @Get()
   @Render('index')
-  getHello() {
+  getHello(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     return {};
   }
 
