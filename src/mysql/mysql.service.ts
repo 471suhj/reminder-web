@@ -1,5 +1,5 @@
 import { Logger, Injectable, InternalServerErrorException } from '@nestjs/common';
-import mysql from 'mysql2/promise';
+import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 
 @Injectable()
 export class MysqlService {
@@ -43,8 +43,8 @@ export class MysqlService {
         console.log(err);
     }
 
-    async doTransaction(servicename: string, process: (connection: mysql.PoolConnection)=>Promise<void>): Promise<void>{
-        const conn: mysql.PoolConnection = await (await this.getSQL()).getConnection();
+    async doTransaction(servicename: string, process: (connection: PoolConnection)=>Promise<void>): Promise<void>{
+        const conn: PoolConnection = await (await this.getSQL()).getConnection();
         try{
             console.log(await conn.execute('start transaction'));
             await process(conn);
@@ -56,4 +56,15 @@ export class MysqlService {
             conn.release();
         }
     }
+
+    async doQuery(servicename: string, process: (connection: Pool)=>Promise<void>): Promise<void>{
+        const conn: Pool = await this.getSQL();
+        try{
+            await process(conn);
+        } catch (err) {
+            this.writeError(servicename, err);
+            throw new InternalServerErrorException();
+        }
+    }
+
 }

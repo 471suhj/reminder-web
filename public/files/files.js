@@ -53,7 +53,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, true, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 {
     let tlbItem = document.getElementById('selectAll');
@@ -261,4 +261,4 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTit
     });
 }
 
-fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
+fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);

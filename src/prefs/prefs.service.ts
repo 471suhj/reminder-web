@@ -10,7 +10,7 @@ export class PrefsService {
 
     private readonly logger = new Logger(PrefsService.name);
 
-    async getUserCommon(userSer: number, pageSel: 'home'|'files'|'bm'|'shared'|'friends'|'prefs'): Promise<UserCommonDto>{
+    async getUserCommon(userSer: number, pageSel: 'home'|'files'|'bookmarks'|'shared'|'friends'|'prefs'): Promise<UserCommonDto>{
         const retVal: UserCommonDto = new UserCommonDto();
         const pool: Pool = await this.mysqlService.getSQL();
         let result;
@@ -33,7 +33,7 @@ export class PrefsService {
         retVal.sideItem = [['/home', pageSel === 'home' ? '' : 'Sel', '/graphics/home.png', '홈']];
         retVal.sideItem.push(['/files', pageSel === 'files' ? '' : 'Sel', '/graphics/files.png', '파일']);
         if(result[0].side_bookmarks === 'true')
-            {retVal.sideItem.push(['/files/bookmarks', pageSel === 'bm' ? '' : 'Sel', '/graphics/bookmarks.png', '즐겨찾기']);}
+            {retVal.sideItem.push(['/files/bookmarks', pageSel === 'bookmarks' ? '' : 'Sel', '/graphics/bookmarks.png', '즐겨찾기']);}
         if(result[0].side_shared === 'true')
             {retVal.sideItem.push(['/files/shared', pageSel === 'shared' ? '' : 'Sel', '/graphics/shared.png', '공유']);}
         retVal.sideItem.push(['/friends', pageSel === 'friends' ? '' : 'Sel', '/graphics/friends.png', '친구']);

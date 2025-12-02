@@ -22,7 +22,7 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
 
 export function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, includeBookmark, childLoc, lblLoadMore, numItemCnt, fncPrintCnt){
     for (const listItem of jsnRes.arr){
-        let itmAfter = null;
+        let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
         if (!last && !listItem.before){itmAfter = document.getElementById(listItem.before);}
         if (!itmAfter){

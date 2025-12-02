@@ -30,7 +30,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
 }
 
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
+fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 {
     let tlbItem = document.getElementById('upload');
@@ -91,4 +91,4 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTit
     });
 }
 
-fncSetupHeaderSort(fncRefresh, document.getElementById('tlbSort'), lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.path);
+fncSetupHeaderSort(fncRefresh, document.getElementById('tlbSort'), lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
