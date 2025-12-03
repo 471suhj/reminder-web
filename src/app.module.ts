@@ -11,10 +11,11 @@ import { MongoModule } from './mongo/mongo.module';
 import { FilesModule } from './files/files.module';
 import { HomeModule } from './home/home.module';
 import { PrefsModule } from './prefs/prefs.module';
+import { FriendsModule } from './friends/friends.module';
 
 @Module({
   imports: [AuthModule, MysqlModule, 
-    ScheduleModule.forRoot(), DeleteExpiredModule, MongoModule, FilesModule, HomeModule, PrefsModule
+    ScheduleModule.forRoot(), DeleteExpiredModule, MongoModule, FilesModule, HomeModule, PrefsModule, FriendsModule
   ],
   controllers: [AppController],
   providers: [

@@ -20,6 +20,12 @@ export class AuthService {
 
     async AuthUser(ID: string, PW: string): Promise<false | number>{ // max_int of number is greater than int unsigned of mysql
         const pool: mysql.Pool = await this.mysqlService.getSQL();
+        if (ID.length < 7){
+            return false;
+        }
+        if (PW.length < 7){
+            return false;
+        }
         ID = ID.normalize();
         ID = ID.toLowerCase();
         const [result] = await pool.execute<mysql.RowDataPacket[]>('select user_serial, password, salt from user where user_id=?', [ID]);

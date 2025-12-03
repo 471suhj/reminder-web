@@ -1,4 +1,4 @@
-import { Logger, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Logger, Injectable, InternalServerErrorException, HttpException } from '@nestjs/common';
 import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 
 @Injectable()
@@ -51,6 +51,9 @@ export class MysqlService {
             console.log(await conn.execute('commit'));
         } catch (err) {
             this.writeError(servicename, err);
+            if (err instanceof HttpException){
+                throw err;
+            }
             throw new InternalServerErrorException();
         } finally {
             conn.release();
@@ -63,6 +66,9 @@ export class MysqlService {
             await process(conn);
         } catch (err) {
             this.writeError(servicename, err);
+            if (err instanceof HttpException){
+                throw err;
+            }
             throw new InternalServerErrorException();
         }
     }

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
-import { RowDataPacket, Pool } from 'mysql2/promise';
+import { RowDataPacket, Pool, PoolConnection } from 'mysql2/promise';
 import { FilesGetDto } from './files-get.dto';
 import { PrefsService } from 'src/prefs/prefs.service';
 import { SysdirType } from './sysdir.type';
@@ -219,7 +219,7 @@ export class FilesService {
         }
         strOrder = strOrder.slice(0, -2) + ' ';
         let strSql1 = strSelect1 + strWhere1 + strOrder + `limit 21 for share`;
-        let strSql2 = strSelect2 + strWhere2 + strOrder + `for share`;
+        let strSql2 = strSelect2 + strWhere2 + strOrder + `for share`; // need to consider 'for update' on certain conditions
         if (mode !== 'recycle'){
             return [strSql1, strSql2];
         } else {
@@ -238,9 +238,9 @@ export class FilesService {
             strDel.push(`update file set to_delete=? `);
             strWhere.push(`where file_serial in ? `);
             strDel.push(`delete from shared_def `);
-            strWhere.push(`where user_serial_from=? and file_serial in (select file_serial from file where user_serial=? and to_delete<>'na' for share) `);
+            strWhere.push(`where user_serial_from=? and file_serial in (select file_serial from file where user_serial=? and to_delete<>'na' for update) `);
             strDel.push(`insert into recycle (user_serial, parent_serial, type, file_name, file_serial, last_modified, del_type) `);
-            strWhere.push(`value ? `);
+            strWhere.push(`select user_serial, parent_serial, type, file_name, file_serial, last_modified, to_delete from file where user_serial=? and to_delete<>'na' for update `);
             strDel.push(`delete from file `);
             strWhere.push(`where user_serial=? and to_delete<>'na' and issys<>'true'`);
             // deleting folders: need recursive action - mark with to_delete
@@ -262,12 +262,27 @@ export class FilesService {
             strWhere.push(`where user_serial=? and file_serial in (${'? ,'.repeat(itmCnt).slice(0, -2)}) `);
         } else {throw new BadRequestException();}
         for (let i = 0; i < strWhere.length; i++){
-            if (strDel[i].slice(0, 6) === 'select'){strWhere[i] += 'for share';}
+            if (strDel[i].slice(0, 6) === 'select'){strWhere[i] += 'for update';}
         }
         return [strDel, strWhere];
     }
 
-    signupCreateDir(user_serial){
-
+    async signupCreateDir(conn: PoolConnection, user_serial){
+        await conn.execute<RowDataPacket[]>(
+            `insert into file (user_serial, parent_serial, type, issys, file_name)
+            value (?, 1, 'dir', 'true', 'files')`, [user_serial]
+        );
+        await conn.execute<RowDataPacket[]>(
+            'update file set parent_serial=file_serial where user_serial=?', [user_serial]
+        );
+        let [result] = await conn.execute<RowDataPacket[]>(
+            `select file_serial from file where user_serial=? and file_name='files' for share`, [user_serial]
+        );
+        await conn.execute<RowDataPacket[]>(
+            `insert into file (user_serial, parent_serial, type, issys, file_name)
+            values (?, ?, 'dir', 'true', 'bookmarks'), (?, ?, 'dir', 'true', 'inbox'),
+            (?, ?, 'dir', 'true', 'shared'), (?, ?, 'dir', 'true', 'recycle')`,
+            Array(4).fill([user_serial, result[0].file_serial])
+        );
     }
 }

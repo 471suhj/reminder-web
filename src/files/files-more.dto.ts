@@ -1,14 +1,7 @@
-export class FilesMoreDto {
+import { FilesArrDto } from "./files-arr.dto";
+
+export class FilesMoreDto  extends FilesArrDto{ // before is ignored
     loadMore: boolean;
-    arr: Array<{
-        link: string;
-        id: number;
-        isFolder: boolean;
-        text: string;
-        bookmarked: boolean;
-        shared: string;
-        date: string;
-        ownerImg: string;
-    }>;
     needRefresh: boolean;
+    needReload: boolean; // true when change to timestamp
 }

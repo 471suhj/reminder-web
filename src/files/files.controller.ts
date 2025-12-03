@@ -1,4 +1,4 @@
-import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe } from '@nestjs/common';
+import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 import { FilesGetDto } from './files-get.dto';
@@ -7,6 +7,16 @@ import { Pool, RowDataPacket } from 'mysql2/promise';
 import { FilesService } from './files.service';
 import { FilesMoreDto } from './files-more.dto';
 import { SysdirType } from './sysdir.type';
+import { FileUploadDto } from './file-upload.dto';
+import { FileUpdateDto } from './file-update.dto';
+import { FileDeleteDto } from './file-delete.dto';
+import { FileShareDto } from './file-share.dto';
+import { FileDelResDto } from './file-del-res.dto';
+import { FileShareResDto } from './file-share-res.dto';
+import { FilesArrDto } from './files-arr.dto';
+import { FileMoveResDto } from './file-move-res.dto';
+import { FileMoveDto } from './file-move.dto';
+import { FileListResDto } from './file-list-res.dto';
 
 @Controller('files')
 export class FilesController {
@@ -117,7 +127,7 @@ export class FilesController {
     }
     
     @Get('bookmarks')
-    @Render('files/shared')
+    @Render('files/bookmarks')
     async getBookmarks(@User(ParseIntPipe) userSer: number): Promise<FilesGetDto> {
         return await this.filesService.renderSharedPage(userSer, 'bookmarks');
     }
@@ -128,5 +138,107 @@ export class FilesController {
         return await this.filesService.renderSharedPage(userSer, 'shared');
     }
 
+    @Get('recycle')
+    @Render('files/recycle')
+    async getRecycle(@User(ParseIntPipe) userSer: number): Promise<FilesGetDto>{
+        return await this.filesService.renderSharedPage(userSer, 'recycle');
+    }
 
+    @Delete('recycle')
+    async delPermanent(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        return new FileDelResDto();
+    }
+
+    @Put('recycle')
+    async restoreFile(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        return new FileDelResDto();
+    }
+
+    // upload rmb files
+    @Post('manage')
+    async uploadFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUploadDto){
+
+    }
+
+    // rename, create directory, create files from files, or enable bookmark
+    @Put('manage') // 'before's in filesarrdto are not ignored, success object is for rename only.
+    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FilesArrDto|{success: boolean, failmessage?: string}>{
+        return {success: true};
+    }
+
+    // delete from files, bookmarks and shared
+    @Delete('bookmark')
+    @Delete('manage') // do not delete system dirs
+    async deleteFile(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        return new FileDelResDto();
+    }
+
+    @Put('bookmark')
+    async setBookmark(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        return new FileDelResDto();
+    }
+
+    // sharing from files or profile
+    @Put('share')
+    async shareFile(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
+        return new FileShareResDto();
+    }
+
+    // copy and move from files
+    @Put('move')
+    async copyMoveFile(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
+        await this.mysqlService.doTransaction('files controller move', async (conn)=>{
+            // ignore timestamp
+            // access control
+            let [result] = await conn.execute<RowDataPacket[]>(
+                `select file_serial from file where user_serial=? and file_serial=?  and type='dir' for share`,
+                [userSer, body.from]
+            );
+            if (result.length <= 0){throw new BadRequestException();}
+            if (!body.overwrite){
+                let subq = `select file_name from file where user_serial=? and parent_serial=? and file_serial in ? for update`;
+                await conn.execute<RowDataPacket[]>(
+                    `select file_serial from file where user_serial=? and parent_serial=? and file_name in (${subq}) for update`,
+                    [userSer, body.to, []]
+                );
+            } else if (body.overwrite === 'buttonoverwrite'){
+                //
+            } else if (body.overwrite === 'buttonrename'){
+                //
+            } else { // skip
+                //
+            }
+            // don't forget to say for share
+            // idempotent operation
+        });
+        return new FileMoveResDto();
+    }
+
+    // get list for dialogs
+    @Get('list')
+    async getFileList(
+        @User(ParseIntPipe) userSer: number,
+        @Query('select') select: 'folders'|'sepall',
+        @Query('dirid', new ParseIntPipe({optional: true})) dirid?: number
+    ): Promise<FileListResDto>{
+        let retVal = new FileListResDto();
+        let rootid = await this.filesService.getUserRoot(userSer, 'files');
+        if (dirid === undefined){
+            dirid = rootid;
+        }
+        await this.mysqlService.doQuery('files controller list', async (conn)=>{
+            let [result] = await conn.execute<RowDataPacket[]>(`select parent_serial from file where user_serial=? and file_serial=?`, [userSer, dirid]);
+            if (result.length <= 0){throw new BadRequestException();}
+            retVal.arr = [{name: '(최상위 폴더)', id: rootid}, {name: '(상위 폴더)', id: Number(result[0].parent_serial)}];
+            [result] = await conn.execute<RowDataPacket[]>(
+                `select file_name as name, file_serial as id from file where user_serial=? and parent_serial=? and type='dir'`, [userSer, dirid]);
+            retVal.arr = retVal.arr.concat(result as FileListResDto['arr']);
+            if (select === 'sepall'){
+                [result] = await conn.execute<RowDataPacket[]>(
+                    `select file_name as name, file_serial as id from file where user_serial=? and parent_serial=? and type<>'dir'`);
+                retVal.arr2 = result as FileListResDto['arr2'];
+            }
+        });
+        return retVal;
+    }
 }

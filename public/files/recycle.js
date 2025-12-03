@@ -1,7 +1,6 @@
 import {doFetch, showMessage} from '/printmsg.js';
-import {sortMode, fncSetupHeaderSort} from '/sortmode.js';
-import {fncRefresh, fncAutoloadSetup} from '/autoload.js';
-import {fncAddItems} from '/filemove.js';
+import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
+import {fncAddItems, fncRemoveItems} from '/filemove.js';
 
 const list = document.getElementById('list');
 const listHead = document.getElementById('listHead');
@@ -10,14 +9,17 @@ const lblLoadMore = document.getElementById('loadMore');
 const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
+fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
+
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
 }
 
-function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
+async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-timestamp='${listITem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' style='display:none'></div><!-
             ><div class='listItemText listItemCol'>${listItem.text}</div><!-
@@ -26,10 +28,8 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, list, strHtml, false, 2, lblLoadMore, numItemCnt, fncPrintCnt);
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, numItemCnt, fncPrintCnt);
 }
-
-fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 {
     let tlbItem = document.getElementById('selectAll');
@@ -51,17 +51,18 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTit
         }
     });
 }
+
 {
     let tlbItem = document.getElementById('delete');
     tlbItem.addEventListener('click', async function(){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.id);
+                lstDeleteName.push(listItem.dataset.id);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch('', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, files: lstDeleteName}), 
+            await doFetch('', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
                 fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
@@ -76,11 +77,11 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTit
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.id);
+                lstDeleteName.push(listItem.dataset.id);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch('', 'PUT', JSON.stringify({action: 'restore', sort: sortMode, files: lstDeleteName}), 
+            await doFetch('', 'PUT', JSON.stringify({action: 'restore', sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
                 fncRemoveItems(jsnRes, fncPrintCnt, '복원에 실패한 항목이 있습니다.', '복원이 완료되었습니다.');
@@ -91,5 +92,3 @@ fncAutoloadSetup(lblLoadMore, list, sortMode, fncInsertFile, fncPrintCnt, lblTit
         }
     });
 }
-
-fncSetupHeaderSort(fncRefresh, listHead, lblLoadMore, list, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);

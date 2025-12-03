@@ -2,12 +2,13 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { HashPasswordService } from 'src/hash-password/hash-password.service';
 import { MysqlService } from 'src/mysql/mysql.service';
 import mysql from 'mysql2/promise';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class SignupService {
     constructor(
         private mysqlService: MysqlService,
-        private hashPasswordService: HashPasswordService,
+        private filesService: FilesService
     ){}
 
     private readonly logger = new Logger(SignupService.name);
@@ -74,7 +75,10 @@ export class SignupService {
                     }
                 }
                 [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
-                retVal.serial = Number(result[0]['user_serial']);
+                if (!updateinfo){
+                    await this.filesService.signupCreateDir(conn, result[0].user_serial)
+                }
+                retVal.serial = Number(result[0].user_serial);
                 if (mode === 'google' && !updateinfo){
                     await conn.execute<mysql.RowDataPacket[]>('insert into user_google (user_serial, token, refresh_token, google_id, email, email2, email_verified) value (?,?,?,?,?,?,?)',
                         [retVal.serial, googleObj.tokens.access_token, googleObj.tokens.refresh_token, googleObj.id, email.slice(0, 65), email.slice(65), String(googleObj.verified_email)]);

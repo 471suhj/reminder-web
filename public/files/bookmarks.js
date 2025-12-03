@@ -90,22 +90,13 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             showMessage('파일이 선택되지 않았습니다.');
             return;
         }
-        if (!confirm('공유를 취소하시겠습니까?')){
-            return;
-        }
-        divPopup.style.display = 'block';
-        divPopup.appendChild('p').innerText = '전송할 메시지를 입력하십시오.';
-        const txtMsg = divPopup.appendChild(document.createElement('textarea'));
-        const cmdOK = fncCreateOKCancel(divPopup);
-        cmdOK.addEventListener('click', async function(){
-            const jsonBody = {action: 'selected', sort: sortMode, files: lstDeleteName, message: txtMsg.value};
-            fncClearPopup(divPopup);
-            await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
-            '', '공유 취소에 오류가 발생했습니다.', async function(result){
-                const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.');
-            });
-        });
+		const jsonBody = {action: 'bookmark', files: lstDeleteName};
+		fncClearPopup(divPopup);
+		await doFetch('./bookmark', 'DELETE', JSON.stringify(jsonBody), 
+		'', '바로 가기 해제에 오류가 발생했습니다.', async function(result){
+			const jsnRes = await result.json();
+			fncRemoveItems(jsnRes, fncPrintCnt, '바로 가기 해제에 실패한 항목이 있습니다.', '');
+		});
     });
 }
 
