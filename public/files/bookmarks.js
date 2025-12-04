@@ -23,16 +23,16 @@ function fncPrintCnt(){
 function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='30' height='30' style='display:none'></div><!-
             ><div class='listOwner listItemCol'>${listItem.ownerName}</div><!-
-            ><div class='listItemText listItemCol'>${listItem.text}  <div class='itemBookmark listItemCol' data-bookmarked='${listItem.bookmarked}'><img src='/graphics/toolbars/bookmark.png' width='15' height='15'></div></div><!-
+            ><div class='listItemText listItemCol'>${listItem.text}</div><!-
             ><div class='listProfile listItemCol'>${listItem.shared}</div><!-
             ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 3, numItemCnt, fncPrintCnt);
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 3, numItemCnt, fncPrintCnt);
 }
 
 {
@@ -92,7 +92,7 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         }
 		const jsonBody = {action: 'bookmark', files: lstDeleteName};
 		fncClearPopup(divPopup);
-		await doFetch('./bookmark', 'DELETE', JSON.stringify(jsonBody), 
+		await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
 		'', '바로 가기 해제에 오류가 발생했습니다.', async function(result){
 			const jsnRes = await result.json();
 			fncRemoveItems(jsnRes, fncPrintCnt, '바로 가기 해제에 실패한 항목이 있습니다.', '');

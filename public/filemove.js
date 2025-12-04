@@ -5,9 +5,9 @@ const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
 
 export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
-    for (listItem of jsnRes.arr){
+    for (listItem of jsnRes.delarr){
         try{
-            document.getElementById('item' + listItem).remove();
+            document.getElementById('item' + listItem.timestamp + listItem.id).remove();
             itemCnt--;
         } catch {
             continue;
@@ -24,10 +24,10 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
 }
 
 export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, includeBookmark, childLoc, numItemCnt, fncPrintCnt){
-    for (const listItem of jsnRes.arr){
+    for (const listItem of jsnRes.addarr){
         let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
-        if (!last && !listItem.before){itmAfter = document.getElementById('item' + listItem.before);}
+        if (!last && !listItem.before){itmAfter = document.getElementById('item' + listItem.before.timestamp + listItem.before.id);}
         if (!itmAfter){
             if (lblLoadMore.parentNode){
                 lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem))
@@ -93,7 +93,6 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         }
     }
 
-    jsnRes.arr = jsnRes.deleteArr;
     fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos)
 }
 
@@ -147,7 +146,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
     let arrSelFiles = [];
     for (const listItem of list.children){
         if (listItem.firstElementChild.checked){
-            arrSelFiles.push(Number(listItem.dataset.id));
+            arrSelFiles.push({id: Number(listItem.dataset.id), timestamp: new Date(listItem.dataset.timestamp)});
         }
     }
     if (!arrSelFiles.length){
@@ -181,7 +180,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 			txtPath.innerText = jsnRes.path;
 			for (const listItem of jsnRes.arr){
 				const ctlOption = lstDir.appendChild(document.createElement('option'));
-				ctlOption.innerText = `${listItem.name}`;
+				ctlOption.innerText = `${listItem.id}`;
 				ctlOption.dataset.id = listItem.id;
 				ctlOption.addEventListener('click', fncClickOption);
 				ctlOption.addEventListener('dblclick', async function(event){
@@ -198,21 +197,32 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 			return;
 		}
 		let jsonBody = {action: mode, sort: sortMode, files: arrSelFiles, from: lblTitle.dataset.id, timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
-		await doFetch('./move', 'PUT', JSON.stringify(jsonBody), '',
-			msgNegAll, async function(result){
-				fncClearPopup(divPopup);
-				const jsnRes = await result.json();
-				if (jsnRes.alreadyExists){
-					fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT');
-					return;
-				} else if (jsnRes.failmessage) {
-					return jsnRes.failmessage;
-				} else if (jsnRes.failed){
-					return '복사 또는 이동에 실패했습니다.';
-				} else {
-					return await fncInsertFile(jsnRes, false, msgPos, msgNegPart);
-				}
-		});
+		let fncFetch;
+		fncFetch = async function(){
+			await doFetch('./move', 'PUT', JSON.stringify(jsonBody), '',
+				msgNegAll, async function(result){
+					fncClearPopup(divPopup);
+					const jsnRes = await result.json();
+					if (jsnRes.expired){
+						if (confirm('현재 창이 표시된 이후 폴더의 위치나 이름이 바뀌었습니다.\n'
+						+ '"계속"할 경우 표시된 폴더가 아닌 새로 바뀐 위치의 폴더에서 복사/이동 작업이 진행됩니다.\n'
+						+ '현재 폴더가 작업하려는 폴더가 맞는지 확실하지 않다면 작업을 "취소"하고 새로고침(Ctrl+R)하십시오. "계속"하시겠습니까?')){
+							jsonBody.ignoreTimestamp = true;
+							fncFetch();
+						}
+						return;
+					} else if (jsnRes.alreadyExists){
+						fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT');
+						return;
+					} else if (jsnRes.failmessage) {
+						return jsnRes.failmessage;
+					} else if (jsnRes.failed){
+						return '복사 또는 이동에 실패했습니다.';
+					} else {
+						return await fncInsertFile(jsnRes, false, msgPos, msgNegPart);
+					}
+			});
+		}
 	});
     
 }

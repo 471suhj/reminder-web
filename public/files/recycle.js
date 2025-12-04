@@ -19,7 +19,7 @@ function fncPrintCnt(){
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-timestamp='${listITem.timestamp}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listITem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' style='display:none'></div><!-
             ><div class='listItemText listItemCol'>${listItem.text}</div><!-
@@ -62,7 +62,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             }
         }
         if (lstDeleteName.length > 0){
-            await doFetch('', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, files: lstDeleteName}), 
+            await doFetch('', 'DELETE', JSON.stringify({action: 'permdel', sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
                 fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');

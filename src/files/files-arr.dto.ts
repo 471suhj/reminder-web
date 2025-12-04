@@ -1,6 +1,8 @@
+import { FileIdentResDto } from "./file-ident-res.dto";
+
 export class FilesArrDto {
     arr: Array<{
-        before?: number;
+        before?: FileIdentResDto;
         link: string;
         id: number;
         isFolder: boolean;

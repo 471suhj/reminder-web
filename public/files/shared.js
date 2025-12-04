@@ -23,7 +23,7 @@ function fncPrintCnt(){
 function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='30' height='30' style='display:none'></div><!-
             ><div class='listOwner listItemCol'>${listItem.ownerName}</div><!-
@@ -98,13 +98,13 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async function(){
-            const jsonBody = {action: 'selected', sort: sortMode, files: lstDeleteName, message: txtMsg.value};
-            fncClearPopup(divPopup);
-            await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
-            '', '공유 취소에 오류가 발생했습니다.', async function(result){
-                const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.');
-            });
+		const jsonBody = {action: 'unshare', sort: sortMode, files: lstDeleteName, message: txtMsg.value};
+		fncClearPopup(divPopup);
+			await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
+			'', '공유 취소에 오류가 발생했습니다.', async function(result){
+				const jsnRes = await result.json();
+				fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.');
+			});
         });
     });
 }

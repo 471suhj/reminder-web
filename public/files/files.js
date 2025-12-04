@@ -28,7 +28,7 @@ async function fncRename(){
 			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async function(result){
 			const jsnRes = await result.json();
 			if (jsnRes.success){
-				document.getElementById('item' + itemId).childNodes[1].innerText = newName + ' ';
+				document.getElementById('item'  + txtRename.dataset.timestamp + itemId).childNodes[1].innerText = newName + ' ';
 			} else if(jsnRes.failmessage){
 				return jsnRes.failmessage;
 			} else {
@@ -51,7 +51,7 @@ function fncPrintCnt(){
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
         <input class='listItemChkbox listItemCol' type='checkbox'><!-
         ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' data-visible='${listItem.isFolder}'></div><!-
         ><div class='listItemText listItemCol'>${listItem.text}  <div class='itemBookmark listItemCol' data-bookmarked='${listItem.bookmarked}'><img src='/graphics/toolbars/bookmark.png' width='15' height='15'></div></div><!-
@@ -153,11 +153,23 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             }
         }
         if (lstDeleteName.length > 0){
-            await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, files: lstDeleteName}), 
-            '', '삭제에 오류가 발생했습니다.', async function(result){
-                const jsnRes = await result.json();
-                return fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
-            });
+			let fncFetch;
+			fncFetch = async function(){
+				await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, from: Number(lblTitle.dataset.id), files: lstDeleteName, timestamp: lblTitle.dataset.timestamp}), 
+				'', '삭제에 오류가 발생했습니다.', async function(result){
+					const jsnRes = await result.json();
+					if (jsnRes.expired){
+						if (confirm('현재 창이 표시된 이후 폴더의 위치나 이름이 바뀌었습니다.\n'
+						+ '"계속"할 경우 표시된 폴더가 아닌 새로 바뀐 위치의 폴더에서 삭제가 진행됩니다.\n'
+						+ '현재 폴더가 작업하려는 폴더가 맞는지 확실하지 않다면 작업을 "취소"하고 새로고침(Ctrl+R)하십시오. "계속"하시겠습니까?')){
+							jsonBody.ignoreTimestamp = true;
+							fncFetch();
+						}
+						return;
+					}
+					return fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
+				});
+			}
         }
     });
 }

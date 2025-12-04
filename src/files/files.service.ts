@@ -4,6 +4,9 @@ import { RowDataPacket, Pool, PoolConnection } from 'mysql2/promise';
 import { FilesGetDto } from './files-get.dto';
 import { PrefsService } from 'src/prefs/prefs.service';
 import { SysdirType } from './sysdir.type';
+import { FileDelResDto } from './file-del-res.dto';
+import { FileIdentResDto } from './file-ident-res.dto';
+import { FileIdentReqDto } from './file-ident-req.dto';
 
 @Injectable()
 export class FilesService {
@@ -30,6 +33,32 @@ export class FilesService {
         }
     }
 
+    async makePath(conn: PoolConnection, userSer: number, path: string){
+        let dirid = await this.getUserRoot(userSer, 'files');
+        let arrName = path.split('/');
+        let level = 1; // not 0
+        let result: RowDataPacket[];
+        let str1 = `select file_serial from file `;
+        str1 += `where user_serial=? and parent_serial=? and file_name=? and type='dir' `;
+        str1 += 'for update';
+        while (level < arrName.length){
+            [result] = await conn.execute<RowDataPacket[]>(
+                str1, [userSer, dirid, arrName[level]]
+            );
+            if (result.length <= 0){
+                await conn.execute<RowDataPacket[]>(
+                    `insert into file (user_serial, parent_serial, type, file_name) value ?`,
+                    [userSer, dirid, 'dir', arrName[level]]
+                );
+                [result] = await conn.execute<RowDataPacket[]>(
+                    str1, [userSer, dirid, arrName[level]]
+                );
+            }
+            dirid = result[0].file_serial;
+            level++;
+        }
+        return dirid;
+    }
 
     // includes user verification
     async getDirInfo(userSer: number, fileId: number): Promise<{path: string, pathHtml: string, parentId: number, dirName: string}>{
@@ -108,6 +137,38 @@ export class FilesService {
         let sideName =  (dirType === 'recycle' || dirType === 'inbox') ? 'files' : dirType;
         retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))};
         return retObj;
+    }
+
+    async checkTimestamp(conn: PoolConnection, userSer: number, fileSer: number, time: Date, mode?: 'dir'|'file'){
+        let str1 = `select file_serial from file where user_serial=? and fileSer=? and last_renamed=? `
+        if (mode === 'dir'){
+            str1 += `and type='dir' `;
+        } else if (mode === 'file'){
+            str1 += `and type<>'dir' `;
+        }
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1 + 'for share', [userSer, fileSer, time]
+        );
+        return (result.length > 0);
+    }
+
+    async checkAccess(conn: PoolConnection, userSer: number, fileSer: number, mode?: 'dir'|'file', nosys?: 'true'|'fileonly'){
+        let str1 = `select file_serial from file where user_serial=? and fileSer=? `;
+        if (mode === 'dir'){
+            str1 += `and type='dir' `;
+        } else if (mode === 'file'){
+            str1 += `and type<>'dir' `;
+        }
+        if (nosys === 'fileonly'){
+            str1 += `and (file_name='files' or issys='false') `;
+        } else if (nosys === 'true'){
+            str1 += `and issys='false' `;
+        }
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1 + 'for share',
+            [userSer, fileSer]
+        );
+        return (result.length > 0);
     }
 
     private translateColumnBase(val: string, mode: SysdirType['val']){
@@ -227,28 +288,13 @@ export class FilesService {
         }
     }
 
-    generateDelete(mode: SysdirType['val'], itmCnt: number){
+    generateDelete(mode: SysdirType['val']){
         if (!SysdirType.arr.includes(mode)){throw new BadRequestException();}
         let strDel: Array<string> = [];
         let strWhere: Array<string> = [];
         // beware of unauthorized deletes!
-        if (mode === 'files'){
-            strDel.push(`select file_serial from file `);
-            strWhere.push(`where user_serial=? and file_parent=? `);
-            strDel.push(`update file set to_delete=? `);
-            strWhere.push(`where file_serial in ? `);
-            strDel.push(`delete from shared_def `);
-            strWhere.push(`where user_serial_from=? and file_serial in (select file_serial from file where user_serial=? and to_delete<>'na' for update) `);
-            strDel.push(`insert into recycle (user_serial, parent_serial, type, file_name, file_serial, last_modified, del_type) `);
-            strWhere.push(`select user_serial, parent_serial, type, file_name, file_serial, last_modified, to_delete from file where user_serial=? and to_delete<>'na' for update `);
-            strDel.push(`delete from file `);
-            strWhere.push(`where user_serial=? and to_delete<>'na' and issys<>'true'`);
-            // deleting folders: need recursive action - mark with to_delete
-            // also remove shared_def for all recursively deleted ones
-            // do not delete sysdirs.
-            throw new InternalServerErrorException(); // do not use this function yet
-        } else if (mode === 'inbox'){
-            throw new InternalServerErrorException();
+        if (mode === 'files' || mode === 'inbox'){
+            throw new BadRequestException();
         } else if (mode === 'bookmarks'){
             strDel.push(`update shared_def set bookmarked='false' `);
             strWhere.push(`where user_serial_to=? and file_serial=? `);
@@ -256,15 +302,268 @@ export class FilesService {
             strWhere.push(`where user_serial=? and file_serial=? `);
         } else if (mode === 'shared'){
             strDel.push(`delete from shared_def `);
-            strWhere.push(`where user_serial_to=? and file_serial in (${'? ,'.repeat(itmCnt).slice(0, -2)}) `);
+            strWhere.push(`where user_serial_to=? and file_serial in ? `);
         } else if (mode === 'recycle'){
             strDel.push(`delete from recycle `);
-            strWhere.push(`where user_serial=? and file_serial in (${'? ,'.repeat(itmCnt).slice(0, -2)}) `);
+            strWhere.push(`where user_serial=? and file_serial in ? `);
         } else {throw new BadRequestException();}
         for (let i = 0; i < strWhere.length; i++){
-            if (strDel[i].slice(0, 6) === 'select'){strWhere[i] += 'for update';}
+            if (strDel[i].slice(0, 6) === 'select'){strDel[i] += (strWhere[i] + 'for update');}
         }
-        return [strDel, strWhere];
+        return strDel;
+    }
+
+    private async deleteFiles_validity(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>){
+        let arr = arr_.slice(0);
+        let str1 = `select file_serial as id, last_renamed as timestamp from file `;
+        str1 += `where user_serial=? and (file_serial,last_renamed) in ?) `;
+        str1 += 'for update';
+        let arr2 = arr.map((val)=>(val.timestamp.toISOString() + val.id));
+        let retArr: Array<FileIdentReqDto> = [];
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1, [userSer, arr.map((val)=>[val.id, val.timestamp])]
+        );
+        for (let i = 0; i < result.length; i++){
+            let idxTmp = arr2.indexOf(result[i].timestamp.toISOString() + result[i].id);
+            if (idxTmp === -1){continue;}
+            arr2.splice(idxTmp, 1);
+            retArr.push(...arr.splice(idxTmp, 1));
+        }
+        return {arr: retArr, arrFail: arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()};})};
+    }
+
+    private async deleteFiles_mark(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>){
+        let arr = arr_.slice(0);
+        let str1 = `update file set to_delete='direct' `;
+        str1 += `where user_serial=? and file_serial in ? `;
+        // str1 += 'for update';
+        await conn.execute<RowDataPacket[]>(
+            str1, [userSer, arr.map((val)=>val.id)]
+        );
+        str1 = `select file_serial from file `;
+        str1 += `where user_serial=? and to_delete='direct' for update `;
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1, [userSer, arr.map((val)=>val.id)]
+        );
+        let arr2 = arr.map((val)=>(val.id));
+        let retArr: FileIdentReqDto[] = [];
+        for (let i = 0; i < result.length; i++){
+            let idxTmp = arr2.indexOf(result[i].file_serial);
+            if (idxTmp === -1){this.logger.error('deletefiles_mark: '+result[i].file_serial);continue;}
+            arr2.splice(idxTmp, 1);
+            retArr.push(...arr.splice(idxTmp, 1));
+        }
+        return {arr: retArr, arrFail: arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()};})};
+    }
+
+    private async deleteFiles_recurse(conn: PoolConnection, userSer: number, arr_: Array<number>){
+        let arr = arr_.slice();
+        let str1 = `update file set to_delete='recursive' `;
+        str1 += `where user_serial=? and parent_serial in ? `;
+        await conn.execute<RowDataPacket[]>(str1, [userSer, arr]);
+
+        str1 = `select file_serial as id from file `;
+        str1 += `where user_serial=? and parent_serial in ? and type='dir' `;
+        str1 += 'for update';
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1, [userSer, arr]
+        );
+        return result.map((val)=>val.id);
+    }
+
+    private async deleteFiles_removeShares(conn: PoolConnection, userSer: number){
+        let subq = `select file_serial from file where user_serial=? and to_delete<>'na' for update`;
+        let str1 = `delete from shared_def `;
+        str1 += `where user_serial_from=? and file_serial in (${subq}) `;
+        // str1 += 'for update';
+        await conn.execute<RowDataPacket[]>(
+            str1, [userSer, userSer]
+        );
+    }
+
+    private async deleteFiles_toRecycle(conn: PoolConnection, userSer: number, origPath: string){
+        let str1 = `insert into recycle (user_serial, parent_serial, type, file_name, file_serial, last_modified, del_type, parent_path) `;
+        let subq = `user_serial, parent_serial, type, file_name, file_serial, last_modified, to_delete, ?`;
+        str1 += `select ${subq} from file where user_serial=? and to_delete<>'na' and issys='false' `;
+        // str1 += 'for update';
+        await conn.execute<RowDataPacket[]>(
+            str1, [origPath, userSer]
+        );
+    }
+
+    private async deleteFiles_remove(conn: PoolConnection, userSer: number){
+        let str1 = `delete from file `;
+        str1 += `where user_serial=? and to_delete<>'na' and issys='false' `;
+        // str1 += 'for update';
+        await conn.execute<RowDataPacket[]>(
+            str1, [userSer]
+        );
+    }
+
+    async deleteFiles(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>, from: number): Promise<FileDelResDto>{
+        // deleting folders: need recursive action - mark with to_delete
+        // also remove shared_def for all recursively deleted ones
+        // do not delete sysdirs.
+        let arr = arr_.slice();
+        let arrFail: FileIdentResDto[] = [], arrFail2: FileIdentResDto[] = [];
+        let result;
+        ({arr, arrFail} = await this.deleteFiles_validity(conn, userSer, arr));
+        ({arr, arrFail: arrFail2} = await this.deleteFiles_mark(conn, userSer, arr));
+        arrFail.push(...arrFail2);
+        result = arr.map((val)=>val.id);
+        while (result.length > 0) {
+            [result] = await this.deleteFiles_recurse(conn, userSer, result);
+        }
+        await this.deleteFiles_removeShares(conn, userSer);
+        const { path } = await this.getDirInfo(userSer, from);
+        await this.deleteFiles_toRecycle(conn, userSer, path);
+        await this.deleteFiles_remove(conn, userSer);
+        let retVal = new FileDelResDto();
+        retVal.delarr = arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()}});
+        retVal.failed = arrFail;
+        return retVal;
+    }
+
+    // do not modify _arr
+    async moveFiles_rename(conn: PoolConnection, userSer: number, del: boolean, parent: number, arr_: readonly {file_serial: number, file_name: string, type: string, timestamp: Date}[]){
+        let arr: {file_serial: number, file_name: string, type: string, timestamp: Date}[] = [];
+        arr_.forEach((val)=>{arr.push({file_serial: val.file_serial, type: val.type, file_name: val.file_name + '-2', timestamp: val.timestamp});});
+        let arrFail: typeof arr = [];
+        for (let i = arr_.length - 1; i >= 0 ; i--){
+            if (arr_[i].file_name.length > (40-2)){
+                arrFail.push(...arr.splice(i, 1));
+            }
+        }
+        let arr2 = arr.slice();
+        
+        // first use arr2, change the names and remove usable items, then finally use arr to perform rename.
+        let str1 = `select file_serial, file_name, type from file `
+        str1 += `where user_serial=? and parent_serial=? and (type, file_name) in ? `;
+        str1 += 'for update';
+        while (arr2.length > 0){
+            let arr3 = arr2.map((val)=>val.file_serial);
+            let arrProb: typeof arr2 = [];
+            let [result] = await conn.execute<RowDataPacket[]>(str1, [userSer, parent, arr2.map((val)=>[val.type, val.file_name])]);
+            for (let i = 0; i < result.length; i++){
+                let loc = arr3.indexOf(result[i].file_serial);
+                if (loc === -1){continue;}
+                arrProb.push(...arr2.splice(loc, 1));
+                arr3.splice(loc, 1);
+            }
+            arr2 = arrProb;
+            let arr_cp = arr.map((val)=>val.file_serial);
+            arr2.forEach((val)=>{val.file_name + '-2'});
+            for (let i = arr2.length - 1; i >= 0; i++){
+                if (arr2[i].file_name.length > 40){
+                    let loc = arr_cp.indexOf(arr2[i].file_serial);
+                    arr.splice(loc, 1);
+                    arrFail.push(...arr2.splice(i, 1));
+                }
+            }
+        }
+        
+        // rename
+        // unideal
+        for (let i = 0; i < arr.length; i++){
+            if (del){
+                await conn.execute<RowDataPacket[]>(`update file set file_name=? and file_parent=? where user_serial=? and file_serial=?`,
+                    [arr[i].file_name, parent, userSer, arr[i].file_serial]
+                );
+            } else {
+                await conn.execute<RowDataPacket[]>(
+                    `insert into file (usre_serial, parent_serial, type, file_name) value ?`,
+                    [[userSer, parent, arr[i].type, arr[i].file_name]]
+                );
+            }
+        }
+
+        return {arrFail, arrRenamed: arr.map((val)=>{return {id: val.file_serial, timestamp: val.timestamp.toISOString()};})};
+    }
+
+    private async restoreFiles_checkPath(conn: PoolConnection, userSer: number, arr_: FileIdentReqDto[]){
+        let arr = arr_.slice();
+        let arr2 = arr.map((val)=>val.id);
+        // fetch names and other info
+        let str1 = `select file_serial, parent_path, file_name, type from recycle `;
+        str1 += `where user_serial=? and (file_serial, file_timestamp) in ? order by parent_path `;
+        str1 += 'for update';
+        let [result] = await conn.execute<RowDataPacket[]>(
+            str1, [userSer, arr.map((val)=>[val.id, val.timestamp])]
+        );
+        // make path (call makepath), and check for name clashes
+        str1 = `select file_serial from file `;
+        str1 += `where user_serial=? and parent_serial=? and file_type=? and file_name=? `;
+        str1 += 'for update';
+        let curPath = '';
+        let dirid: number;
+        let namechange = false;
+        let retArr: Array<FileIdentReqDto> = [];
+        for (let i = 0; i < result.length; i++){
+            if (curPath !== result[i].parent_path){
+                curPath = result[i].parent_path;
+                dirid = await this.makePath(conn, userSer, curPath);
+            }
+            let newname = result[i].file_name;
+            let toolong = false;
+            while(true){
+                let [result2] = await conn.execute<RowDataPacket[]>(
+                    str1, [userSer, dirid!, result[i].type, newname]
+                );
+                if (result2.length <= 0){
+                    break;
+                }
+                newname += '-2';
+                namechange = true;
+                if (newname.length > 40){
+                    toolong = true;
+                    break;
+                }
+            }
+            if (toolong){continue;}
+            let str2 = `update recycle set file_name=?, parent_serial=? where user_serial=? and file_serial=? `;
+            await conn.execute<RowDataPacket[]>(str2, [newname, dirid!, userSer, result[i].file_serial]);
+            let loc = arr2.indexOf(result[i].file_serial);
+            if (loc === -1){this.logger.error('restorefiles: ' + result[i].file_serial);continue;}
+            arr2.splice(loc,1);
+            retArr.push(...arr.splice(loc,1));
+        }
+        return {arr: retArr, arrFail: arr, namechange};
+    }
+
+    private async restoreFiles_mark(conn: PoolConnection, userSer: number, arr_: Array<number>){
+        let arr =  arr_.slice();
+        let str1 = `update recycle set to_restore='true' where user_serial=? and file_serial in ? `;
+        let str2 = `update recycle set to_restore='true' where user_serial=? and parent_serial in ? and del_type='recursive' `;
+        let str3 = `select file_serial from recycle where user_serial=? and parent_serial in ? and type='dir' and del_type='reucrsive' `;
+        str3 += 'for update';
+        await conn.execute<RowDataPacket[]>(str1, [userSer, arr]);
+        let result: RowDataPacket[];
+        while (arr.length > 0) {
+            await conn.execute<RowDataPacket[]>(str2, [userSer, arr]);
+            [result] = await conn.execute<RowDataPacket[]>(str3, [userSer, arr]);
+            arr = result.map((val)=>val.file_serial);
+        }
+    }
+
+    private async restoreFiles_moveFile(conn: PoolConnection, userSer: number){
+        let str1 = `insert into file (user_serial, parent_serial, type, file_name, file_serial, last_modified) `;
+        str1 += `select user_serial, parent_serial, type, file_name, file_serial, last_modified from recycle `;
+        str1 += `where user_serial=? and to_restore='true' `;
+        // str1 += 'for update';
+        await conn.execute<RowDataPacket[]>(str1, [userSer]);
+        str1 = `delete from recycle `;
+        str1 += `where user_serial=? and to_restore='true' `;
+        await conn.execute<RowDataPacket[]>(str1, [userSer]);
+    }
+
+    async restoreFiles(conn: PoolConnection, userSer: number, arr_: FileIdentReqDto[]){
+        // create path. check if file already exists there. then get the appropriate name to add
+        let { arr, arrFail, namechange } = await this.restoreFiles_checkPath(conn, userSer, arr_);
+        let clash_toolong = (arrFail.length > 0);
+        await this.restoreFiles_mark(conn, userSer, arr.map((val)=>val.id));
+        await this.restoreFiles_moveFile(conn, userSer);
+
+        return {arr, arrFail, clash_toolong, namechange};
     }
 
     async signupCreateDir(conn: PoolConnection, user_serial){

@@ -74,8 +74,8 @@ export async function fncShare(divPopup, list){
 			'공유에 실패했습니다.', async function(result){
 				fncClearPopup(divPopup);
 				const jsnRes = await result.json();
-				for (const listItem of jsnRes.arr){
-					document.getElementById('item' + listItem.id).children[3].innerText = listItem.shared;
+				for (const listItem of jsnRes.addarr){
+					document.getElementById('item' + listItem.timestamp + listItem.id).children[3].innerText = listItem.shared;
 				}
 				if (jsnRes.failreason){
 					return jsnRes.failreason;

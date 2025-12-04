@@ -19,7 +19,7 @@ function fncPrintCnt(){
 function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}'>
             <input class='listItemChkbox' type='checkbox'>
             <div class='listBlock'>
                 <img src='${listItem.profileimg}' width='25' height='25'><!-

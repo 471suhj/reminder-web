@@ -24,7 +24,7 @@ function fncPrintCnt(){
 function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.id} data-id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id} data-id='${listItem.id}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='30' height='30' style='display:none'></div><!-
             ><div class='listOwner listItemCol'>${listItem.ownerName}</div><!-
@@ -80,7 +80,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async function(){
-            const txtBody = JSON.stringify({action: 'selected', files: arrSelFiles, friend: Number(lblTitle.dataset.id), sort: sortMode, message: txtMsg.value});
+            const txtBody = JSON.stringify({action: 'unshare', files: arrSelFiles, friend: Number(lblTitle.dataset.id), sort: sortMode, message: txtMsg.value});
             fncClearPopup(divPopup);
             await doFetch('', 'DELETE', txtBody,
                 '공유가 취소되었습니다.', '공유 취소를 실패했습니다.', async function(result){
@@ -127,7 +127,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 				'', '', '파일 목록을 불러올 수 없었습니다.', async function(result){
 				const jsnRes = await result.json();
 				txtPath.innerText = jsnRes.path;
-				for (const listItem of jsnRes.arr){
+				for (const listItem of jsnRes.delarr){
 					const ctlOption = lstDir.appendChild(document.createElement('option'));
 					ctlOption.innerText = `${listItem.name}`;
 					ctlOption.dataset.id = listItem.id;
@@ -181,7 +181,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             const jsnRes = await result.json();
             if (jsnRes.failmessage){
                 return jsnRes.failmessage;
-            } else if ((jsnRes.arr.length !== 1) || (jsnRes.failed.length > 0)){
+            } else if ((jsnRes.delarr.length !== 1) || (jsnRes.failed.length > 0)){
                 return '친구 최소에 실패했습니다.';
             } else {
                 alert('친구 취소가 완료되었습니다.');
