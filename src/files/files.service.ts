@@ -584,4 +584,8 @@ export class FilesService {
             Array(4).fill([user_serial, result[0].file_serial])
         );
     }
+
+    async delUser(conn: PoolConnection, userSer: number){
+        
+    }
 }

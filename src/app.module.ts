@@ -12,10 +12,22 @@ import { FilesModule } from './files/files.module';
 import { HomeModule } from './home/home.module';
 import { PrefsModule } from './prefs/prefs.module';
 import { FriendsModule } from './friends/friends.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [AuthModule, MysqlModule, 
-    ScheduleModule.forRoot(), DeleteExpiredModule, MongoModule, FilesModule, HomeModule, PrefsModule, FriendsModule
+    ScheduleModule.forRoot(), DeleteExpiredModule, MongoModule, FilesModule, HomeModule, PrefsModule, FriendsModule,
+    TypeOrmModule.forRoot({
+      type: 'mysql',
+      host: 'localhost',
+      port: 3306,
+      username: 'user',
+      password: process.env.MYSQL_PW,
+      database: 'reminder_web',
+      autoLoadEntities: true,
+      synchronize: false,
+    }),
+
   ],
   controllers: [AppController],
   providers: [

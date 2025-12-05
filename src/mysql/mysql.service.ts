@@ -6,7 +6,7 @@ export class MysqlService {
     #pool: mysql.Pool;
     #connected: boolean = false;
 
-    private readonly logger = new Logger('mysql service');
+    private readonly logger = new Logger(MysqlService.name);
 
     constructor(){
         console.log('start: MysqlService');
@@ -43,13 +43,24 @@ export class MysqlService {
         console.log(err);
     }
 
-    async doTransaction(servicename: string, process: (connection: PoolConnection)=>Promise<void>): Promise<void>{
+    async doTransaction(servicename: string, process: (connection: PoolConnection, rb: {rback: boolean})=>Promise<void>): Promise<void>{
         const conn: PoolConnection = await (await this.getSQL()).getConnection();
         try{
             console.log(await conn.execute('start transaction'));
-            await process(conn);
-            console.log(await conn.execute('commit'));
+            let rback = false;
+            await process(conn, {rback});
+            if (rback){
+                await conn.execute('rollback');
+            } else {
+                console.log(await conn.execute('commit'));
+            }
         } catch (err) {
+            try{
+                await conn.execute('rollback');
+            } catch {
+                this.logger.log("'rollback' error. see below.");
+                console.log(err);
+            }
             this.writeError(servicename, err);
             if (err instanceof HttpException){
                 throw err;
