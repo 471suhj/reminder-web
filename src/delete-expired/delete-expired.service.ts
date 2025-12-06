@@ -16,7 +16,7 @@ export class DeleteExpiredService {
         try{
             await pool.execute('delete from session where timestampdiff(day, last_updated, current_timestamp) >= 7');
             await pool.execute('delete from old_id where timestampdiff(month, last_updated, current_timestamp) >= 6');
-            await pool.execute('delete from user where timestampdiff(month, last_updated, current_timestamp) >= 6');
+            await pool.execute('delete from user where timestampdiff(month, last_updated, current_timestamp) >= 3');
         } catch (err) {
             this.logger.error('delete expired service mysql error. see below.');
             console.log(err);

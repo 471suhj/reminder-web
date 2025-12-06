@@ -28,7 +28,7 @@ export class AuthService {
         }
         ID = ID.normalize();
         ID = ID.toLowerCase();
-        const [result] = await pool.execute<mysql.RowDataPacket[]>('select user_serial, password, salt from user where user_id=?', [ID]);
+        const [result] = await pool.execute<mysql.RowDataPacket[]>(`select user_serial, password, salt from user where user_id=? and user_deleted='false'`, [ID]);
         if (result.length <= 0){
             return false;
         } else if (result.length >= 2){

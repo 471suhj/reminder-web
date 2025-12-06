@@ -30,6 +30,7 @@ export class FriendsController {
 
     @Put('add') // caution: id here means user_id
     async addFriends(@User(ParseIntPipe) userSer: number, @Body() body: {id: string}): Promise<FilesArrDto>{
+        // only undeleted friends
         return new FilesArrDto();
     }
 

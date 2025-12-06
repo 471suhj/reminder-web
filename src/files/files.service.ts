@@ -7,6 +7,7 @@ import { SysdirType } from './sysdir.type';
 import { FileDelResDto } from './file-del-res.dto';
 import { FileIdentResDto } from './file-ident-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
+import { FilesArrDto } from './files-arr.dto';
 
 @Injectable()
 export class FilesService {
@@ -313,13 +314,13 @@ export class FilesService {
         return strDel;
     }
 
-    private async deleteFiles_validity(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>){
+    private async deleteFiles_validity(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]){
         let arr = arr_.slice(0);
         let str1 = `select file_serial as id, last_renamed as timestamp from file `;
         str1 += `where user_serial=? and (file_serial,last_renamed) in ?) `;
         str1 += 'for update';
         let arr2 = arr.map((val)=>(val.timestamp.toISOString() + val.id));
-        let retArr: Array<FileIdentReqDto> = [];
+        let retArr: Array<[number, string]> = [];
         let [result] = await conn.execute<RowDataPacket[]>(
             str1, [userSer, arr.map((val)=>[val.id, val.timestamp])]
         );
@@ -327,36 +328,36 @@ export class FilesService {
             let idxTmp = arr2.indexOf(result[i].timestamp.toISOString() + result[i].id);
             if (idxTmp === -1){continue;}
             arr2.splice(idxTmp, 1);
-            retArr.push(...arr.splice(idxTmp, 1));
+            let itmTmp = arr.splice(idxTmp, 1)[0];
+            retArr.push([itmTmp.id, itmTmp.timestamp.toISOString()]);
         }
-        return {arr: retArr, arrFail: arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()};})};
+        return {arr: retArr, arrFail: arr.map<[number, string]>((val)=>{return [val.id, val.timestamp.toISOString()];})};
     }
 
-    private async deleteFiles_mark(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>){
-        let arr = arr_.slice(0);
+    private async deleteFiles_mark(conn: PoolConnection, userSer: number, arr_: readonly [number, string][]){
+        let arr = new Map(arr_);
         let str1 = `update file set to_delete='direct' `;
         str1 += `where user_serial=? and file_serial in ? `;
         // str1 += 'for update';
         await conn.execute<RowDataPacket[]>(
-            str1, [userSer, arr.map((val)=>val.id)]
+            str1, [userSer, Array.from(arr.keys())]
         );
         str1 = `select file_serial from file `;
         str1 += `where user_serial=? and to_delete='direct' for update `;
         let [result] = await conn.execute<RowDataPacket[]>(
-            str1, [userSer, arr.map((val)=>val.id)]
+            str1, [userSer]
         );
-        let arr2 = arr.map((val)=>(val.id));
-        let retArr: FileIdentReqDto[] = [];
+        let retArr: [number, string][] = [];
         for (let i = 0; i < result.length; i++){
-            let idxTmp = arr2.indexOf(result[i].file_serial);
-            if (idxTmp === -1){this.logger.error('deletefiles_mark: '+result[i].file_serial);continue;}
-            arr2.splice(idxTmp, 1);
-            retArr.push(...arr.splice(idxTmp, 1));
+            let valTmp = arr.get(result[i].file_serial);
+            if (valTmp === undefined){this.logger.error('deletefiles_mark: '+result[i].file_serial);continue;}
+            retArr.push([result[i].file_serial, valTmp]);
+            arr.delete(result[i].file_serial);
         }
-        return {arr: retArr, arrFail: arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()};})};
+        return {arr: retArr, arrFail: Array.from(arr)};
     }
 
-    private async deleteFiles_recurse(conn: PoolConnection, userSer: number, arr_: Array<number>){
+    private async deleteFiles_recurse(conn: PoolConnection, userSer: number, arr_: readonly number[]){
         let arr = arr_.slice();
         let str1 = `update file set to_delete='recursive' `;
         str1 += `where user_serial=? and parent_serial in ? `;
@@ -400,17 +401,16 @@ export class FilesService {
         );
     }
 
-    async deleteFiles(conn: PoolConnection, userSer: number, arr_: Array<FileIdentReqDto>, from: number): Promise<FileDelResDto>{
+    async deleteFiles(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[], from: number): Promise<FileDelResDto>{
         // deleting folders: need recursive action - mark with to_delete
         // also remove shared_def for all recursively deleted ones
         // do not delete sysdirs.
-        let arr = arr_.slice();
-        let arrFail: FileIdentResDto[] = [], arrFail2: FileIdentResDto[] = [];
+        let arrFail2: [number, string][] = [];
         let result;
-        ({arr, arrFail} = await this.deleteFiles_validity(conn, userSer, arr));
+        let {arr, arrFail} = await this.deleteFiles_validity(conn, userSer, arr_);
         ({arr, arrFail: arrFail2} = await this.deleteFiles_mark(conn, userSer, arr));
         arrFail.push(...arrFail2);
-        result = arr.map((val)=>val.id);
+        result = Array.from(arr.keys());
         while (result.length > 0) {
             [result] = await this.deleteFiles_recurse(conn, userSer, result);
         }
@@ -419,65 +419,130 @@ export class FilesService {
         await this.deleteFiles_toRecycle(conn, userSer, path);
         await this.deleteFiles_remove(conn, userSer);
         let retVal = new FileDelResDto();
-        retVal.delarr = arr.map((val)=>{return {id: val.id, timestamp: val.timestamp.toISOString()}});
-        retVal.failed = arrFail;
+        retVal.delarr = Array.from(arr, (val)=>{return {id: val[0], timestamp: val[1]};})
+        retVal.failed = arrFail.map((val)=>{return {id: val[0], timestamp: val[1]};});
         return retVal;
     }
 
-    // do not modify _arr
-    async moveFiles_rename(conn: PoolConnection, userSer: number, del: boolean, parent: number, arr_: readonly {file_serial: number, file_name: string, type: string, timestamp: Date}[]){
-        let arr: {file_serial: number, file_name: string, type: string, timestamp: Date}[] = [];
-        arr_.forEach((val)=>{arr.push({file_serial: val.file_serial, type: val.type, file_name: val.file_name + '-2', timestamp: val.timestamp});});
-        let arrFail: typeof arr = [];
-        for (let i = arr_.length - 1; i >= 0 ; i--){
-            if (arr_[i].file_name.length > (40-2)){
-                arrFail.push(...arr.splice(i, 1));
-            }
+    async moveFiles_validateFiles(conn: PoolConnection, userSer: number, dirfrom: number, files_: readonly [number, Date][]){
+        const str1 = `select file_serial, last_renamed, type, file_name from file where user_serial=? and parent_serial=? and (file_serial, last_renamed) in ? for update`;
+        let [resName] = await conn.execute<RowDataPacket[]>(str1, [userSer, dirfrom, files_]);
+        let arr = files_.slice();
+        let arr2 = arr.map(val=>val[1].toISOString() + val[0]);
+        let retArr = new Map<number, Date>();
+        for (let i = 0; i < resName.length; i++){
+            let idx = arr2.indexOf(resName[i].last_renamed.toISOString() + resName[i].file_serial);
+            if (idx === -1){this.logger.error('movefiles_validatefiles: ' + userSer);console.log(resName[i]);continue;}
+            arr2.splice(idx, 1);
+            let tval = arr.splice(idx, 1)[0];
+            retArr.set(tval[0], tval[1]);
         }
-        let arr2 = arr.slice();
-        
-        // first use arr2, change the names and remove usable items, then finally use arr to perform rename.
-        let str1 = `select file_serial, file_name, type from file `
-        str1 += `where user_serial=? and parent_serial=? and (type, file_name) in ? `;
+        return {retArr, arrFail: arr, resName: resName.map<[string, string]>(val=>[val.type, val.file_name])};
+    }
+
+    // do not modify _arr
+    // deals with both move and copy. use 'del' parameter
+    async moveFiles_rename(conn: PoolConnection, userSer: number, del: boolean, from: number, to: number, arr_: readonly {file_serial: number, file_name: string, type: string, timestamp: Date}[]){
+        let arr = new Map(arr_.map<[number, [string, string, Date]]>(val=>[val.file_serial, [val.type, val.file_name, val.timestamp]]));
+        let arrDirName = new Map<string, [number, Date]>();
+        let arrFileName = new Map<string, [number, Date]>();
+        arr_.forEach(val=>((val.type==='dir') ? arrDirName.set(val.file_name, [val.file_serial, val.timestamp]) : arrFileName.set(val.file_name, [val.file_serial, val.timestamp])));
+        let str1 = '';
+        // create entries. inserted entries can now be identified with types.
+        if (del) { // move
+            str1 = `update file set type=if(type='dir','movedir','movefile'), parent_serial=?, last_renamed=current_timestamp `;
+            str1 += `where user_serial=? and parent_serial=? and file_serial in ? `;
+            await conn.execute<RowDataPacket[]>(str1, [to, userSer, from, Array.from(arr.keys())]);
+        } else { // copy
+            str1 = `insert into file (user_serial, parent_serial, type, file_name, last_modified) `;
+            str1 += `select ?, ?, type, file_name, last_modified from file `;
+            str1 += `where user_serial=? and parent_serial=? and file_serial in ? `;
+            await conn.execute<RowDataPacket[]>(str1, [userSer, to, userSer, from, Array.from(arr.keys())]);
+        }
+        // don't forget to update last_renamed\
+        // also revert the types
+        // restore failed items to original
+        str1 = `select file_serial from file `
+        str1 += `where user_serial=? and parent_serial=? and type in ('movedir', 'movefile') and char_length(file_name) > ? `;
         str1 += 'for update';
-        while (arr2.length > 0){
-            let arr3 = arr2.map((val)=>val.file_serial);
-            let arrProb: typeof arr2 = [];
-            let [result] = await conn.execute<RowDataPacket[]>(str1, [userSer, parent, arr2.map((val)=>[val.type, val.file_name])]);
-            for (let i = 0; i < result.length; i++){
-                let loc = arr3.indexOf(result[i].file_serial);
-                if (loc === -1){continue;}
-                arrProb.push(...arr2.splice(loc, 1));
-                arr3.splice(loc, 1);
-            }
-            arr2 = arrProb;
-            let arr_cp = arr.map((val)=>val.file_serial);
-            arr2.forEach((val)=>{val.file_name + '-2'});
-            for (let i = arr2.length - 1; i >= 0; i++){
-                if (arr2[i].file_name.length > 40){
-                    let loc = arr_cp.indexOf(arr2[i].file_serial);
-                    arr.splice(loc, 1);
-                    arrFail.push(...arr2.splice(i, 1));
+        // 5, 6: move only
+        let str5 = `select * from file where user_serial=? and file_serial in ? `;
+        let str2 = `delete from file where user_serial=? and file_serial in ? `;
+        let str6 = `insert into file values ? `;
+        let str3 = `update file set file_name=concat(file_name, '-2') `
+        str3 += `where user_serial=? and parent_serial=? and (type='movedir' or type='movefile') `;
+        let subq = `select file_name from file where user_serial=? and parent_serial=? for update `;
+        let str4 = `update file set type=if(type='movedir','dir','file'), last_renamed=current_timestamp where (type='movedir' or type='movefile') and file_name not in (${subq}) `;
+        let str7 = `select file_serial from file where user_serial=? and (type='movedir' or type='movefile') for update `;
+        let result: RowDataPacket[];
+        let arrFail: [number, Date][] = [];
+        let cnt = 0;
+        while(true){
+            // select files with names too long
+            [result] = await conn.execute<RowDataPacket[]>(str1, [userSer, to, 40-2]);
+            // fetch info about those files
+            let [result2] = await conn.execute<RowDataPacket[]>(
+                {sql: str5, rowsAsArray: true}, [userSer, result.map(val=>val.file_serial)]);
+                // delete the files
+            await conn.execute<RowDataPacket[]>(str2, [userSer, result.map(val=>val.file_serial)]);
+            for (let i = 0; i < result2.length; i++){
+                // add to info
+                if (del) {
+                    let tval = arr.get(result2[i][0]);
+                    if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
+                    arrFail.push([result2[i][0], tval[2]]);
+                    arr.delete(result2[i][0]);
+                    (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
+                    result2[i][5] = tval[1];
+                    result2[i][3] = tval[0];
+                } else {
+                    let tname = result2[i][5].slice(0, (-2)*cnt);
+                    let tval = (result2[i][3] === 'dir') ? arrDirName.get(tname) : arrFileName.get(tname);
+                    if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
+                    arrFail.push(tval);
+                    arr.delete(tval[0]);
+                    (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
                 }
             }
-        }
-        
-        // rename
-        // unideal
-        for (let i = 0; i < arr.length; i++){
+            //re-insert files
             if (del){
-                await conn.execute<RowDataPacket[]>(`update file set file_name=? and file_parent=? where user_serial=? and file_serial=?`,
-                    [arr[i].file_name, parent, userSer, arr[i].file_serial]
-                );
-            } else {
-                await conn.execute<RowDataPacket[]>(
-                    `insert into file (usre_serial, parent_serial, type, file_name) value ?`,
-                    [[userSer, parent, arr[i].type, arr[i].file_name]]
-                );
+                await conn.execute<RowDataPacket[]>(str6, [result2]);
             }
+            // change file names
+            await conn.execute<RowDataPacket[]>(str3, [userSer, to]);
+            // update file types
+            await conn.execute<RowDataPacket[]>(str4, [userSer, to]);
+            // check for unresolved files
+            [result] = await conn.execute<RowDataPacket[]>(str7, [userSer]);
+            let arrFileN2: typeof arrFileName = new Map();
+            let arrDirN2: typeof arrDirName = new Map();
+            arrFileName.forEach((val, key)=>{arrFileN2.set(key + '-2', val)});
+            arrDirName.forEach((val, key)=>{arrDirN2.set(key + '-2', val)});
+            arrFileName = arrFileN2;
+            arrDirName = arrDirN2;
+            for (let i = 0; i < result.length; i++){
+                result[i].file_serial
+            }
+            if (result.length <= 0){break;}
+            cnt++;
         }
+        [result] = await conn.execute<RowDataPacket[]>(
+            `select * from file where user_serial=? and file_serial in ? for share `, [userSer, Array.from(arr.keys())]);
+        let addarr: FilesArrDto['arr'] = result.map((val)=>{
+            return {
+                link: val.type==='dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`,
+                id: val.file_serial,
+                isFolder: val.type==='dir',
+                text: val.file_name,
+                bookmarked: val.bookmarked==='true',
+                shared: '',
+                date: val.last_modified.toISOString(),
+                ownerImg: '/images/user',
+                timestamp: val.last_renamed.toISOString()
+            };
+        });
 
-        return {arrFail, arrRenamed: arr.map((val)=>{return {id: val.file_serial, timestamp: val.timestamp.toISOString()};})};
+        return {arrFail, addarr, delarr: Array.from(arr).map(val=>{return{id: val[0], timestamp: val[1][2].toISOString()};})};
     }
 
     private async restoreFiles_checkPath(conn: PoolConnection, userSer: number, arr_: FileIdentReqDto[]){
@@ -585,7 +650,32 @@ export class FilesService {
         );
     }
 
+    async clearSessions(conn: PoolConnection, userSer: number){
+        await conn.execute<RowDataPacket[]>(
+            `delete from session where user_serial=?`, [userSer]);
+    }
+
+    async clearRecycles(conn: PoolConnection, userSer: number){
+        await conn.execute<RowDataPacket[]>(
+            `delete from recycle where user_serial=?`, [userSer]);
+    }
+
+    async clearGoogle(conn: PoolConnection, userSer: number){
+        await conn.execute<RowDataPacket[]>(
+            `delete from user_google where user_serial=?`, [userSer]);
+    }
+
     async delUser(conn: PoolConnection, userSer: number){
-        
+        // re-remove all friends
+        // re-remove all sessions
+        // remove all files
+        // remove all recycles
+        // add to old_id
+        // remove google
+    }
+
+    async preDelUser(conn: PoolConnection, userSer: number){
+        // remove all friends - a separate transaction
+        // remove all sessions
     }
 }

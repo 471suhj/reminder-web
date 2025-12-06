@@ -1,6 +1,8 @@
+import { FileIdentReqDto } from "./file-ident-req.dto";
+
 export class FileShareDto {
-    files: Array<number>;
+    files: Array<FileIdentReqDto>;
     mode: 'copy'|'read'|'edit';
     message: string;
-    friends: Array<{id: number, timestamp: Date}>;
+    friends: Array<number>;
 }

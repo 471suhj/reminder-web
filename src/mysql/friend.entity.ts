@@ -20,8 +20,8 @@ export class Efriend {
 
     @OneToOne(()=>Efriend_mono, {nullable: false})
     @JoinColumn([
-        {name: 'user_serial_to', referencedColumnName: 'user_serial_from'},
         {name: 'user_serial_from', referencedColumnName: 'user_serial_to'},
+        {name: 'user_serial_to', referencedColumnName: 'user_serial_from'},
     ])
     user_serial_1: Efriend_mono;
 

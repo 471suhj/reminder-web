@@ -1,7 +1,7 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { UserCommonDto } from 'src/user/user-common.dto';
-import mysql, { Pool, RowDataPacket } from 'mysql2/promise';
+import mysql, { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 
 @Injectable()
 export class PrefsService {
@@ -41,5 +41,13 @@ export class PrefsService {
         
         retVal.notificationCnt = 3;
         return retVal;
+    }
+
+    async getUserPrefs(conn: PoolConnection, userSer: number, colname: 'auto_receive_files'|'save_recent'){
+        let [result] = await conn.execute<RowDataPacket[]>(
+            `select ? as item from user where user_serial=? for share`, [colname, userSer]
+        );
+        if (result.length <= 0){throw new BadRequestException();}
+        return result[0].item;
     }
 }

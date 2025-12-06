@@ -28,7 +28,10 @@ async function fncRename(){
 			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async function(result){
 			const jsnRes = await result.json();
 			if (jsnRes.success){
-				document.getElementById('item'  + txtRename.dataset.timestamp + itemId).childNodes[1].innerText = newName + ' ';
+				const tmpItem = document.getElementById('item'  + txtRename.dataset.timestamp + itemId);
+				tmpItem.childNodes[1].innerText = newName + ' ';
+				tmpItem.dataset.timestamp = jsnRes.newTimestamp;
+				tmpItem.id = 'item' + jsnRes.newTimestamp + itemId;
 			} else if(jsnRes.failmessage){
 				return jsnRes.failmessage;
 			} else {

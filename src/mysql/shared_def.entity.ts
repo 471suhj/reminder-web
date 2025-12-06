@@ -29,7 +29,7 @@ export class Eshared_def {
     @Column({type: 'char', length: 40})
     file_name: string;
     
-    @Column({type: 'timestamp', default: ()=>'CURRENT_TIMESTAMP'})
+    @Column({type: 'timestamp', default: '2000-01-01 00:00:00'})
     date_shared: Date;
     
     @Column({type: 'enum', enum: ['read', 'edit']})
