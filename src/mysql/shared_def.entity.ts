@@ -1,4 +1,4 @@
-import { Column, Entity, Generated, Index, JoinColumn, OneToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Generated, Index, JoinColumn, ManyToOne, OneToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { Efile } from "./file.entity";
 import { Efriend_mono } from "./friend_mono.entity";
 
@@ -18,7 +18,7 @@ export class Eshared_def {
     ])
     user_serials: Efriend_mono;
 
-    @OneToOne(()=>Efile, {nullable: false})
+    @ManyToOne(()=>Efile, (file)=>file.shares, {nullable: false})
     @JoinColumn({name: 'file_serial', referencedColumnName: 'file_serial'})
     file_serial_1: Efile;
 

@@ -61,8 +61,13 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
                 lstDeleteName.push(listItem.dataset.id);
             }
         }
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
         if (lstDeleteName.length > 0){
-            await doFetch('', 'DELETE', JSON.stringify({action: 'permdel', sort: sortMode, files: lstDeleteName}), 
+            await doFetch('', 'DELETE', JSON.stringify({action: 'permdel', last: idCurLast, sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
                 fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
@@ -80,8 +85,14 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
                 lstDeleteName.push(listItem.dataset.id);
             }
         }
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
+
         if (lstDeleteName.length > 0){
-            await doFetch('', 'PUT', JSON.stringify({action: 'restore', sort: sortMode, files: lstDeleteName}), 
+            await doFetch('', 'PUT', JSON.stringify({action: 'restore', last: idCurLast, sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
                 fncRemoveItems(jsnRes, fncPrintCnt, '복원에 실패한 항목이 있습니다.', '복원이 완료되었습니다.');

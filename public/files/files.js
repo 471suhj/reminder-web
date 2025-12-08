@@ -24,19 +24,21 @@ async function fncRename(){
     const itemId = txtRename.dataset.itemId;
     txtRename.style.display = 'none';
     if (newName !== ''){
-        await doFetch('./manage', 'PUT', JSON.stringify({action: 'rename', sort: sortMode, id: Number(itemId), name: newName, timestamp: new Date(txtRename.dataset.timestamp)}),
+		let jsonBody = {action: 'rename', sort: sortMode, id: Number(lblTitle.datset.id), file: Number(itemId), name: newName, timestamp: new Date(txtRename.dataset.timestamp)};
+        await doFetch('./manage', 'PUT', JSON.stringify(jsonBody),
 			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async function(result){
 			const jsnRes = await result.json();
-			if (jsnRes.success){
-				const tmpItem = document.getElementById('item'  + txtRename.dataset.timestamp + itemId);
-				tmpItem.childNodes[1].innerText = newName + ' ';
-				tmpItem.dataset.timestamp = jsnRes.newTimestamp;
-				tmpItem.id = 'item' + jsnRes.newTimestamp + itemId;
-			} else if(jsnRes.failmessage){
-				return jsnRes.failmessage;
-			} else {
-				return `${newName}로 이름 바꾸기를 실패했습니다.`;
-			}
+				if (jsnRes.expired){
+					return '창을 새로고침(Ctrl+R)한 후 다시 시도해 주십시오.';
+				} else if (jsnRes.alreadyExists){
+					return '이미 존재하는 이름입니다.';
+				} else if (jsnRes.failmessage) {
+					return jsnRes.failmessage;
+				} else if (jsnRes.failed.length > 0){
+					return `${newName}(으)로의 이름 변경에 실패했습니다.`;
+				} else {
+					return await fncInsertFile(jsnRes, false, '', '이름 변경에 실패했습니다.');
+				}
 		});
     }
 }
@@ -45,7 +47,10 @@ txtRename.addEventListener('keyup', async function(event){
     if (event.key === 'Enter'){
         fncRename(event);
     }
-})
+});
+txtRename.addEventListener('input', function(event){
+	event.target.value = event.target.value.slice(0, 40);
+});
 
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
@@ -155,10 +160,15 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
                 lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: new Date(listItem.dataset.timestamp));
             }
         }
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
         if (lstDeleteName.length > 0){
 			let fncFetch;
 			fncFetch = async function(){
-				await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', sort: sortMode, from: Number(lblTitle.dataset.id), files: lstDeleteName, timestamp: lblTitle.dataset.timestamp}), 
+				await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', last: idCurLast, sort: sortMode, from: Number(lblTitle.dataset.id), files: lstDeleteName, timestamp: lblTitle.dataset.timestamp}), 
 				'', '삭제에 오류가 발생했습니다.', async function(result){
 					const jsnRes = await result.json();
 					if (jsnRes.expired){
@@ -205,6 +215,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if (strName){
             await doFetch('./manage', 'PUT', JSON.stringify({action: 'createDir', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp}), '', '파일 추가에 실패했습니다.', async function(result){
                 const jsnRes = await result.json();
+				if (jsnRes.alreadyExists){
+					showMessage('이미 존재하는 파일 이름입니다.');
+				}
                 return await fncInsertFile(jsnRes, false, '', '폴더 추가에 실패했습니다.');
             })
         }
@@ -218,6 +231,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if (strName){
             await doFetch('./manage', 'PUT', JSON.stringify({action: 'createFile', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp)}), '', '파일 추가에 실패했습니다.', async function(result){
                 const jsnRes = await result.json();
+				if (jsnRes.alreadyExists){
+					showMessage('이미 존재하는 파일 이름입니다.');
+				}
                 return await fncInsertFile(jsnRes, false, '', '파일 추가에 실패했습니다.');
             })
         }

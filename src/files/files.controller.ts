@@ -7,7 +7,6 @@ import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { FilesService } from './files.service';
 import { FilesMoreDto } from './files-more.dto';
 import { SysdirType } from './sysdir.type';
-import { FileUploadDto } from './file-upload.dto';
 import { FileUpdateDto } from './file-update.dto';
 import { FileDeleteDto } from './file-delete.dto';
 import { FileShareDto } from './file-share.dto';
@@ -20,11 +19,12 @@ import { FileListResDto } from './file-list-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
 import { DataSource } from 'typeorm';
 import { Efile } from 'src/mysql/file.entity';
+import { FileNewResDto } from './file-new-res.dto';
 
 @Controller('files')
 export class FilesController {
-    constructor(private mysqlService: MysqlService, private prefsService: PrefsService, 
-        private filesService: FilesService, private dataSource: DataSource){}
+    constructor(private mysqlService: MysqlService, 
+        private filesService: FilesService){}
 
     private readonly logger = new Logger(FilesController.name);
 
@@ -43,10 +43,11 @@ export class FilesController {
         return await this.filesService.renderFilesPage(userSer, await this.filesService.getUserRoot(userSer, 'inbox'))
     }
 
-    @Get('loadmore') // files, shared, bookmarks, inbox
+    @Get('loadmore') // files, shared, bookmarks, inbox, recycle
     async getFileMore(
         @User(ParseIntPipe) userSer: number,
         @Query('startafter', ParseIntPipe) startAfter: number, // 0 for initial or others
+        @Query('startaftertimestamp', ParseDatePipe) startAfterTime: Date, // 0 for initial or others
         @Query('dirid', ParseIntPipe) dirId: number, 
         @Query('sort') sort: 'colName'|'colDate',
         @Query('lastrenamed', ParseDatePipe) lastrenamed: Date,
@@ -190,17 +191,30 @@ export class FilesController {
         };
     }
 
-    // upload rmb files
-    @Post('manage')
-    async uploadFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUploadDto){
-
-    }
-
     // rename, create directory, create files from files, or enable bookmark
-    @Put('manage') // 'before's in filesarrdto are not ignored, success object is for rename only.
-    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FilesArrDto|{success: boolean, failmessage?: string, newTimestamp: string}>{
+    @Put('manage') // 'before's in filesarrdto are not ignored.
+    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileNewResDto|FileMoveResDto>{
         // share: file only! no folders!!
-        return {success: true};
+        if (body.action === 'createDir'){
+            let retVal: FileNewResDto;
+            await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
+                retVal = await this.filesService.createDir(conn, userSer, body.id, body.name);
+            });
+            return retVal!;
+        } else if (body.action === 'createFile'){
+            let retVal: FileNewResDto;
+            await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
+                retVal = await this.filesService.createFile(conn, userSer, body.id, body.name);
+            });
+            return retVal!;
+        } else if (body.action === 'rename'){
+            let retVal: FileMoveResDto;
+            if (body.file === undefined){throw new BadRequestException();}
+            await this.mysqlService.doTransaction('files controller put manage rename', async (conn)=>{
+                retVal = await this.filesService.renameFile(conn, userSer, body.id, body.file!, body.timestamp, body.name);
+            });
+            return retVal!;
+        } else {throw new BadRequestException();}
     }
 
     // delete from files, bookmarks and shared
@@ -217,15 +231,18 @@ export class FilesController {
                         retVal.expired = true;
                         return;
                     }
-                    return await this.filesService.deleteFiles(conn, userSer, body.files, body.from);
+                    retVal = await this.filesService.deleteFiles(conn, userSer, body.files, body.from);
+                    return;
                 case 'restore':
                     throw new BadRequestException(); // handled in put(recycle)
                 case 'permdel':
                     throw new BadRequestException(); // handled in delete(recycle)
                 case 'bookmark':
-                    break;
+                    retVal = await this.filesService.removeBookmark(conn, userSer, body.files);
+                    return;
                 case 'unshare':
-                    break;
+                    retVal = await this.filesService.removeShare(conn, userSer, body.files);
+                    return;
             }
         });
         return retVal;
@@ -234,85 +251,46 @@ export class FilesController {
     @Put('bookmark')
     async setBookmark(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'bookmark'){throw new BadRequestException();}
-        let retVal = new FileDelResDto();
-        retVal.delarr = [];
-        retVal.failed = [];
+        let retVal: FileDelResDto;
         await this.mysqlService.doTransaction('files controller put bookmark', async (conn)=>{
-            // consider both own files and external files
-            let filelist = body.files.map<[number, Date]>(val=>[val.id, val.timestamp]);
-            let [result] = await conn.execute<ResultSetHeader>(
-                `update file set bookmarked='true' where user_serial=? and (file_serial, last_renamed) in ? `, [userSer, filelist]
-            );
-            let subq = `select file_serial from file where (file_serial, last_renamed) in ? for share`;
-            let [result2] = await conn.execute<ResultSetHeader>(
-                `update shared_def set bookmarked='true' where user_serial_to=? and file_serial in (${subq}) `, [userSer, filelist]
-            );
-            if (result.affectedRows + result2.affectedRows >= body.files.length){
-                return;
-            } else {
-                let [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial from file where user_serial=? and bookmarked='true' and (file_serial, last_renamed) in ? for share`,
-                    [userSer, filelist]
-                );
-                let mapFiles = new Map(filelist);
-                for (let i = 0; i < result.length; i++){
-                    mapFiles.delete(result[i].file_serial);
-                }
-                [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial from shared_def where user_serial_to=? and bookmarked='true' and (file_serial, last_renamed) in (${subq}) for share`,
-                    [userSer, filelist]
-                );
-                for (let i = 0; i < result.length; i++){
-                    mapFiles.delete(result[i].file_serial);
-                }
-                retVal.failed = Array.from(mapFiles, val=>{return{id: val[0], timestamp: val[1].toISOString()};});
-            }
+            retVal = await this.filesService.addBookmark(conn, userSer, body.files)
         });
-        return retVal;
+        return retVal!;
     }
 
     // sharing from files or profile
+    // addarr is prepared with the assumption that the window is profile.
     @Put('share')
     async shareFile(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
-        let retVal = new FileShareResDto();
-        let setFriend = new Set(body.friends)
+        let retVal: FileShareResDto;
         await this.mysqlService.doTransaction('files controller put share', async (conn)=>{
+            // verify that they are friends
+            let fverbose = body.files.map(val=>[val.id, val.timestamp]);
             let [result] = await conn.execute<RowDataPacket[]>(
                 `select user_serial_from from friend_mono where user_serial_to=? and user_serial from in ? for share`,
                 [userSer, body.friends]
             );
             if (result.length < body.friends.length){throw new BadRequestException();}
-            if (body.mode === 'copy'){
-                let subt_file = '(user_serial, parent_serial, type, file_name, last_modified, mark)';
-                let inbox = await this.filesService.getUserRoot(userSer, 'inbox');
-                if (await this.prefsService.getUserPrefs(conn, userSer, 'auto_receive_files') === 'true'){
-                    // check for name collisoins first! first move all to recycle, and reuse the recovery algorithm
-                    await conn.execute(`update file set mark='false' where user_serial in ? and mark='true'`, [body.friends]); // as we send to others
-                    let str1 = `insert into file ${subt_file} select user_serial_to, ?, 'file', file.file_name, file.last_modified, 'true' from file, friend_mono `;
-                    str1 += `where file.user_serial=? and file.file_serial in ? and user_serial_from=? and user_serial_to in ?`
-                    await conn.execute(
-                       str1 , [inbox, userSer, body.files.map(val=>val.id), userSer, body.friends]
-                    );
-                    [result] = await conn.execute<RowDataPacket[]>(
-                        `select file_serial, user_serial from file `);
-                } else {
-                    await conn.execute(`update recycle set mark='false' where user_serial in ? and mark='true'`, [body.friends]);
-                    await conn.execute(`update file set mark='false' where user_serial=1 and mark='true'`);
-                    await conn.execute(`insert into file ${subt_file} select 1, 1, 'dir', '`);
-                    let subt = '(user_serial, parent_serial, parent_path, type, file_serial, last_modified, del_type)';
-                    await conn.execute(
-                        `insert into recycle ${subt} select user_serial_to, ?, 'files/inbox', 'file',  `
-                    );
-
-                }
-            } else{
-                let subt = '(user_serial_to, user_serial_from, file_serial, file_name, share_type)';
-                await conn.execute(
-                    `insert into shared_def ${subt} values ? `, []
-                );
+            // verify that the files are valid
+            [result] = await conn.execute<RowDataPacket[]>(
+                `select file_serial from file where user_serial=? and (file_serial, last_renamed) in ? for share`, [userSer, fverbose]
+            );
+            let [result2] = await conn.execute<RowDataPacket[]>(
+                `select file_serial from shared_def where user_serial_to=? and (file_serial, last_renamed) in ? for share`, [userSer, fverbose]
+            );
+            if (result.length + result2.length < body.files.length){
+                retVal = new FileShareResDto();
+                retVal.addarr = [];
+                retVal.failed = body.files.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};});
+                retVal.failreason = '현재 이름이 바뀌었거나 사용자가 접근할 수 없는 파일을 공유하고자 하였습니다. 파일 목록을 새로 고침한 후 다시 시도해 주시기 바랍니다.';
+                return;
             }
+            retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode);
         });
-        return retVal;
+        if (body.sort !== undefined){
+            retVal!.addarr = await this.filesService.resolveBefore(userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
+        }
+        return retVal!;
     }
 
     // copy and move from files
@@ -414,6 +392,7 @@ export class FilesController {
             retVal.failed = arrFail.map(val=>[val[0], val[1].toISOString()]);
         });
         // do not use here
+        retVal.addarr = await this.filesService.resolveBefore(userSer, body.sort, retVal.addarr, 'files', body.from);
         return retVal;
     }
 

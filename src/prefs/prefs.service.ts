@@ -50,4 +50,12 @@ export class PrefsService {
         if (result.length <= 0){throw new BadRequestException();}
         return result[0].item;
     }
+
+    async getUserName(conn: PoolConnection, userSer: number){
+        let [result] = await conn.execute<RowDataPacket[]>(
+            `select user_name from user where user_serial=? for share`, [userSer]
+        );
+        if (result.length <= 0){throw new BadRequestException();}
+        return result[0].user_name;
+    }
 }

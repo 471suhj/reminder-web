@@ -1,5 +1,6 @@
 import { Column, Entity, Generated, Index, JoinColumn, OneToMany, OneToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { Euser } from "./user.entity";
+import { Eshared_def } from "./shared_def.entity";
 
 @Entity('file')
 @Index(['user_serial', 'mark'])
@@ -46,4 +47,7 @@ export class Efile {
     
     @Column({type: 'enum', enum: ['false', 'true'], default: 'false'})
     mark: 'false'|'true';
+
+    @OneToMany(()=>Eshared_def, (shared_def)=>shared_def.file_serial_1)
+    shares: Eshared_def[];
 }

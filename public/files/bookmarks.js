@@ -90,7 +90,13 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             showMessage('파일이 선택되지 않았습니다.');
             return;
         }
-		const jsonBody = {action: 'bookmark', files: lstDeleteName};
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
+
+		const jsonBody = {action: 'bookmark', last: idCurLast, files: lstDeleteName};
 		fncClearPopup(divPopup);
 		await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
 		'', '바로 가기 해제에 오류가 발생했습니다.', async function(result){

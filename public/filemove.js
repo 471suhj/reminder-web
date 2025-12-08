@@ -27,8 +27,14 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
     for (const listItem of jsnRes.addarr){
         let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
-        if (!last && !listItem.before){itmAfter = document.getElementById('item' + listItem.before.timestamp + listItem.before.id);}
-        if (!itmAfter){
+        if (!last && listItem.before){
+			itmAfter = document.getElementById('item' + listItem.before.timestamp + listItem.before.id);
+		} else if (!last) {
+			itmAfter = lblLoadMore;
+		}
+		if (itmAfter === lblLoadMore || itmAfter === undefined){
+			continue;
+		} else if (!itmAfter){
             if (lblLoadMore.parentNode){
                 lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem))
             } else {
@@ -154,6 +160,11 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
         fncClearPopup(divPopup);
         return;
     }
+	let idCurLast = {id: '0', timestamp: new Date()};
+	if (list.children.length !== 1){
+		idCurLast.id = list.children[list.children.length - 2].dataset.id;
+		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+	}
 	let wintitle = (mode === 'copy') ? '복사' : '이동';
 	divPopup.innerHTML = `
 		<h1>파일 ${wintitle}</h1>
@@ -196,7 +207,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 			showMessage('선택된 폴더가 없습니다.')
 			return;
 		}
-		let jsonBody = {action: mode, sort: sortMode, files: arrSelFiles, from: lblTitle.dataset.id, timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
+		let jsonBody = {action: mode, last: idCurLast, sort: sortMode, files: arrSelFiles, from: lblTitle.dataset.id, timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
 		let fncFetch;
 		fncFetch = async function(){
 			await doFetch('./move', 'PUT', JSON.stringify(jsonBody), '',
@@ -216,7 +227,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 						return;
 					} else if (jsnRes.failmessage) {
 						return jsnRes.failmessage;
-					} else if (jsnRes.failed){
+					} else if (jsnRes.failed.length > 0){
 						return '복사 또는 이동에 실패했습니다.';
 					} else {
 						return await fncInsertFile(jsnRes, false, msgPos, msgNegPart);

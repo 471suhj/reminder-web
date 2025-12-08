@@ -1,4 +1,4 @@
-import {showMessage} from '/printmsg.js';
+import {doFetch, showMessage} from '/printmsg.js';
 
 export function fncClearPopup(divPopup){
     while (divPopup.children.length){
@@ -20,6 +20,11 @@ export async function fncShare(divPopup, list){
 		showMessage('파일이 선택되지 않았습니다.');
 		fncClearPopup(divPopup);
 		return;
+	}
+	let idCurLast = {id: '0', timestamp: new Date()};
+	if (list.children.length !== 1){
+		idCurLast.id = list.children[list.children.length - 2].dataset.id;
+		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 	}
 	divPopup.innerHTML = `
 		<h1>공유</h1>
@@ -69,7 +74,7 @@ export async function fncShare(divPopup, list){
 		}
 		let shareMode = null;
 		if (optCopy.checked){shareMode = 'copy'} else if (optShareRead) {shareMode = 'read'} else {shareMode = 'edit'} 
-		const jsonBody = {files: arrSelFiles, mode: shareMode, message: txtMessage.value, friends: Array.from(lstFriends.selectedOptions).map((val)=>Number(val.dataset.id))};
+		const jsonBody = {files: arrSelFiles, last: idCurLast, mode: shareMode, message: txtMessage.value, friends: Array.from(lstFriends.selectedOptions).map((val)=>Number(val.dataset.id))};
 		await doFetch('./share', 'PUT', JSON.stringify(jsonBody), '',
 			'공유에 실패했습니다.', async function(result){
 				fncClearPopup(divPopup);

@@ -89,7 +89,12 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if ((lstDeleteName.length <= 0) || !confirm('정말로 친구를 취소하시겠습니까? 모든 파일들의 공유가 취소됩니다.')){
             return;
         }
-        await doFetch('', 'DELETE', JSON.stringify({sort: sortMode, files: lstDeleteName}), 
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
+        await doFetch('', 'DELETE', JSON.stringify({sort: sortMode, last: idCurLast, files: lstDeleteName}), 
         '', '친구 취소에 오류가 발생했습니다.', async function(result){
             const jsnRes = await result.json();
             fncRemoveItems(jsnRes, fncPrintCnt, '일부 친구 취소를 실패했습니다.', '친구 취소가 완료되었습니다.');

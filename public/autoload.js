@@ -22,11 +22,14 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid){
     lblLoadMore.childNodes[2].textContent = '추가 로드 중입니다...';
     lblLoadMore.dataset.isbutton = 'false'
 	const lblTitle = document.getElementById('title');
-    let idCurLast = '0';
+    let idCurLast = {id: '0', timestamp: '2000-01-01T00:00:00.000Z'};
     if (list.children.length !== 1){
-        idCurLast = list.children[list.children.length - 2].dataset.id;
+        idCurLast.id = list.children[list.children.length - 2].dataset.id;
+		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
     }
-    await doFetch(`/files/loadmore?dirid=${dirid}&lastrenamed=${lblTitle.dataset.timestamp}&sort=${sortMode.criteria}&sortincr=${sortMode.incr}&startafter=` + idCurLast, 'GET', '', '', '추가 로드에 실패했습니다.', async function(result){
+	let strLink = `/files/loadmore?dirid=${dirid}&lastrenamed=${lblTitle.dataset.timestamp}`;
+	strLink += `&sort=${sortMode.criteria}&sortincr=${sortMode.incr}&startafter=${idCurLast.id}&startaftertimestamp=${idCurLast.timestamp}`;
+    await doFetch(strLink, 'GET', '', '', '추가 로드에 실패했습니다.', async function(result){
         let jsnRes = await result.json();
 		if (jsnRes.needReload){
 			location.reload();
@@ -41,6 +44,10 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid){
             lblLoadMore.style.display = 'none';
             document.body.appendChild(lblLoadMore);
         }
+		if (jsnRes.lastItem !== -1){
+			lblLoadMore.dataset.lastitem = jsnRes.lastItem;
+			lblLoadMore.dataset.lasttimestamp = jsnRes.lastItemTimestamp;
+		}
         return;
     });
     lblLoadMore.childNodes[2].textContent = '추가 로드'

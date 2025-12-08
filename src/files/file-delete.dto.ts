@@ -1,3 +1,5 @@
+import { FileIdentReqDto } from "./file-ident-req.dto";
+
 export class FileDeleteDto {
     action: 'selected'|'restore'|'bookmark'|'unshare'|'permdel';
     files: Array<{id: number, timestamp: Date}>;
@@ -6,4 +8,5 @@ export class FileDeleteDto {
     timestamp?: Date; // file only
     from?: number; // file only
     ignoreTimpstamp?: boolean; // file delete/unshare only
+    last: FileIdentReqDto
 }

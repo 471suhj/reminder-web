@@ -98,7 +98,12 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async function(){
-		const jsonBody = {action: 'unshare', sort: sortMode, files: lstDeleteName, message: txtMsg.value};
+		let idCurLast = {id: '0', timestamp: new Date()};
+		if (list.children.length !== 1){
+			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		}
+		const jsonBody = {action: 'unshare', last: idCurLast, sort: sortMode, files: lstDeleteName, message: txtMsg.value};
 		fncClearPopup(divPopup);
 			await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
 			'', '공유 취소에 오류가 발생했습니다.', async function(result){
