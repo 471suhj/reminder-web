@@ -22,6 +22,7 @@ export class MysqlService {
                 user: 'user',
                 database: 'reminder_web',
                 password: process.env.MYSQL_PW,
+                flags: ['client_found_rows']
             });
             this.#connected = true;
             this.logger.log('mysql connected');

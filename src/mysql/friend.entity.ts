@@ -16,14 +16,14 @@ export class Efriend {
         {name: 'user_serial_to', referencedColumnName: 'user_serial_to'},
         {name: 'user_serial_from', referencedColumnName: 'user_serial_from'},
     ])
-    user_serial_2: Efriend_mono;
+    friend1: Efriend_mono;
 
     @OneToOne(()=>Efriend_mono, {nullable: false})
     @JoinColumn([
         {name: 'user_serial_from', referencedColumnName: 'user_serial_to'},
         {name: 'user_serial_to', referencedColumnName: 'user_serial_from'},
     ])
-    user_serial_1: Efriend_mono;
+    friend2: Efriend_mono;
 
     @Column({type: 'timestamp', default: ()=>'CURRENT_TIMESTAMP'})
     date_added: Date;

@@ -9,8 +9,8 @@ const lblLoadMore = document.getElementById('loadMore');
 const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id, 'recycle');
 fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
-fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'

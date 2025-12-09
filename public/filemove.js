@@ -1,5 +1,6 @@
 import {fncClearPopup} from '/popup.js';
 import {doFetch} from '/printmsg.js';
+import {sortMode} from '/autoload.js';
 
 const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
@@ -7,7 +8,7 @@ const lblLoadMore = document.getElementById('loadMore');
 export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
     for (listItem of jsnRes.delarr){
         try{
-            document.getElementById('item' + listItem.timestamp + listItem.id).remove();
+            document.getElementById('item' + (listItem.timestamp ?? '') + listItem.id).remove();
             itemCnt--;
         } catch {
             continue;
@@ -28,7 +29,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
         if (!last && listItem.before){
-			itmAfter = document.getElementById('item' + listItem.before.timestamp + listItem.before.id);
+			itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
 		} else if (!last) {
 			itmAfter = lblLoadMore;
 		}
@@ -71,7 +72,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
             if (divBookmark.dataset.bookmarked === 'true'){
                 action = 'DELETE';
             }
-            await doFetch('./bookmark', action, JSON.stringify({action: 'bookmark', files: [{id: Number(itmNew.dataset.id), timestamp: new Date(itmNew.dataset.timestamp)}]}),
+            await doFetch('./bookmark', action, JSON.stringify({action: 'bookmark', soft: sortMode, files: [{id: Number(itmNew.dataset.id), timestamp: new Date(itmNew.dataset.timestamp)}]}),
             '', '처리에 실패했습니다.', async function(result){
                 const jsnRes = result.json();
                 if (jsnRes.failed.length > 0){

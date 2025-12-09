@@ -5,7 +5,10 @@ import { Eshared_def } from "./shared_def.entity";
 @Entity('file')
 @Index(['user_serial', 'mark'])
 export class Efile {
-    @OneToMany(()=>Euser, (user)=>user.user_serial)
+    @OneToOne(()=>Euser)
+    @JoinColumn({name: 'user_serial', referencedColumnName: 'user_serial'})
+    user: Euser;
+
     @PrimaryColumn({primary: true, type: 'int', unsigned: true})
     user_serial: number;
     
@@ -48,6 +51,6 @@ export class Efile {
     @Column({type: 'enum', enum: ['false', 'true'], default: 'false'})
     mark: 'false'|'true';
 
-    @OneToMany(()=>Eshared_def, (shared_def)=>shared_def.file_serial_1)
+    @OneToMany(()=>Eshared_def, (shared_def)=>shared_def.file)
     shares: Eshared_def[];
 }

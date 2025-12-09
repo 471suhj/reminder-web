@@ -12,9 +12,17 @@ import { FileShareResDto } from './file-share-res.dto';
 import { FileNewResDto } from './file-new-res.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { SortModeDto } from './sort-mode.dto';
-import { DataSource, LessThan, MoreThan } from 'typeorm';
+import { DataSource, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
+import type { FindOptionsWhere, FindOptionsOrder } from 'typeorm';
 import { Efile } from 'src/mysql/file.entity';
 import { FilesMoreDto } from './files-more.dto';
+import { Ebookmark } from './bookmark.entity';
+import { Eshared_def } from 'src/mysql/shared_def.entity';
+import { Erecycle } from 'src/mysql/recycle.entity';
+import { FriendMoreDto } from './friend-more.dto';
+import { Efriend } from 'src/mysql/friend.entity';
+import { Efriend_mono } from 'src/mysql/friend_mono.entity';
+import { Efriend_mul } from 'src/mysql/friend_mul.entity';
 
 @Injectable()
 export class FilesService {
@@ -196,25 +204,6 @@ export class FilesService {
         throw new BadRequestException();
     }
 
-    translateColumn(val: string, mode: SysdirType['val']){
-        if (!SysdirType.arr.includes(val)){
-            throw new BadRequestException();
-        }
-        let dbName: string;
-        switch(mode){
-            case 'files': case 'inbox': dbName = 'file'; break;
-            case 'bookmarks': dbName = 'bmt'; break; // should not be depended upon
-            case 'shared': dbName = 'shared_def'; break;
-            case 'recycle': dbName = 'recycle'; break;
-            default: throw new BadRequestException();
-        }
-        const arrColumn = this.translateColumnBase(val, mode);
-        for (let i = 0; i < arrColumn.length; i++){
-            arrColumn[i] = dbName + '.' + arrColumn[i];
-        }
-        return {arrColumn, dbName};
-    }
-
     async loadFileMore(userSer: number, dir: number, lastFile: number, lastTime: Date, sort: SortModeDto){
         let crit = ['type', ...this.translateColumnBase(sort.criteria, 'files')];
         let retVal = new FilesMoreDto();
@@ -235,7 +224,7 @@ export class FilesService {
                 user_serial: userSer,
                 parent_serial: dir
             };
-            let wherearr: any[] = [];
+            let wherearr: FindOptionsWhere<Efile>[] = [];
             if (lastFile !== 0){
                 result = await manager.find(Efile, {
                     where: {
@@ -258,13 +247,6 @@ export class FilesService {
                     }
                     wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
                 }
-                for (const itm of crit){
-                    if (sort.incr){
-                        whereObj[itm] = MoreThan(result[0][itm]);
-                    } else {
-                        whereObj[itm] = LessThan(result[0][itm]);
-                    }
-                }
             } else {
                 wherearr = [whereObj];
             }
@@ -274,16 +256,18 @@ export class FilesService {
             }
             result = await manager.find(Efile, {
                 relations: {
-                    shares: {
-                        user_serials: true
-                    }
+                    shares: true
                 },
                 where: wherearr,
                 take: 21,
                 order: orderObj
             });
-            retVal.loadMore = (result.length > 20);
-            result.pop();
+            if (result.length > 20){
+                retVal.loadMore = true;
+                result.pop();
+            } else {
+                retVal.loadMore = false;
+            }
             retVal.addarr = result.map(val=>{return {
                 link: (val.issys === 'true' ? `/files/${val.file_name}` 
                     : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
@@ -291,12 +275,12 @@ export class FilesService {
                 isFolder: val.type === 'dir',
                 text: val.file_name,
                 bookmarked: val.bookmarked === 'true',
-                shared: val.shares.map(val=>val.user_serial_to).join(', '),
+                shared: val.shares.map(val=>val.user_serial_to).join(','),
                 date: (val.last_modified as Date).toISOString(),
-                ownerImg: '/images/user',
                 timestamp: val.last_renamed.toISOString()
             };});
         });
+        await this.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
 
@@ -308,15 +292,168 @@ export class FilesService {
         retVal.loadMore = true;
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let whereObj = {
-                user_serial: userSer,
-                bookmarked: true
+                reader: userSer,
+            }
+            let wherearr: FindOptionsWhere<Ebookmark>[] = [];
+            if (lastFile !== 0){
+                let result2 = await manager.find(Efile, {
+                    where: [{
+                        user_serial: userSer,
+                        file_serial: lastFile,
+                        last_renamed: lastTime
+                    },{
+                        file_serial: lastFile,
+                        last_renamed: lastTime,
+                        shares: {
+                            user_serial_to: userSer
+                        }
+                    }]
+                });
+                if (result2.length <= 0){
+                    retVal.needRefresh = true;
+                    return;
+                }
+                let lenTmp = crit.length;
+                for (let i = 0; i < lenTmp; i++){
+                    wherearr.push({...whereObj});
+                    let j = 0;
+                    for (; j < lenTmp - 1 - i; j++){
+                        wherearr[i][crit[j]] = result2[0][crit[j]];
+                    }
+                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result2[0][crit[j]]) : LessThan(result2[0][crit[j]]);
+                }
+            } else {
+                wherearr = [whereObj];
+            }
+            let orderObj: FindOptionsOrder<Ebookmark> = {};
+            for (const itm of crit){
+                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
+            }
+            let result = await manager.find(Ebookmark, {
+                relations: {
+                    shares: true
+                },
+                where: wherearr,
+                take: 21,
+                order: orderObj
+            });
+            if (result.length > 20){
+                retVal.loadMore = true;
+                result.pop();
+            } else {
+                retVal.loadMore = false;
+            }
+            retVal.addarr = result.map(val=>{return {
+                link: (val.issys === 'true' ? `/files/${val.file_name}` 
+                    : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
+                id: val.file_serial,
+                isFolder: val.type === 'dir',
+                text: val.file_name,
+                bookmarked: true,
+                shared: val.shares.map(val=>val.user_serial_to).join(', '),
+                date: (val.last_modified as Date).toISOString(),
+                ownerImg: '/images/user',
+                timestamp: val.last_renamed.toISOString()
+            };});
+        });
+        await this.replaceNames(userSer, retVal.addarr);
+        return retVal;  
+    }
+
+    async loadSharedMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto, friend?: number){
+        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'shared')];
+        let retVal = new FilesMoreDto();
+        retVal.addarr = [];
+        retVal.loadMore = true;
+        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+            let whereObj = {
+                user_serial_to: userSer,
+                user_serial_from: friend
             };
-            let wherearr: any[] = [];
+            let wherearr: FindOptionsWhere<Eshared_def>[] = [];
+            let result: Efile[];
             if (lastFile !== 0){
                 result = await manager.find(Efile, {
+                    relations: {
+                        shares: true,
+                    },
+                    where: {
+                        file_serial: lastFile,
+                        last_renamed: lastTime,
+                        shares: {
+                            user_serial_to: userSer
+                        },
+                        user_serial: friend
+                    }
+                });
+                if (result.length <= 0){
+                    retVal.needRefresh = true;
+                    return;
+                }
+                let lenTmp = crit.length;
+                for (let i = 0; i < lenTmp; i++){
+                    wherearr.push({...whereObj});
+                    let j = 0;
+                    wherearr[i].file = {};
+                    for (; j < lenTmp - 1 - i; j++){
+                        wherearr[i].file![crit[j]] = result[0][crit[j]];
+                    }
+                    wherearr[i].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
+                }
+            } else {
+                wherearr = [whereObj];
+            }
+            let orderObj = {file: {}};
+            for (const itm of crit){
+                    orderObj.file[itm] = sort.incr ? "ASC" : "DESC";
+            }
+            let result2 = await manager.find(Eshared_def, {
+                relations: {
+                    file: true,
+                    friend_mono: true
+                },
+                where: wherearr,
+                take: 21,
+                order: orderObj,
+            });
+            if (result2.length > 20){
+                retVal.loadMore = true;
+                result2.pop();
+            } else {
+                retVal.loadMore = false;
+            }
+            retVal.addarr = result2.map(val=>{return {
+                link: `/files?dirid=${val.file_serial}`,
+                id: val.file_serial,
+                isFolder: val.file.type === 'dir',
+                text: val.file_name,
+                bookmarked: val.bookmarked === 'true',
+                shared: val.file.shares.map(val=>val.user_serial_to).join(','),
+                date: (val.file.last_modified as Date).toISOString(),
+                ownerName: val.friend_mono.nickname,
+                ownerImg: '/images/user?id=' + val.user_serial_from,
+                timestamp: val.file.last_renamed.toISOString()
+            };});
+        });
+        await this.replaceNames(userSer, retVal.addarr);
+        return retVal;
+    }
+
+    async loadRecycleMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
+        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'recycle')];
+        let retVal = new FilesMoreDto();
+        retVal.addarr = [];
+        retVal.loadMore = true;
+        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+            let whereObj: FindOptionsWhere<Erecycle> = {
+                user_serial: userSer,
+                del_type: 'direct'
+            };
+            let wherearr: FindOptionsWhere<Erecycle>[] = [];
+            if (lastFile !== 0){
+                let result = await manager.find(Erecycle, {
                     where: {
                         user_serial: userSer,
-                        parent_serial: dir,
                         file_serial: lastFile,
                         last_renamed: lastTime
                     }
@@ -334,12 +471,71 @@ export class FilesService {
                     }
                     wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
                 }
-                for (const itm of crit){
-                    if (sort.incr){
-                        whereObj[itm] = MoreThan(result[0][itm]);
-                    } else {
-                        whereObj[itm] = LessThan(result[0][itm]);
+            } else {
+                wherearr = [whereObj];
+            }
+            let orderObj = {};
+            for (const itm of crit){
+                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
+            }
+            let result2 = await manager.find(Erecycle, {
+                where: wherearr,
+                take: 21,
+                order: orderObj
+            });
+            if (result2.length > 20){
+                retVal.loadMore = true;
+                result2.pop();
+            } else {
+                retVal.loadMore = false;
+            }
+            retVal.addarr = result2.map(val=>{return {
+                id: val.file_serial,
+                isFolder: val.type === 'dir',
+                text: val.file_name,
+                date: (val.last_modified as Date).toISOString(),
+                timestamp: val.last_renamed.toISOString(),
+                origPath: val.parent_path,
+                dateDeleted: val.last_renamed.toISOString(),
+            };});
+        });
+        return retVal;
+    }
+
+    async loadFriendMore(userSer: number, lastFriend: number, sort: SortModeDto){
+        let crit: string[];
+        if (sort.criteria === 'colName'){
+            crit = ['nickname', 'user_serial_from', 'user_serial_to'];
+        } else if (sort.criteria === 'colAdded'){
+            crit = ['date_added', 'user_serial_from', 'user_serial_to'];
+        } else {throw new BadRequestException();}
+        let retVal = new FriendMoreDto();
+        retVal.addarr = [];
+        retVal.loadMore = true;
+        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+            let whereObj: FindOptionsWhere<Efriend_mul> = {
+                user_serial_to: userSer,
+            };
+            let wherearr: FindOptionsWhere<Efriend_mul>[] = [];
+            if (lastFriend !== 0){
+                let result = await manager.find(Efriend_mul, {
+                    where: {
+                        user_serial_to: userSer,
+                        user_serial_from: lastFriend,
                     }
+                });
+                if (result.length <= 0){
+                    retVal.needRefresh = true;
+                    return;
+                }
+                let lenTmp = crit.length;
+                for (let i = 0; i < lenTmp; i++){
+                    wherearr.push({...whereObj});
+                    let j = 0;
+                    for (; j < lenTmp - 1 - i; j++){
+                        wherearr[i][crit[j]] = result[0][crit[j]];
+                    }
+                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
                 }
             } else {
                 wherearr = [whereObj];
@@ -348,124 +544,134 @@ export class FilesService {
             for (const itm of crit){
                     orderObj[itm] = sort.incr ? "ASC" : "DESC";
             }
-            result = await manager.find(Efile, {
-                relations: {
-                    shares: {
-                        user_serials: true
-                    }
-                },
+            let result2 = await manager.find(Efriend_mul, {
                 where: wherearr,
                 take: 21,
                 order: orderObj
             });
-            retVal.loadMore = (result.length > 20);
-            result.pop();
-            retVal.addarr = result.map(val=>{return {
-                link: (val.issys === 'true' ? `/files/${val.file_name}` 
-                    : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
-                id: val.file_serial,
-                isFolder: val.type === 'dir',
-                text: val.file_name,
-                bookmarked: val.bookmarked === 'true',
-                shared: val.shares.map(val=>val.user_serial_to).join(', '),
-                date: (val.last_modified as Date).toISOString(),
-                ownerImg: '/images/user',
-                timestamp: val.last_renamed.toISOString()
+            if (result2.length > 20){
+                retVal.loadMore = true;
+                result2.pop();
+            } else {
+                retVal.loadMore = false;
+            }
+            retVal.addarr = result2.map(val=>{return {
+                link: '/friends/profile?id=' + val.user_serial_from,
+                profileimg: '/images/user?id=' + val.user_serial_from,
+                nickname: val.nickname,
+                name: '',
+                userid: '',
+                sharedFiles: '',
+                id: val.user_serial_from,
             };});
         });
-        return retVal;  
+        return retVal;
     }
 
-    async loadSharedMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto, friend?: number){
+    private async friendLoad_fillInfo(lst: FilesArrDto['arrFriend']){
+        let mapArr = new Map(lst.map(val=>[val.id, val]));
+        let arrSerial = lst.map(val=>val.id);
+        await this.mysqlService.doQuery('files service friendload fillinfo', async (conn)=>{
+            let [result] = await conn.execute<RowDataPacket[]>(
+                `select user_serial, name, user_id from user where user_serial in ?`, [arrSerial]
+            );
+            for (const val of result){
+                let itm = mapArr.get(val.user_serial);
+                if (itm === undefined){continue;}
+                itm.name = val.name;
+                itm.userid = val.user_id;
+            }
+            [result] = await conn.execute<RowDataPacket[]>(
+                `select user_serial_from, file_name from shared_def where user_serial_from in ?`, [arrSerial]
+            );
+            for (const val of result){
+                let itm = mapArr.get(val.user_serial_from);
+                if (itm === undefined){continue;}
+                itm.sharedFiles += val.file_name;
+                itm.sharedFiles += ', ';
+            }
+            for (const [_, val] of mapArr){
+                val.sharedFiles = val.sharedFiles.slice(0, -2);
+            }
+        });
 
     }
 
-    async loadRecycleMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
+    async resolveLoadmore(userSer: number, lst: FileIdentReqDto[], lastfile: number, timestamp: Date, sort: SortModeDto,
+        context: 'files'|'bookmarks'|'recycle'|'shared', dirOrFriend?: number
+    ){
+        if (lst.at(-1)?.id === 0){
+            lst.pop();
+        } else {
+            return;
+        }
+        let ret: FilesMoreDto;
+        if (context === 'bookmarks'){
+            ret =  await this.loadBookmarkMore(userSer, lastfile, timestamp, sort);
+        } else if (context === 'files' && dirOrFriend){
+            ret = await this.loadFileMore(userSer, dirOrFriend, lastfile, timestamp, sort);
+        } else if (context === 'recycle'){
+            ret = await this.loadRecycleMore(userSer, lastfile, timestamp, sort);
+        } else if (context === 'shared'){
+            ret = await this.loadSharedMore(userSer, lastfile, timestamp, sort, dirOrFriend);
+        } else {throw new BadRequestException();}
 
+        lst = lst.concat(ret.addarr.map(val=>{return {id: val.id, timestamp: new Date(val.timestamp)}}));
+    }
+
+    async resolveFriendLoadmore(userSer: number, lst: number[], lastfriend: number, sort: SortModeDto){
+        if (lst.at(-1) === 0){
+            lst.pop();
+        } else {
+            return;
+        }
+        let ret = await this.loadFriendMore(userSer, lastfriend, sort);
+        lst = lst.concat(ret.addarr.map(val=>val.id));
+    }
+
+    async replaceNames(userSer: number, lst: FilesArrDto['arr']){
+        let arrnames = new Set()
+        for (const val of lst.map(val=>val.shared)){
+            if (val === undefined){return;}// as all of the shared will actually be undefined.
+            for (let itm of val.split(',')){
+                arrnames.add(Number(itm));
+            }
+        }
+        let result: RowDataPacket[] = [];
+        await this.mysqlService.doQuery('files service replaceNames', async (conn)=>{
+            let str1 = `select user_serial, ifnull(nickname, name) as name from file left join friend_mono `;
+            str1 += `on file.user_serial=friend_mono.user_serial_from and friend_mono.user_serial_to=? `;
+            str1 += `where user_serial in ?`;
+            [result] = await conn.execute<RowDataPacket[]>(
+                str1, [userSer, Array.from(arrnames)]
+            );
+        });
+        let mapnames = new Map<number, string>(result.map(val=>[val.user_serial, val.name]));
+        for (let i = 0; i < lst.length; i++){
+            lst[i].shared = lst[i].shared!.split(',').map(val=>mapnames.get(Number(val))).join(', ');
+        }
+    }
+
+    async addSharedNames(lst: FilesArrDto['arr']){
+        let str1 = `select file_serial, shared_def.user_serial_to as id `;
+        str1 += `from shared_def where file_serial in ?`;
+        let result: RowDataPacket[] = [];
+        await this.mysqlService.doQuery('files service addSharedNames', async (conn)=>{
+            [result] = await conn.execute<RowDataPacket[]>(
+                str1, [lst.map(val=>val.id)]
+            );
+        });
+        let mapFile = new Map(lst.map(val=>[val.id, val]));
+        for (const itm of result){
+            let obj = mapFile.get(itm.file_serial);
+            if (obj === undefined){this.logger.error('addSharedNames: object not found for '+itm.file_serial);continue;}
+            obj.shared += (itm.id + ',');
+        }
+        for (const itm of lst){
+            itm.shared!.slice(0, -1);
+        }
     }
     
-    generateLoadMore(col: string, incr: boolean, middle: boolean, 
-        mode: SysdirType['val']): Array<string>{
-        if (!SysdirType.arr.includes(mode)){
-            throw new BadRequestException();
-        }
-        const asc = incr ? 'asc' : 'desc';
-        const compOp = incr ? '>' : '<';
-        const compOp2 = incr ? '<' : '>';
-        const {arrColumn: sortCta, dbName} = this.translateColumn(col, mode);
-        // select 1: get the list of files and info excluding shared people
-        // select 2: get the list of shared people on the list of files from select 1
-        let strSelect1: string;
-        let strSelect2: string;
-        let strWhere1: string;
-        let strWhere2: string;
-
-        if (mode === 'files' || mode === 'inbox'){
-            strSelect1 = `select * from ${dbName} `
-            strWhere1 = `where user_serial=? and parent_serial=? `;
-            strSelect2 = `select file_serial, name from file inner join shared_def using (file_serial)
-            inner join user on user_serial_to=user.user_serial `;
-            strWhere2 = `where user_serial=? and parent_serial=? `;
-            if (middle){
-                strWhere1 += `and type ${compOp}= ? `;
-                strWhere2 += `and type ${compOp}= ? and type ${compOp2}= ? `;
-            }
-        } else if (mode === 'bookmarks'){
-            let tbl1 = `select user_serial, type, issys, file_name, file_serial, last_renamed, last_modified
-                from files where user_serial=? and bookmarked='true'
-                for share `;
-            let tbl2 = `select user_serial_from, type, issys, file.file_name, file_serial, last_renamed, last_modified
-                from files inner join shared_def using (file_serial) where user_serial_to=? and shared_def.bookmarked='true'
-                for share `;
-            // the derived table to use as base
-            let tblUnion = `(${tbl1} union ${tbl2}) as bmt `; // contains only user-related data
-            strSelect1 = `select * from ${tblUnion} `;
-            strWhere1 = '';
-            strSelect2 = `select file_serial, name from ${tblUnion} inner join shared_def using (file_serial)
-            inner join user on user_serial_to=user.user_serial `;
-            strWhere2 = '';
-            if (middle){
-                strWhere1 += `where type ${compOp}= ? `;
-                strWhere2 += `where type ${compOp}= ? and type ${compOp2}= ? `;
-            }
-        } else if (mode === 'shared'){
-            strSelect1 = `select user_serial, shared_def.bookmarked, file.file_name, type, issys, file_serial, last_renamed, last_modified
-                from shared_def inner join file using (file_serial)`;
-            strWhere1 = `where user_serial_to=? `;
-            strSelect2 = `select file_serial, name from shared_def as t1 inner join shared_def as t2 using (file_serial)
-            inner join user on t2.user_serial_to=user.user_serial `;
-            strWhere2 = `where t1.user_serial_to=? `;
-            if (middle){
-                strWhere1 += `and type ${compOp}= ? `;
-                strWhere2 += `and type ${compOp}= ? and type ${compOp2}= ? `;
-            }
-        } else if (mode === 'recycle'){
-            strSelect1 = `select * from recycle `
-            strWhere1 = `where user_serial=? `;
-            strSelect2 ='';
-            strWhere2 = '';
-            if (middle){
-                strWhere1 += `and type ${compOp}= ? `;
-            }
-        } else {throw new BadRequestException();}
-        let strOrder = `order by type ${asc}, `;
-        if (middle){
-            for (const cta of sortCta){
-                strWhere1 += `and ${cta} ${compOp} ? `;
-                strWhere2 += `and ${cta} ${compOp} ? and ${cta} ${compOp2}= ? `;
-                strOrder += `${cta} ${asc}, `;
-            }
-        }
-        strOrder = strOrder.slice(0, -2) + ' ';
-        let strSql1 = strSelect1 + strWhere1 + strOrder + `limit 21 for share`;
-        let strSql2 = strSelect2 + strWhere2 + strOrder + `for share`; // need to consider 'for update' on certain conditions
-        if (mode !== 'recycle'){
-            return [strSql1, strSql2];
-        } else {
-            return [strSql1];
-        }
-    }
-
     private async deleteFiles_validity(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]){
         let arr = arr_.slice(0);
         let str1 = `select file_serial as id, last_renamed as timestamp from file `;
@@ -553,7 +759,8 @@ export class FilesService {
         );
     }
 
-    async deleteFiles(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[], from: number): Promise<FileDelResDto>{
+    async deleteFiles(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[],
+        from: number, rb: {rback: boolean}|'force'): Promise<FileDelResDto>{
         // deleting folders: need recursive action - mark with to_delete
         // also remove shared_def for all recursively deleted ones
         // do not delete sysdirs.
@@ -568,7 +775,16 @@ export class FilesService {
         }
         await this.deleteFiles_removeShares(conn, userSer);
         const { path } = await this.getDirInfo(userSer, from);
-        await this.deleteFiles_toRecycle(conn, userSer, path);
+        if (path.length > 255 && rb !== 'force'){ // too long and not force
+            rb.rback = true;
+            let retVal = new FileDelResDto();
+            retVal.failed = arr_.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};});
+            retVal.delarr = [];
+            retVal.failmessage = '파일 경로가 너무 길어서 휴지통으로 이동할 수 없었습니다. 파일을 다른 경로로 이동한 후 다시 시도하십시오.';
+            return retVal;
+        } else if (path.length <= 255){ // not too long
+            await this.deleteFiles_toRecycle(conn, userSer, path);
+        } // else: too long and force -->do not put into recycle.
         await this.deleteFiles_remove(conn, userSer);
         let retVal = new FileDelResDto();
         retVal.delarr = Array.from(arr, (val)=>{return {id: val[0], timestamp: val[1]};})
@@ -887,7 +1103,8 @@ export class FilesService {
         await conn.execute(
             str1, [shareType, userSer, friends, userSer, files, shareType]
         );
-        str1 = `select type, file_name, file.bookmarked as bookmarked, last_modified, file_serial, last_renamed from shared_def inner join file using (file_serial) `;
+        str1 = `select type, file_name, file.bookmarked as bookmarked, last_modified, file_serial, last_renamed `;
+        str1 += `from shared_def inner join file using (file_serial) `;
         str1 += `where user_serial_from=? and mark='true' for update `
         let [result] = await conn.execute<RowDataPacket[]>(str1, [userSer]);
         retVal.addarr = result.map(val=>{
@@ -897,13 +1114,15 @@ export class FilesService {
                 isFolder: val.type==='dir',
                 text: val.file_name,
                 bookmarked: val.bookmarked==='true',
-                shared: '',
+                shared: '', // temporary. added with this.addSharedNames
                 date: val.last_modified.toISOString(),
                 ownerImg: '/images/user',
                 timestamp: val.last_renamed.toISOString()
             }
         });
         await conn.execute(`update shard_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
+        await this.addSharedNames(retVal.addarr);
+        await this.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
     
@@ -1140,11 +1359,14 @@ export class FilesService {
         await conn.execute(
             `update file set file_name=? where user_serial=? and file_serial=?`, [name, userSer, file]
         );
+        await conn.execute(
+            `update shared_def set file_name=? where user_serial_from=? and file_serial=?`, [name, userSer, file]
+        );
         [result] = await conn.execute<RowDataPacket[]>(
             `select * from file where user_serial=? and file_serial=? for share`, [userSer, file]
         );
         let [result2] = await conn.execute<RowDataPacket[]>(
-            `select name from shared_def inner join user on shared_def.user_serial_to=user.user_serial where user_serial_from=? and file_serial=?`,
+            `select user_serial_to from shared_def where user_serial_from=? and file_serial=?`,
             [userSer, file]
         );
         retVal.delarr = [{id: file, timestamp: timestamp.toISOString()}];
@@ -1154,11 +1376,12 @@ export class FilesService {
             isFolder: false,
             text: name,
             bookmarked: false,
-            shared: result2.join(', '),
+            shared: result2.map(val=>val.user_serial_to).join(','),
             date: result[0].last_modified.toISOString(),
             ownerImg: '/images/user',
             timestamp: result[0].last_renamed.toISOString()
-        })
+        });
+        await this.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
 

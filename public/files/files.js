@@ -16,7 +16,7 @@ const txtRename = document.createElement('input');
 txtRename.setAttribute('type', 'text');
 txtRename.style.display = 'none';
 
-fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id, 'files');
 fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 async function fncRename(){

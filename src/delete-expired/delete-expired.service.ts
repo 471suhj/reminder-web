@@ -11,7 +11,7 @@ export class DeleteExpiredService {
 
     @Cron('0 0 */6 * * *') // session, old_id, user
     async DeleteExpiredSeldom(): Promise<void>{
-        this.logger.log('start: cron job - seldom');
+        this.logger.log('start: delete-expired cron job - seldom');
         const pool: mysql.Pool = await this.mysqlService.getSQL();
         try{
             await pool.execute('delete from session where timestampdiff(day, last_updated, current_timestamp) >= 7');
@@ -21,13 +21,13 @@ export class DeleteExpiredService {
             this.logger.error('delete expired service mysql error. see below.');
             console.log(err);
         } finally {
-            this.logger.log('end: cron job - seldom');
+            this.logger.log('end: delete-expired cron job - seldom');
         }
     }
 
     @Cron('0 */15 * * * *') // google_consent, email_verification, permdel recycles.
     async DeleteExpiredFreq(): Promise<void>{
-        this.logger.log('start: cron job - freq');
+        this.logger.log('start: delete-expired cron job - freq');
         const pool: mysql.Pool = await this.mysqlService.getSQL();
         try{
             await pool.execute('delete from google_consent where timestampdiff(minute, last_updated, current_timestamp) >= 10');
@@ -37,7 +37,7 @@ export class DeleteExpiredService {
             this.logger.error('delete expired service mysql error. see below.');
             console.log(err);
         } finally {
-            this.logger.log('end: cron job - freq');
+            this.logger.log('end: delete-expired cron job - freq');
         }
     }
 }

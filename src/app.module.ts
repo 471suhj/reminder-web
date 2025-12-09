@@ -13,6 +13,7 @@ import { HomeModule } from './home/home.module';
 import { PrefsModule } from './prefs/prefs.module';
 import { FriendsModule } from './friends/friends.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CheckIntegrityModule } from './check-integrity/check-integrity.module';
 
 @Module({
   imports: [AuthModule, MysqlModule, 
@@ -27,6 +28,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       autoLoadEntities: true,
       synchronize: false,
     }),
+    CheckIntegrityModule,
 
   ],
   controllers: [AppController],

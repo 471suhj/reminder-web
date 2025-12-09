@@ -14,7 +14,7 @@ const divPopup = document.getElementById('popup');
 const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
-fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblNickname.dataset.id);
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblNickname.dataset.id, 'profile');
 fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblNickname.dataset.id);
 
 function fncPrintCnt(){
@@ -85,7 +85,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async function(){
-            const txtBody = JSON.stringify({action: 'unshare', last: idCurLast, files: arrSelFiles, friend: Number(lblTitle.dataset.id), sort: sortMode, message: txtMsg.value});
+            const txtBody = JSON.stringify({action: 'unshare', from: Number(lblTitle.dataset.id), last: idCurLast, files: arrSelFiles, friend: Number(lblTitle.dataset.id), sort: sortMode, message: txtMsg.value});
             fncClearPopup(divPopup);
             await doFetch('/files/manage', 'DELETE', txtBody,
                 '공유가 취소되었습니다.', '공유 취소를 실패했습니다.', async function(result){
@@ -157,7 +157,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			let shareMode = null;
 			if (optCopy.checked){shareMode = 'copy'} else if (optShareRead) {shareMode = 'read'} else {shareMode = 'edit'} 
 			let idCurLast = {id: '0', timestamp: new Date()};
-			const jsonBody = {files: Array.from(lstFiles.selectedOptions).map((val)=>Number(val.dataset.id)), sort: sortMode, mode: shareMode, last: idCurLast, message: txtMessage.value, friends: [Number(lblTitle.dataset.id)]};
+			const jsonBody = {files: Array.from(lstFiles.selectedOptions).map((val)=>Number(val.dataset.id)), sort: sortMode, source: 'profile', from: Number(lblTitle.dataset.id), sort: sortMode, mode: shareMode, last: idCurLast, message: txtMessage.value, friends: [Number(lblTitle.dataset.id)]};
 			await doFetch('/files/share', 'PUT', JSON.stringify(jsonBody), '',
 				'공유에 실패했습니다.', async function(result){
 					fncClearPopup(divPopup);

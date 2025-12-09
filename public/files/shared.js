@@ -13,8 +13,8 @@ const dlgOverwrite = document.getElementById('overwriteDlg');
 const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id, 'shared');
 fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
-fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'

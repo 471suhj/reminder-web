@@ -7,5 +7,7 @@ export class FileShareDto {
     message: string;
     friends: Array<number>;
     last: FileIdentReqDto;
-    sort?: SortModeDto;
+    sort: SortModeDto;
+    from: number;
+    source: 'files'|'profile';
 }

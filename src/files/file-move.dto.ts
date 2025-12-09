@@ -6,7 +6,8 @@ export class FileMoveDto {
     sort: SortModeDto;
     files: Array<{id: number, timestamp: Date}>;
     from: number;
-    timestamp?: Date; // file only
+    timestamp: Date;
     to: number;
-    ignoreTimpstamp?: boolean;
+    ignoreTimpstamp: boolean;
+    last: number;
 }

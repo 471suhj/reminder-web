@@ -1,14 +1,14 @@
 import {doFetch} from '/printmsg.js';
-import {sortMode} from '/sortmode.js'
 const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
 
 export let sortMode = {criteria: 'colName', incr: true};
+let globdirmode = 'files';
 
 
 export function fncRefresh(fncInsertFile, fncPrintCnt, dirid){
     fncClearList();
-    fncLoadMore(fncInsertFile, fncPrintCnt, dirid);
+    fncLoadMore(fncInsertFile, fncPrintCnt, dirid, globdirmode);
 }
 
 export function fncClearList(){
@@ -18,16 +18,16 @@ export function fncClearList(){
     }
 }
 
-export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid){
+export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid, dirmode){
     lblLoadMore.childNodes[2].textContent = '추가 로드 중입니다...';
     lblLoadMore.dataset.isbutton = 'false'
 	const lblTitle = document.getElementById('title');
     let idCurLast = {id: '0', timestamp: '2000-01-01T00:00:00.000Z'};
     if (list.children.length !== 1){
         idCurLast.id = list.children[list.children.length - 2].dataset.id;
-		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp ?? '2000-01-01T00:00:00.000Z';
     }
-	let strLink = `/files/loadmore?dirid=${dirid}&lastrenamed=${lblTitle.dataset.timestamp}`;
+	let strLink = `/files/loadmore?dirid=${dirid}&lastrenamed=${lblTitle.dataset.timestamp ?? '2000-01-01T00:00:00.000Z'}&mode=${dirmode}`;
 	strLink += `&sort=${sortMode.criteria}&sortincr=${sortMode.incr}&startafter=${idCurLast.id}&startaftertimestamp=${idCurLast.timestamp}`;
     await doFetch(strLink, 'GET', '', '', '추가 로드에 실패했습니다.', async function(result){
         let jsnRes = await result.json();
@@ -44,32 +44,29 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid){
             lblLoadMore.style.display = 'none';
             document.body.appendChild(lblLoadMore);
         }
-		if (jsnRes.lastItem !== -1){
-			lblLoadMore.dataset.lastitem = jsnRes.lastItem;
-			lblLoadMore.dataset.lasttimestamp = jsnRes.lastItemTimestamp;
-		}
         return;
     });
     lblLoadMore.childNodes[2].textContent = '추가 로드'
     lblLoadMore.dataset.isbutton = 'true'
 }
 
-export function fncAutoloadSetup(fncInsertFile, fncPrintCnt, dirid){
+export function fncAutoloadSetup(fncInsertFile, fncPrintCnt, dirid, dirmode){
+	globdirmode = dirmode;
     lblLoadMore.addEventListener('click', function(event){
         if (event.target.dataset.isbutton === 'true'){
-            fncLoadMore(fncInsertFile, fncPrintCnt, dirid);
+            fncLoadMore(fncInsertFile, fncPrintCnt, dirid, globdirmode);
         }
     });
 
     document.addEventListener('scroll', async function(){
         if (lblLoadMore.parentNode && (lblLoadMore.dataset.isbutton === 'true') && (document.body.scrollHeight - 45 - lblLoadMore.scrollHeight <= window.innerHeight + window.scrollY)){
-            fncLoadMore(fncInsertFile, fncPrintCnt, dirid);
+            fncLoadMore(fncInsertFile, fncPrintCnt, dirid, globdirmode);
         }
     });
 
     document.getElementById('refresh').addEventListener('click', () => {fncRefresh(fncInsertFile, fncPrintCnt, dirid);});
 
-    fncLoadMore(fncInsertFile, fncPrintCnt, dirid);
+    fncLoadMore(fncInsertFile, fncPrintCnt, dirid, globdirmode);
 }
 
 export function fncResort(colName, colItem, fncResetSort, listHead, fncInsertFile, fncPrintCnt, dirid){

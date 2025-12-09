@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
-import { FriendsService } from './friends.service';
 import { FriendsController } from './friends.controller';
 import { ProfilesController } from './profiles.controller';
+import { FilesModule } from 'src/files/files.module';
 
 @Module({
-  providers: [FriendsService],
+  imports: [FilesModule],
   controllers: [FriendsController, ProfilesController],
-  exports: [FriendsService]
 })
 export class FriendsModule {}

@@ -9,8 +9,8 @@ const tlbSort = document.getElementById('tlbSort');
 const lblTitle = document.getElementById('title');
 let numItemCnt = 0;
 
+fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id, 'friends');
 fncSetupHeaderSort(document.getElementById('tlbSort'), fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
-fncAutoloadSetup(fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 
 function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
@@ -19,7 +19,7 @@ function fncPrintCnt(){
 function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}'>
             <input class='listItemChkbox' type='checkbox'>
             <div class='listBlock'>
                 <img src='${listItem.profileimg}' width='25' height='25'><!-
@@ -41,7 +41,14 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         }
         await doFetch('./add', 'PUT', JSON.stringify({id: friendID}), '', '친구 추가를 실패했습니다.',
         async function(result){
-            return fncInsertFile(await result.json(), false, '친구 추가를 완료했습니다.', '친구 추가를 실패했습니다.');
+			let jsonRes = await result.json();
+				if (jsnRes.success){
+					showMessage('친구 추가 요청이 완료되었습니다. 상대방이 승낙할 경우 친구로 추가됩니다.');
+				} else if (jsnRes.failmessage) {
+					showMessage(jsnRes.failmessage);
+				} else {
+					showMessage('친구 추가 요청에 실패했습니다.');
+				}
         });
     });
 }
@@ -89,12 +96,11 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if ((lstDeleteName.length <= 0) || !confirm('정말로 친구를 취소하시겠습니까? 모든 파일들의 공유가 취소됩니다.')){
             return;
         }
-		let idCurLast = {id: '0', timestamp: new Date()};
+		let idCurLast = '0';
 		if (list.children.length !== 1){
-			idCurLast.id = list.children[list.children.length - 2].dataset.id;
-			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+			idCurLast= list.children[list.children.length - 2].dataset.id;
 		}
-        await doFetch('', 'DELETE', JSON.stringify({sort: sortMode, last: idCurLast, files: lstDeleteName}), 
+        await doFetch('', 'DELETE', JSON.stringify({sort: sortMode, last: idCurLast, friends: lstDeleteName}), 
         '', '친구 취소에 오류가 발생했습니다.', async function(result){
             const jsnRes = await result.json();
             fncRemoveItems(jsnRes, fncPrintCnt, '일부 친구 취소를 실패했습니다.', '친구 취소가 완료되었습니다.');
