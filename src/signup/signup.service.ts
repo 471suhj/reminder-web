@@ -23,7 +23,7 @@ export class SignupService {
 
         try{
             let retVal: {success: boolean, message?: string, serial: number} = {success: false, serial: 0};
-            await this.mysqlService.doTransaction('signup register', async function(conn){
+            await this.mysqlService.doTransaction('signup register', async function(conn, rb){
                 let updateinfo = false;
                 let result: mysql.RowDataPacket[];
                 if (mode === 'google'){
@@ -61,6 +61,7 @@ export class SignupService {
                                 throw new InternalServerErrorException();
                             }
                         } else {
+                            rb.rback = true;
                             retVal.success = false;
                             retVal.message = '사용할 수 없는 아이디입니다.';
                             return; // caution: return to just outside of transaction!

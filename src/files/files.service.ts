@@ -20,14 +20,12 @@ import { Ebookmark } from './bookmark.entity';
 import { Eshared_def } from 'src/mysql/shared_def.entity';
 import { Erecycle } from 'src/mysql/recycle.entity';
 import { FriendMoreDto } from './friend-more.dto';
-import { Efriend } from 'src/mysql/friend.entity';
-import { Efriend_mono } from 'src/mysql/friend_mono.entity';
 import { Efriend_mul } from 'src/mysql/friend_mul.entity';
 
 @Injectable()
 export class FilesService {
-    constructor(private mysqlService: MysqlService, private prefsService: PrefsService,
-        private dataSource: DataSource){}
+    constructor(private readonly mysqlService: MysqlService, private readonly prefsService: PrefsService,
+        private readonly dataSource: DataSource){}
 
     private readonly logger = new Logger(FilesService.name);
 
@@ -87,13 +85,14 @@ export class FilesService {
         let result: RowDataPacket[];
         let curId = fileId;
         let accessErr = false;
-        await this.mysqlService.doTransaction('files service getPath', async function(conn){
+        await this.mysqlService.doTransaction('files service getPath', async function(conn, rb){
             while (cont){
                 let firstReq = true;
                 [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
                     'select parent_serial, file_name from file where user_serial=? and file_serial=? for share', [userSer, fileId]);
                 if (result.length <= 0) {
                     if (firstReq){
+                        rb.rback = true;
                         accessErr = true;
                         return;
                     } else {
@@ -152,7 +151,7 @@ export class FilesService {
         retObj.dirPath = `<a class="addrLink" href="/files">files</a>/<a class="addrLink" href="/files/${dirType}">${dirType}</a>`;
         retObj.dirId = dirid;
         let sideName =  (dirType === 'recycle' || dirType === 'inbox') ? 'files' : dirType;
-        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))};
+        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))}; // overwritten
         return retObj;
     }
 
@@ -209,6 +208,7 @@ export class FilesService {
         let retVal = new FilesMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
+        try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let result = await manager.find(Efile, {
                 where: {
@@ -236,7 +236,7 @@ export class FilesService {
                 });
                 if (result.length <= 0){
                     retVal.needRefresh = true;
-                    return;
+                    throw new Error('rollback');
                 }
                 let lenTmp = crit.length;
                 for (let i = 0; i < lenTmp; i++){
@@ -280,6 +280,11 @@ export class FilesService {
                 timestamp: val.last_renamed.toISOString()
             };});
         });
+        } catch (err){
+            if (err.message !== 'rollback'){
+                throw err;
+            }
+        }
         await this.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
@@ -290,6 +295,7 @@ export class FilesService {
         let retVal = new FilesMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
+        try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let whereObj = {
                 reader: userSer,
@@ -311,7 +317,7 @@ export class FilesService {
                 });
                 if (result2.length <= 0){
                     retVal.needRefresh = true;
-                    return;
+                    throw new Error('rollback');
                 }
                 let lenTmp = crit.length;
                 for (let i = 0; i < lenTmp; i++){
@@ -356,6 +362,9 @@ export class FilesService {
                 timestamp: val.last_renamed.toISOString()
             };});
         });
+        } catch (err) {
+            if (err.message !== 'rollback') {throw err;}
+        }
         await this.replaceNames(userSer, retVal.addarr);
         return retVal;  
     }
@@ -365,6 +374,7 @@ export class FilesService {
         let retVal = new FilesMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
+        try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let whereObj = {
                 user_serial_to: userSer,
@@ -388,7 +398,7 @@ export class FilesService {
                 });
                 if (result.length <= 0){
                     retVal.needRefresh = true;
-                    return;
+                    throw new Error('rollback');
                 }
                 let lenTmp = crit.length;
                 for (let i = 0; i < lenTmp; i++){
@@ -435,6 +445,9 @@ export class FilesService {
                 timestamp: val.file.last_renamed.toISOString()
             };});
         });
+        } catch (err) {
+            if (err.message !== 'rollback'){throw err;}
+        }
         await this.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
@@ -444,6 +457,7 @@ export class FilesService {
         let retVal = new FilesMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
+        try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let whereObj: FindOptionsWhere<Erecycle> = {
                 user_serial: userSer,
@@ -460,7 +474,7 @@ export class FilesService {
                 });
                 if (result.length <= 0){
                     retVal.needRefresh = true;
-                    return;
+                    throw new Error('rollback');
                 }
                 let lenTmp = crit.length;
                 for (let i = 0; i < lenTmp; i++){
@@ -499,6 +513,9 @@ export class FilesService {
                 dateDeleted: val.last_renamed.toISOString(),
             };});
         });
+        } catch (err) {
+            if (err.message !== 'rollback') {throw err;}
+        } 
         return retVal;
     }
 
@@ -512,6 +529,7 @@ export class FilesService {
         let retVal = new FriendMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
+        try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
             let whereObj: FindOptionsWhere<Efriend_mul> = {
                 user_serial_to: userSer,
@@ -526,7 +544,7 @@ export class FilesService {
                 });
                 if (result.length <= 0){
                     retVal.needRefresh = true;
-                    return;
+                    throw new Error('rollback');
                 }
                 let lenTmp = crit.length;
                 for (let i = 0; i < lenTmp; i++){
@@ -565,6 +583,9 @@ export class FilesService {
                 id: val.user_serial_from,
             };});
         });
+        } catch (err) {
+            if (err.message !== 'rollback') {throw err;}
+        }
         return retVal;
     }
 
@@ -580,6 +601,9 @@ export class FilesService {
                 if (itm === undefined){continue;}
                 itm.name = val.name;
                 itm.userid = val.user_id;
+                if (itm.nickname === ''){
+                    itm.nickname = val.name;
+                }
             }
             [result] = await conn.execute<RowDataPacket[]>(
                 `select user_serial_from, file_name from shared_def where user_serial_from in ?`, [arrSerial]
@@ -639,14 +663,14 @@ export class FilesService {
         }
         let result: RowDataPacket[] = [];
         await this.mysqlService.doQuery('files service replaceNames', async (conn)=>{
-            let str1 = `select user_serial, ifnull(nickname, name) as name from file left join friend_mono `;
+            let str1 = `select user_serial, ifnull(nickname, name) as nickname, name from file left join friend_mono `;
             str1 += `on file.user_serial=friend_mono.user_serial_from and friend_mono.user_serial_to=? `;
             str1 += `where user_serial in ?`;
             [result] = await conn.execute<RowDataPacket[]>(
                 str1, [userSer, Array.from(arrnames)]
             );
         });
-        let mapnames = new Map<number, string>(result.map(val=>[val.user_serial, val.name]));
+        let mapnames = new Map<number, string>(result.map(val=>[val.user_serial, val.nickname === '' ? val.name : val.nickname]));
         for (let i = 0; i < lst.length; i++){
             lst[i].shared = lst[i].shared!.split(',').map(val=>mapnames.get(Number(val))).join(', ');
         }

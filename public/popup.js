@@ -64,7 +64,7 @@ export async function fncShare(divPopup, list){
 		const jsnRes = await result.json();
 		for (const listItem of jsnRes.arr){
 			const ctlOption = lstDir.appendChild(document.createElement('option'));
-			ctlOption.innerText = `${listItem.name} (${listItem.username})`;
+			ctlOption.innerText = `${listItem.nickname} (${listItem.username})`;
 			ctlOption.dataset.id = listItem.id;
 		}				
 	});

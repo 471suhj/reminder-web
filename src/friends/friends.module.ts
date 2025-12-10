@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { FriendsController } from './friends.controller';
-import { ProfilesController } from './profiles.controller';
 import { FilesModule } from 'src/files/files.module';
+import { PrefsModule } from 'src/prefs/prefs.module';
 
 @Module({
-  imports: [FilesModule],
-  controllers: [FriendsController, ProfilesController],
+  imports: [FilesModule, PrefsModule],
+  controllers: [FriendsController],
 })
 export class FriendsModule {}

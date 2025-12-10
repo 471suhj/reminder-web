@@ -24,8 +24,10 @@ import { FriendMoreDto } from './friend-more.dto';
 
 @Controller('files')
 export class FilesController {
-    constructor(private mysqlService: MysqlService, 
-        private filesService: FilesService){}
+    constructor(
+        private readonly mysqlService: MysqlService, 
+        private readonly filesService: FilesService
+    ){}
 
     private readonly logger = new Logger(FilesController.name);
 
@@ -183,6 +185,7 @@ export class FilesController {
                     if (!body.timestamp || !body.from){throw new BadRequestException();}
                     if (await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
                         retVal.expired = true;
+                        rb.rback = true;
                         return;
                     }
                     retVal = await this.filesService.deleteFiles(conn, userSer, body.files, body.from, rb);
@@ -219,7 +222,7 @@ export class FilesController {
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from);
         let retVal: FileShareResDto;
-        await this.mysqlService.doTransaction('files controller put share', async (conn)=>{
+        await this.mysqlService.doTransaction('files controller put share', async (conn, rb)=>{
             // verify that they are friends
             let fverbose = body.files.map(val=>[val.id, val.timestamp]);
             let [result] = await conn.execute<RowDataPacket[]>(
@@ -235,6 +238,7 @@ export class FilesController {
                 `select file_serial from shared_def where user_serial_to=? and (file_serial, last_renamed) in ? for share`, [userSer, fverbose]
             );
             if (result.length + result2.length < body.files.length){
+                rb.rback = true;
                 retVal = new FileShareResDto();
                 retVal.addarr = [];
                 retVal.failed = body.files.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};});
@@ -258,9 +262,10 @@ export class FilesController {
         retVal.addarr = [];
         retVal.delarr = [];
         retVal.failmessage = '';
-        await this.mysqlService.doTransaction('files controller move', async (conn)=>{
+        await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
             if (!body.timestamp){throw new BadRequestException();}
             if (!body.ignoreTimpstamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
+                rb.rback = true;
                 retVal.expired = true;
                 return;
             }
@@ -271,6 +276,7 @@ export class FilesController {
             // consider duplicating in the same folder
             const relDir = (body.from === body.to) ? [body.from] : [body.from, body.to];
             if (relDir.length <= 1 && body.action === 'move'){
+                rb.rback = true;
                 return;
             }
             // check the validity of files and get the (type,name)s.
@@ -285,6 +291,7 @@ export class FilesController {
             if (!body.overwrite){
                 if ((resDup.length > 0) && (relDir.length >= 2)){ // assumes rename for copying to the same dir
                     retVal.alreadyExists = true;
+                    rb.rback = true;
                     return;
                 }
                 body.overwrite = 'buttonrename';

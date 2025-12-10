@@ -1,6 +1,6 @@
 export class FriendListDto {
     arr: Array<{
-        name: string;
+        nickname: string;
         username: string;
         id: number;
     }>

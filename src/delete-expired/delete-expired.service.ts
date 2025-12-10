@@ -25,7 +25,7 @@ export class DeleteExpiredService {
         }
     }
 
-    @Cron('0 */15 * * * *') // google_consent, email_verification, permdel recycles.
+    @Cron('0 */15 * * * *') // google_consent, email_verification, permdel recycles, friend request.
     async DeleteExpiredFreq(): Promise<void>{
         this.logger.log('start: delete-expired cron job - freq');
         const pool: mysql.Pool = await this.mysqlService.getSQL();
@@ -33,6 +33,7 @@ export class DeleteExpiredService {
             await pool.execute('delete from google_consent where timestampdiff(minute, last_updated, current_timestamp) >= 10');
             await pool.execute('delete from email_verification where timestampdiff(minute, last_updated, current_timestamp) >= 5');
             await pool.execute('delete from recycle where timestampdiff(month, last_renamed, current_timestamp) >= 1');
+            await pool.execute('delete from friend_req where timestampdiff(day, last_updated, current_timestamp) >= 20');
         } catch (err) {
             this.logger.error('delete expired service mysql error. see below.');
             console.log(err);
