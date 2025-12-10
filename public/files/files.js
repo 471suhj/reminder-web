@@ -211,7 +211,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('createDir');
     tlbItem.addEventListener('click', async function(){
-        let strName = prompt('폴더의 이름을 입력하십시오.', '');
+        let strName = '';
+		while ((strName = prompt('폴더의 이름을 입력하십시오.', strName)).length > 40){
+			alert('폴더의 이름은 40자를 넘을 수 없습니다.');
+		}
         if (strName){
             await doFetch('./manage', 'PUT', JSON.stringify({action: 'createDir', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp}), '', '파일 추가에 실패했습니다.', async function(result){
                 const jsnRes = await result.json();
@@ -227,7 +230,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('createFile');
     tlbItem.addEventListener('click', async function(){
-        let strName = prompt('파일의 이름을 입력하십시오.', '');
+        let strName = '';
+		while ((strName = prompt('파일의 이름을 입력하십시오.', strName)).length > 40){
+			alert('파일의 이름은 40자를 넘을 수 없습니다.');
+		}
         if (strName){
             await doFetch('./manage', 'PUT', JSON.stringify({action: 'createFile', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp)}), '', '파일 추가에 실패했습니다.', async function(result){
                 const jsnRes = await result.json();

@@ -137,7 +137,7 @@ export class FilesController {
         };
     }
 
-    // rename, create directory, create files from files, or enable bookmark
+    // rename, create directory, create files from files
     @Put('manage') // 'before's in filesarrdto are not ignored.
     async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileNewResDto|FileMoveResDto>{
         // share: file only! no folders!!

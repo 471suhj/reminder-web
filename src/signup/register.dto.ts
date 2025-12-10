@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, IsBoolean, Length } from "class-validator";
+import { IsNotEmpty, IsString, IsEmail, IsOptional, IsBoolean, Length, IsObject } from "class-validator";
 import { KeyObject } from "node:crypto";
 
 
@@ -29,6 +29,7 @@ export class RegisterDto{
     emailkey: string;
 
     @IsOptional()
+    @IsObject()
     key?: KeyObject;
 
     @IsOptional()

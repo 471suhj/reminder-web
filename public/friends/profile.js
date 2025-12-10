@@ -41,7 +41,10 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('rename');
     tlbItem.addEventListener('click', async function(){
-        let newNickname = prompt('수정할 닉네임을 입력해 주십시오.', lblNickname.innerText);
+        let newNickname = lblNickname.innerText;
+		while ((newNickname = prompt('수정할 닉네임을 입력해 주십시오.', newNickname)).length > 25){
+			alert('닉네임은 25자를 넘을 수 없습니다.');
+		}
         if (!newNickname){
             return;
         }

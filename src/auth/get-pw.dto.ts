@@ -1,4 +1,5 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsInstance } from "class-validator";
+import { Type } from "class-transformer";
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsInstance, IsObject } from "class-validator";
 import { KeyObject } from "node:crypto";
 
 export class GetPWDto {
@@ -11,6 +12,7 @@ export class GetPWDto {
     password: string;
 
     @IsOptional()
+    @IsObject()
     key?: KeyObject;
 
     @IsOptional()

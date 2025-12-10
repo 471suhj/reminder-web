@@ -1271,6 +1271,7 @@ export class FilesService {
     }
 
     async createFile(conn: PoolConnection, userSer: number, parent: number, name: string){
+        if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileNewResDto();
         retVal.arr = [];
@@ -1312,6 +1313,7 @@ export class FilesService {
     }
 
     async createDir(conn: PoolConnection, userSer: number, parent: number, name: string){
+        if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileNewResDto();
         retVal.arr = [];
@@ -1353,6 +1355,8 @@ export class FilesService {
     }
 
     async renameFile(conn: PoolConnection, userSer: number, parent: number, file: number, timestamp: Date, name: string){
+        if (name.length <= 0) {throw new BadRequestException();}
+        if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
         retVal.addarr = [];
         retVal.delarr = [];

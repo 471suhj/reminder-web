@@ -34,7 +34,7 @@ import { CheckIntegrityModule } from './check-integrity/check-integrity.module';
   controllers: [AppController],
   providers: [
     AppService,
-    { provide: APP_PIPE, useClass: ValidationPipe },
+    { provide: APP_PIPE, useFactory: ()=>new ValidationPipe({transform: true}) },
     { provide: APP_GUARD, useClass: AuthGuard},
   ],
 })
