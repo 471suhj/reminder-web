@@ -84,6 +84,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 		}
         divPopup.style.display = 'block';
+        divPopup.appendChild('h1').innerText = '파일 공유 취소';
         divPopup.appendChild('p').innerText = '전송할 메시지를 입력하십시오.';
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);

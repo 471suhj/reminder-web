@@ -16,7 +16,7 @@ import { DataSource, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from
 import type { FindOptionsWhere, FindOptionsOrder } from 'typeorm';
 import { Efile } from 'src/mysql/file.entity';
 import { FilesMoreDto } from './files-more.dto';
-import { Ebookmark } from './bookmark.entity';
+import { Ebookmark } from '../mysql/bookmark.entity';
 import { Eshared_def } from 'src/mysql/shared_def.entity';
 import { Erecycle } from 'src/mysql/recycle.entity';
 import { FriendMoreDto } from './friend-more.dto';
@@ -358,7 +358,7 @@ export class FilesService {
                 bookmarked: true,
                 shared: val.shares.map(val=>val.user_serial_to).join(', '),
                 date: (val.last_modified as Date).toISOString(),
-                ownerImg: '/images/user',
+                ownerImg: '/graphics/profimg',
                 timestamp: val.last_renamed.toISOString()
             };});
         });
@@ -441,7 +441,7 @@ export class FilesService {
                 shared: val.file.shares.map(val=>val.user_serial_to).join(','),
                 date: (val.file.last_modified as Date).toISOString(),
                 ownerName: val.friend_mono.nickname,
-                ownerImg: '/images/user?id=' + val.user_serial_from,
+                ownerImg: '/graphics/profimg?id=' + val.user_serial_from,
                 timestamp: val.file.last_renamed.toISOString()
             };});
         });
@@ -574,8 +574,8 @@ export class FilesService {
                 retVal.loadMore = false;
             }
             retVal.addarr = result2.map(val=>{return {
-                link: '/friends/profile?id=' + val.user_serial_from,
-                profileimg: '/images/user?id=' + val.user_serial_from,
+                link: '/friends/profile/' + val.user_serial_from,
+                profileimg: '/graphics/profimg?id=' + val.user_serial_from,
                 nickname: val.nickname,
                 name: '',
                 userid: '',
@@ -930,7 +930,7 @@ export class FilesService {
                 bookmarked: val.bookmarked==='true',
                 shared: '',
                 date: val.last_modified.toISOString(),
-                ownerImg: '/images/user',
+                ownerImg: '/graphics/profimg',
                 timestamp: val.last_renamed.toISOString()
             };
         });
@@ -1140,7 +1140,7 @@ export class FilesService {
                 bookmarked: val.bookmarked==='true',
                 shared: '', // temporary. added with this.addSharedNames
                 date: val.last_modified.toISOString(),
-                ownerImg: '/images/user',
+                ownerImg: '/graphics/profimg',
                 timestamp: val.last_renamed.toISOString()
             }
         });
@@ -1306,7 +1306,7 @@ export class FilesService {
             bookmarked: false,
             shared: '',
             date: result2[0].last_modified.toISOString(),
-            ownerImg: '/images/user',
+            ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
         }]
         return retVal;
@@ -1348,7 +1348,7 @@ export class FilesService {
             bookmarked: false,
             shared: '',
             date: result2[0].last_modified.toISOString(),
-            ownerImg: '/images/user',
+            ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
         }]
         return retVal;
@@ -1385,7 +1385,7 @@ export class FilesService {
             return retVal;
         }
         await conn.execute(
-            `update file set file_name=? where user_serial=? and file_serial=?`, [name, userSer, file]
+            `update file set file_name=?, last_renamed=current_timestamp where user_serial=? and file_serial=?`, [name, userSer, file]
         );
         await conn.execute(
             `update shared_def set file_name=? where user_serial_from=? and file_serial=?`, [name, userSer, file]
@@ -1406,7 +1406,7 @@ export class FilesService {
             bookmarked: false,
             shared: result2.map(val=>val.user_serial_to).join(','),
             date: result[0].last_modified.toISOString(),
-            ownerImg: '/images/user',
+            ownerImg: '/graphics/profimg',
             timestamp: result[0].last_renamed.toISOString()
         });
         await this.replaceNames(userSer, retVal.addarr);

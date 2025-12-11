@@ -31,13 +31,35 @@
                 </div>
                 <div class="body">
                     <div class="bodyItem">
-                        계정 정보
+                        <h1>계정 정보</h1>
                     </div>
                     <div class="bodyItem">
-
+                        <h2>프로필 사진</h2>
+                        <input class="chkItem" data-link="profimg" data-action="default" type="radio" id="profImgDef" {{profImg.defChk}}><label for="profImgDef">기본 이미지 사용</label><br>
+                        <input class="chkItem" data-link="profimg" data-action="custom" type="radio" id="profImgCus" {{profImg.cusChk}}><label for="profImgCus">직접 업로드</label>
+                        <input type="file" id="profImgFile" accept="image/*">
+                        <img id="profImgPrev" src="/graphics/profimg?cus=true" style="display: inline-block">
+                    </div>
+                    <div class="bodyItem">
+                        <h2>등록 정보</h2>
+                        이름: {{profProp.name}}<br>
+                        아이디: {{profProp.id}}<br>
+                        이메일: {{profProp.email}}<br>
+                        비밀 번호 존재 여부: {{profProp.passwordExists}}<br>
+                        현재 비밀번호 변경 기능이 구현되지 않았습니다.
+                    </div>
+                    <div class="bodyItem">
+                        <h2>계정 연동 정보</h2>
+                        Google 계정 연동: {{google.email}}<br>
+                        Google 계정 연동 해제 기능이 구현되지 않았습니다.
+                    </div>
+                    <div class="bodyItem">
+                        <h2>계정 탈퇴</h2>
+                        <input type="button" id="delAccount" value="계정 탈퇴">
                     </div>
                 </div>
             </div>
         </div>
+        <script src="./account.js" type="module"></script>
     </body>
 </html>

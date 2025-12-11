@@ -40,6 +40,7 @@ export class PrefsService {
         retVal.sideItem.push(['/prefs', pageSel === 'prefs' ? '' : 'Sel', '/graphics/prefs.png', '설정']);
         
         retVal.notificationCnt = 3;
+        retVal.countItem = 'false';
         return retVal;
     }
 

@@ -35,9 +35,11 @@
     "googleapis": "^166.0.0",
     "hbs": "^4.2.0",
     "mongodb": "^6.21.0",
+    "multer": "^2.0.2",
     "mysql2": "^3.15.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.5",
     "typeorm": "^0.3.28"
   },
   "devDependencies": {
@@ -49,6 +51,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.18.13",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",

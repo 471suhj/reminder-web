@@ -6,7 +6,7 @@ import { Efile } from './file.entity';
 import { Eshared_def } from './shared_def.entity';
 import { Efriend } from './friend.entity';
 import { Efriend_mono } from './friend_mono.entity';
-import { Ebookmark } from 'src/files/bookmark.entity';
+import { Ebookmark } from 'src/mysql/bookmark.entity';
 import { Erecycle } from './recycle.entity';
 import { Efriend_mul } from './friend_mul.entity';
 

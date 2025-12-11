@@ -46,12 +46,12 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
         const ckPubKey = await window.crypto.subtle.importKey('jwk', strPubKey, {name: 'RSA-OAEP', hash: 'SHA-256'}, false, ['encrypt']);
         const abPWEncr = await window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, ckPubKey, txtEncoder.encode(jsnReq.password));
         jsnReq.password = "";
-	let iaEncr = new Uint8Array(abPWEncr);
-	for (let i = 0; i < iaEncr.length; i++){
-	    jsnReq.password += String.fromCharCode(iaEncr[i]);
-	}
-	jsnReq.password = btoa(jsnReq.password);
-	//jsnReq.password = btoa(String.fromCharCode(...new Uint8Array(abPWEncr)));
+		let iaEncr = new Uint8Array(abPWEncr);
+		for (let i = 0; i < iaEncr.length; i++){
+			jsnReq.password += String.fromCharCode(iaEncr[i]);
+		}
+		jsnReq.password = btoa(jsnReq.password);
+		//jsnReq.password = btoa(String.fromCharCode(...new Uint8Array(abPWEncr)));
         jsnReq.key = strPubKey;
     } else {
         jsnReq.nokey = true;

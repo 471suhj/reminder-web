@@ -3,10 +3,9 @@ import { SignupController } from './signup.controller';
 import { SignupService } from './signup.service';
 import { HashPasswordModule } from '../hash-password/hash-password.module';
 import { EncryptModule } from '../encrypt/encrypt.module';
-import { FilesModule } from 'src/files/files.module';
 
 @Module({
-  imports: [HashPasswordModule, EncryptModule, FilesModule],
+  imports: [HashPasswordModule, EncryptModule],
   controllers: [SignupController],
   providers: [SignupService],
   exports: [SignupService]

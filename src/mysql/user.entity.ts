@@ -56,4 +56,7 @@ export class Euser {
 
     @Column({type: 'timestamp', default: ()=>'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP'})
     last_updated: Date;
+
+    @Column({type: 'enum', enum: ['false', 'true'], default: 'false'})
+    use_image: 'false'|'true';
 }

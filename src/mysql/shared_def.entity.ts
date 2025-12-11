@@ -1,7 +1,7 @@
 import { Column, Entity, Generated, Index, JoinColumn, ManyToOne, OneToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { Efile } from "./file.entity";
 import { Efriend_mono } from "./friend_mono.entity";
-import { Ebookmark } from "src/files/bookmark.entity";
+import { Ebookmark } from "src/mysql/bookmark.entity";
 
 @Entity('shared_def')
 export class Eshared_def {

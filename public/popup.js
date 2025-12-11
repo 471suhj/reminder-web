@@ -67,7 +67,7 @@ export async function fncShare(divPopup, list){
 			ctlOption.innerText = `${listItem.nickname} (${listItem.username})`;
 			ctlOption.dataset.id = listItem.id;
 		}				
-	});
+	}, ()=>fncClearPopup(divPopup));
 	cmdOK.addEventListener('click', async function(event){
 		if (lstFriends.selectedOptions.length <= 0){
 			showMessage('선택된 친구가 없습니다.')

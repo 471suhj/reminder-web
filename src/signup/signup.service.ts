@@ -8,7 +8,6 @@ import { FilesService } from 'src/files/files.service';
 export class SignupService {
     constructor(
         private mysqlService: MysqlService,
-        private filesService: FilesService
     ){}
 
     private readonly logger = new Logger(SignupService.name);

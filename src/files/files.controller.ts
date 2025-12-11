@@ -2,23 +2,18 @@ import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPip
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 import { FilesGetDto } from './files-get.dto';
-import { PrefsService } from 'src/prefs/prefs.service';
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { FilesService } from './files.service';
 import { FilesMoreDto } from './files-more.dto';
-import { SysdirType } from './sysdir.type';
 import { FileUpdateDto } from './file-update.dto';
 import { FileDeleteDto } from './file-delete.dto';
 import { FileShareDto } from './file-share.dto';
 import { FileDelResDto } from './file-del-res.dto';
 import { FileShareResDto } from './file-share-res.dto';
-import { FilesArrDto } from './files-arr.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { FileMoveDto } from './file-move.dto';
 import { FileListResDto } from './file-list-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
-import { DataSource } from 'typeorm';
-import { Efile } from 'src/mysql/file.entity';
 import { FileNewResDto } from './file-new-res.dto';
 import { FriendMoreDto } from './friend-more.dto';
 

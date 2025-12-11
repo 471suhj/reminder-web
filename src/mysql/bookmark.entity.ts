@@ -40,6 +40,9 @@ export class Ebookmark{
     @ViewColumn()
     reader: number;
 
+    @ViewColumn()
+    last_opened: Date;
+
     @OneToMany(()=>Eshared_def, (shared_def)=>shared_def.file_serial_2)
     shares: Eshared_def[];
 

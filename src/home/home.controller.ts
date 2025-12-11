@@ -1,92 +1,165 @@
-import { Controller, Get, Query, Render } from '@nestjs/common';
+import { Controller, Delete, Get, InternalServerErrorException, Logger, Param, ParseIntPipe, Query, Render } from '@nestjs/common';
+import { MongoService } from 'src/mongo/mongo.service';
+import { MysqlService } from 'src/mysql/mysql.service';
+import { PrefsService } from 'src/prefs/prefs.service';
+import { User } from 'src/user/user.decorator';
+import { HomeGetDto } from './home-get.dto';
+import { NotifGetDto } from './notif-get.dto';
+import { NotifMoreDto } from './notif-more.dto';
+import { RowDataPacket } from 'mysql2';
+import { Document, FindCursor } from 'mongodb';
 
 @Controller('home')
 export class HomeController {
 
+    constructor (
+        private readonly mysqlService: MysqlService,
+        private readonly mongoService: MongoService,
+        private readonly prefsService: PrefsService,
+    ){}
+        
+    private readonly logger = new Logger(HomeController.name);
+
+    private getHome_listFile(i, itm: any, arrFile: HomeGetDto['homelist'][number]['itemList']){
+        let isFile = itm.type === 'file' || itm.type === undefined;
+        let link = '';
+        if (itm.issys === 'true'){ // false if undefined (for shared_defs)
+            if (itm.file_name === 'files'){
+                link = '/files';
+            } else {
+                link = '/files/' + itm.file_name;
+            }
+        } else {
+            link = (isFile ? '/edit?id=' : '/files?id=') + itm.file_serial;
+        }
+        arrFile.push([i % 2 ? 'A' : 'B', i, itm.file_name, 
+            isFile ? 'newwin' : 'false', link]);
+    }
+
     @Get()
     @Render('home/home')
-    getHome(@Query() query){
-        return { username: "수서", notificationCnt: 3,
-        sideItem: [
-            ["/home", "Sel", "/graphics/home.png", "홈"],
-            ["/files", "", "/graphics/files.png", "파일"],
-            ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
-            ["/files/shared", "", "/graphics/shared.png", "공유"],
-            ["/friends", "", "/graphics/friends.png", "친구"],
-            ["/prefs", "", "/graphics/prefs.png", "설정"]
-        ],
-        homeList: [
-            {
-            link: "/files/bookmarks",
-            title: "즐겨찾기",
-            Item: [
-                ["A", 1, "제목없음", "false", "/edit"], ["B", 2, "고양이", "false", "/files"], ["A", 3, "강아지", "false", "/files"], ["B", 4, "고양이", "false", "/files"] 
-            ]
-            },
-            {
-            link: "/home/notifications",
-            title: "알림",
-            Item: [
-                ["A", 1, "강아지", "true"], ["B", 2, "고양이", "true"], ["A", 3, "강아지", "true"], ["B", 4, "고양이", "true"], ["A", 5, "강아지", "true"], ["B", 6, "고양이", "true"],["A", 7, "고양이", "true"] 
-            ]
-            },
-            {
-            link: "/files",
-            title: "최근 파일",
-            Item: [
-                ["A", 1, "강아지", "false"], ["B", 2, "고양이", "false"], ["A", 3, "강아지", "false"], ["B", 4, "고양이", "false"], ["A", 5, "강아지", "false"], ["B", 6, "고양이", "false"],["A", 7, "고양이", "false"] 
-            ]
-            },
-            {
-            link: "/files/shared",
-            title: "공유",
-            Item: [
-                ["A", 1, "강아지", "true"], ["B", 2, "고양이", "true"], ["A", 3, "강아지", "true"], ["B", 4, "고양이", "true"], ["A", 5, "강아지", "true"], ["B", 6, "고양이", "true"],["A", 7, "고양이", "true"] 
-            ]
-            },
-        ]
-        };
+    async getHome(@User() userSer: number): Promise<HomeGetDto>{
+        let retVal = new HomeGetDto();
+        retVal.homelist = [];
+        let sections: {[k: string]: 'true'|'false'} = {};
+        await this.mysqlService.doQuery('home controller get home', async conn=>{
+            let [result] = await conn.execute<RowDataPacket[]>(
+                `select home_bookmarks, home_notifs, home_files, home_shared, save_recent from user where user_serial=?`,
+                [userSer]
+            );
+            if (result.length <= 0){throw new InternalServerErrorException();}
+            sections = result[0];
+            if (sections.home_bookmarks === 'true'){
+                let crit = sections.save_recent === 'true' ? 'last_opened desc' : 'file_name asc';
+                [result] = await conn.execute<RowDataPacket[]>(
+                    `select file_serial, file_name, type, issys from bookmark where reader=? order by ${crit} limit 7`,
+                    [userSer]
+                );
+                const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                for (let i = 0; i < result.length; i++){
+                    this.getHome_listFile(i, result[i], arrFile);
+                }
+                retVal.homelist.push({title: '바로 가기', link: '/files/bookmarks', itemList: arrFile});
+            }
+            if (sections.home_files === 'true'){
+                if (sections.save_recent === 'true'){
+                    [result] = await conn.execute<RowDataPacket[]>(
+                        `select file_serial, file_name, type, issys from file where user_serial=? order by last_opened desc limit 7`,
+                        [userSer]
+                    );
+                    const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                    for (let i = 0; i < result.length; i++){
+                        this.getHome_listFile(i, result[i], arrFile);
+                    }
+                    retVal.homelist.push({title: '최근 파일', link: '/files', itemList: arrFile});
+                }
+            }
+            if (sections.home_shared === 'true'){
+                let crit = sections.save_recent === 'true' ? 'last_opened desc' : 'file_name asc';
+                [result] = await conn.execute<RowDataPacket[]>(
+                    `select file_serial, file_name from file where user_serial_to=? order by ${crit} limit 7`,
+                    [userSer]
+                );
+                    const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                    for (let i = 0; i < result.length; i++){
+                        this.getHome_listFile(i, result[i], arrFile);
+                    }
+                retVal.homelist.push({title: '공유', link: '/files/shared', itemList: arrFile});
+            }
+        });
+        if (sections.home_notifs === 'true'){
+            let cur: FindCursor;
+            try{
+                let dbNof = this.mongoService.getDb().collection('notification');
+                let query = {to: userSer};
+                let sort: {[k: string]: 1|-1} = {time: -1};
+                let fields = {id: 1, prevText: 1};
+                cur = dbNof.find(query).sort(sort).limit(7).project(fields);
+                let arrList: HomeGetDto['homelist'][number]['itemList'] = [];
+                let i = 0;
+                for await (const itm of cur){
+                    arrList.push([i % 2 ? 'A' : 'B', i, itm.prevText, 'notif', '/home/notifications/' + itm.id]);
+                }
+                await cur.close();
+            } catch (err) {
+                this.logger.log(err);
+                try{await cur!.close();}catch{}
+            }
+        }
+
+        retVal = {...retVal, ...(await this.prefsService.getUserCommon(userSer, 'home'))};
+        return retVal;
     }
 
 
     @Get('notifications')
     @Render('home/notifications')
-    getNotif() {
-        return {
-        username: "수서",
-        notificationCnt: 3,
-        sideItem: [
-            ["/home", "", "/graphics/home.png", "홈"],
-            ["/files", "", "/graphics/files.png", "파일"],
-            ["/files/bookmarks", "", "/graphics/bookmarks.png", "즐겨찾기"],
-            ["/files/shared", "", "/graphics/shared.png", "공유"],
-            ["/friends", "", "/graphics/friends.png", "친구"],
-            ["/prefs", "", "/graphics/prefs.png", "설정"]
-        ],
-        itemCnt: 6,
-        itemList: [
-            {id: "list1", unread: "true", text: "고양이<br>고양이", date: "20230228"},
-            {id: "list2", unread: "true", text: "사슴", date: "20220228"},
-            {id: "list3", unread: "true", text: "수리부엉이", date: "20220128"},
-            {id: "list4", unread: "false", text: "고양이", date: "20230228"},
-            {id: "list5", unread: "false", text: "사슴", date: "20220228"},
-            {id: "list6", unread: "false", text: "수리부엉이", date: "20220128"}        
-        ],
-        showLoadMore: "true",
-        }
+    async getNotif(@User() userSer: number): Promise<NotifGetDto> {
+        let retVal = new NotifGetDto();
+        let dbNof = this.mongoService.getDb().collection('notification');
+        retVal.itemCnt = await dbNof.countDocuments({to: userSer});
+        retVal = {...retVal, ...(await this.prefsService.getUserCommon(userSer, 'home'))};
+        retVal.countItem = 'true';
+        return retVal; 
+    }
+
+    @Delete('update')
+    async deleteNotifs(@User() userSer: number){
+    }
+
+    @Get('notifications/:id')
+    async getNotifDetails(@User() userSer: number, @Param('id', ParseIntPipe) id: number){
+        //
     }
 
     @Get("notifications/loadMore")
-    getNotifMore(){
-        return JSON.stringify({
-        loadMore: "false",
-        arr: [
-            {id: "list7", unread: "true", text: "고양이", date: "20230228"},
-            {id: "list8", unread: "false", text: "사슴", date: "20220228"},
-            {id: "list9", unread: "false", text: "수리부엉이", date: "20220128"}
-        ]
+    async getNotifMore(@User() userSer: number, ): Promise<NotifMoreDto> {
+        let retVal = new NotifMoreDto();
+        let result: Document[] = [];
+        let dbNof = this.mongoService.getDb().collection('notification');
+        let query: any = {to: userSer};
+        let sort: {[k: string]: 1|-1} = {time: -1};
+        let fields = {id: 1, prevText: 1, urlArr: 1, read: 1};
+        let cur = dbNof.find(query).sort(sort).limit(21).project(fields);
+        result = await cur.toArray();
+        await cur.close();
+        query.time = {$lte: result[0].time}; // as a way to achieve repeatable read
+        query.read = false;
+        let update = {$set: {read: true}}
+        await dbNof.updateMany(query, update);
+        retVal.loadMore = (result.length > 20) ? 'true' : 'false';
+        let arrLst: NotifMoreDto['arr'] = [];
+        for (const itm of result){
+            arrLst.push({
+                id: 'item' + itm._id,
+                unread: itm.read ? 'false' : 'true',
+                text: itm.prevText, // add urlArr later
+                date: itm.time.toISOString()
+            });
         }
-        )
+        retVal.arr = arrLst;
+
+        return retVal;
     }
 
 }

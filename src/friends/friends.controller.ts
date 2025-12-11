@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Post, Put, Body, Query, ParseIntPipe, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put, Body, Query, ParseIntPipe, Logger, BadRequestException, Param } from '@nestjs/common';
 import { FriendListDto } from './friend-list.dto';
 import { User } from 'src/user/user.decorator';
 import { SortModeDto } from 'src/files/sort-mode.dto';
@@ -182,8 +182,8 @@ export class FriendsController {
         return retVal;
     }
 
-    @Get('profile')
-    async getProfile(@User(ParseIntPipe) userSer: number, @Query('id', ParseIntPipe) userid: number): Promise<ProfileGetDto>{
+    @Get(':id')
+    async getProfile(@User(ParseIntPipe) userSer: number, @Param('id', ParseIntPipe) userid: number): Promise<ProfileGetDto>{
         let retVal = new ProfileGetDto();
         retVal = {...retVal, ...await this.prefsService.getUserCommon(userSer, 'friends')};
         let str1 = `select date_added, user_id, user_serial, name, nickname from friend_mul inner join user on friend_mul.user_serial_from=user.user_serial `;
@@ -199,7 +199,7 @@ export class FriendsController {
             retVal.dateAdded = itm.date_added;
             retVal.dateShared = '헤당 없음';
             retVal.friendID = itm.user_id;
-            retVal.friendImg = '/images/user?id=' + itm.user_serial;
+            retVal.friendImg = '/graphics/profimg?id=' + itm.user_serial;
             retVal.friendName = itm.name
             retVal.friendNickname = itm.nickname === '' ? itm.name : itm.nickname;
             retVal.profId = itm.user_serial;

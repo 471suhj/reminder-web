@@ -18,7 +18,7 @@ export class FilesArrDto {
     }[];
     arrFriend: {
         before?: {id: number};
-        link: string; // profile?id=
+        link: string; // profile/
         id: number;
         profileimg: string;
         nickname: string;

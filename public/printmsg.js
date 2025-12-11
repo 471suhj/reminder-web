@@ -27,9 +27,9 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
     try{
         let result = null;
         showProgressMessage('처리 중입니다...');
-        if (data === ''){
+        if (data === '' || isText = ''){
             result = await fetch(link, {method: method});
-        } else if (isText) {
+        } else if (isText === 'text') {
             result = await fetch(link, {method: method, headers: {'Content-Type': 'text/plain'}, body: data});
         } else {
             result = await fetch(link, {method: method, headers: {'Content-Type': 'application/json'}, body: data});
