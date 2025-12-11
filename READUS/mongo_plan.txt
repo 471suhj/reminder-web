@@ -1,0 +1,8 @@
+collection - notification
+	id: number
+	prevTxt: string
+	to: number
+	time: Date
+	type: 'friend_request'|'file_shared_inbox'|'file_shared_hard'|'file_unshared'
+
+collection - file

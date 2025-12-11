@@ -7,7 +7,7 @@ create table user (
 	name char(25) not null,
 	password char(30) not null,
 	salt varchar(22) not null,
-	email char(65) not null,
+	email varchar(65) not null,
 	email2 varchar(255) not null default '',
 	auto_receive_files ENUM('false', 'true') not null default 'true',
 	save_recent ENUM('false', 'true') not null default 'true',
@@ -19,6 +19,7 @@ create table user (
 	home_shared ENUM('false', 'true') not null default 'true',
 	user_deleted ENUM('false', 'true') not null default 'false',
 	last_updated timestamp not null default current_timestamp on update current_timestamp
+	use_image ENUM('false', 'true') not null default 'false'
 );
 
 create table old_id (
@@ -49,30 +50,48 @@ create table friend (
 	foreign key (user_serial_from, user_serial_to) references friend_mono (user_serial_to, user_serial_from)
 );
 
+// foreign key of parent_serial to file_serial is added later
+// important: do not add any new columns before 'file_name'. files.service.ts moveFiles_rename depends on the order
 create table file (
 	user_serial int unsigned not null,
 	bookmarked ENUM('false', 'true') not null default 'false',
 	parent_serial bigint unsigned not null,
-	type ENUM('sysdir', 'dir', 'rmb0.3') not null default 'dir',
+	type ENUM('dir', 'file', 'movedir', 'movefile') not null default 'dir',
+	issys ENUM('false', 'true') not null default 'false',
 	file_name char(40) not null,
 	file_serial bigint unsigned not null auto_increment unique key,
 	last_renamed timestamp not null default current_timestamp,
 	last_modified timestamp not null default current_timestamp,
-	last_opened timestamp not null default current_timestamp,
+	last_opened timestamp not null default '2000-01-01 00:00:00',
+	to_delete ENUM('direct', 'recursive', 'na') not null default 'na',
+	mark ENUM('false', 'true') not null default 'false',
+	key (user_serial, mark),
 	primary key (user_serial, parent_serial, type, file_name),
-	foreign key (user_serial) references user (user_serial),
-	foreign key (parent_serial) references file (file_serial)
+	foreign key (user_serial) references user (user_serial)
 );
+
+insert into user (user_serial, user_id, name, password, salt, email) value
+	(1, 'root', '', '', '', '');
+
+insert into file (user_serial, parent_serial, type, issys, file_name, file_serial) value 
+	(1, 1, 'dir', 'true', 'files', 1);
+
+alter table file add constraint foreign key (parent_serial) references file (file_serial);
 
 create table recycle (
 	user_serial int unsigned not null,
 	parent_serial bigint unsigned not null,
-	type ENUM('other', 'dir', 'rmb0.3') not null default 'dir',
+	parent_path varchar(255) not null,
+	type ENUM('dir', 'file') not null default 'dir',
 	file_name varchar(40) not null,
 	file_serial bigint unsigned not null unique key,
 	last_renamed timestamp not null default current_timestamp,
 	last_modified timestamp not null,
 	del_type ENUM('direct', 'recursive') not null,
+	to_restore ENUM('false', 'true') not null default 'false',
+	to_delete ENUM('false', 'true') not null default 'false',
+	mark ENUM('false', 'true') not null default 'false',
+	key (user_serial, mark),
 	primary key (user_serial, type, file_name, file_serial),
 	foreign key (user_serial) references user (user_serial)
 );
@@ -80,15 +99,27 @@ create table recycle (
 create table shared_def (
 	user_serial_to int unsigned not null,
 	user_serial_from int unsigned not null,
-	file_serial bigint unsigned not null auto_increment unique key,
+	file_serial bigint unsigned not null,
 	file_name char(40) not null,
 	date_shared timestamp not null default current_timestamp,
 	share_type ENUM('read', 'edit') not null,
 	bookmarked ENUM('false', 'true') not null default 'false',
-	last_opened timestamp not null default current_timestamp,
+	last_opened timestamp not null default '2000-01-01 00:00:00',
+	mark ENUM('false', 'true') not null default 'false',
 	primary key (user_serial_to, user_serial_from, file_serial),
-	foreign key (user_serial_to, user_serial_from) references friend_mono (user_serial_to, user_serial_from)
+	foreign key (user_serial_to, user_serial_from) references friend_mono (user_serial_to, user_serial_from),
+	foreign key (file_serial) references file (file_serial)
 );
+
+create view bookmark (user_serial, type, issys, file_name, file_serial, last_renamed, last_modified, reader, last_opened) as
+	select user_serial, type, issys, file_name, file_serial, last_renamed, last_modified, user_serial as reader, last_opened from file where bookmarked='true'
+	union
+	select user_serial, type, issys, file.file_name, file_serial, last_renamed, last_modified, user_serial_to as reader, shared_def.last_opened from file inner join shared_def using (file_serial) where shared_def.bookmarked='true';
+
+create view friend_mul (user_serial_to, user_serial_from, date_added, nickname) as
+	select friend_mono.user_serial_to, friend_mono.user_serial_from, friend.date_added, friend_mono.nickname from friend inner join friend_mono using (user_serial_to, user_serial_from)
+	union
+	select friend_mono.user_serial_to, friend_mono.user_serial_from, friend.date_added, friend_mono.nickname from friend inner join friend_mono on friend.user_serial_to=friend_mono.user_serial_from and friend.user_serial_from=friend_mono.user_serial_to;
 
 create table session (
 	token char(32) not null primary key,
@@ -103,7 +134,7 @@ create table user_google (
 	token text not null,
 	refresh_token text not null,
 	google_id varchar(255) not null,
-	email char(65) not null,
+	email varchar(65) not null,
 	email2 varchar(255) not null,
 	email_verified ENUM('false', 'true') not null,
 	foreign key (user_serial) references user (user_serial)
@@ -116,10 +147,19 @@ create table google_consent (
 );
 
 create table email_verification (
-	email char(65) not null,
+	email varchar(65) not null,
 	email2 varchar(255) not null default '',
 	code char(6) not null,
 	last_updated timestamp not null default current_timestamp on update current_timestamp,
 	primary key (email, email2),
 	key (last_updated)
+);
+
+create table friend_req (
+	user_serial_to int unsigned not null,
+	user_serial_from int unsigned not null,
+	last_updated timestamp not null default current_timestamp on update current_timestamp,
+	primary key (user_serial_to, user_serial_from),
+	foreign key (user_serial_to) references user (user_serial),
+	foreign key (user_serial_from) references user (user_serial)
 );
