@@ -16,12 +16,16 @@ import { FileListResDto } from './file-list-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
 import { FileNewResDto } from './file-new-res.dto';
 import { FriendMoreDto } from './friend-more.dto';
+import { InboxSaveDto } from './inbox-save.dto';
+import { FiledatColDto } from 'src/mongo/filedat-col.dto';
+import { MongoService } from 'src/mongo/mongo.service';
 
 @Controller('files')
 export class FilesController {
     constructor(
         private readonly mysqlService: MysqlService, 
-        private readonly filesService: FilesService
+        private readonly filesService: FilesService,
+        private readonly mongoService: MongoService,
     ){}
 
     private readonly logger = new Logger(FilesController.name);
@@ -93,6 +97,8 @@ export class FilesController {
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         if (body.action !== 'permdel'){throw new BadRequestException();}
+        let resDelArr: RowDataPacket[] = [];
+        let resDelFiles: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller permdelete', async (conn)=>{
             let arr = body.files.map((val)=>val.id);
             await conn.execute<RowDataPacket[]>(
@@ -108,10 +114,23 @@ export class FilesController {
                 );
                 arr = result.map((val)=>val.file_serial);
             }
+            [resDelArr] = await conn.execute<RowDataPacket[]>(
+                `select file_serial, last_renamed from recycle where user_serial=? and to_delete='true' and del_type='direct'`, [userSer]
+            );
+            [resDelFiles] = await conn.execute<RowDataPacket[]>(
+                `select file_serial from recycle where user_serial=? and to_delete='true' and type='file'`, [userSer]
+            );
             await conn.execute<RowDataPacket[]>(
                 `delete from recycle where user_serial=? and to_delete='true'`, [userSer]);
         });
-        return new FileDelResDto();
+        let retVal = new FileDelResDto();
+        retVal.delarr = resDelArr.map(val=>{return {id: val.file_serial, timestamp: val.last_renamed.toISOString()};});
+        const limit = Math.ceil(resDelFiles.length / 80);
+        const arrMongo = resDelFiles.map(val=>val.file_serial);
+        for (let i = 0; i < limit; i++){
+            await this.mongoService.getDb().collection('file_data').deleteMany({serial: {$in: arrMongo.slice(80 * i, 80 * (i + 1))}});
+        }
+        return retVal;
     }
 
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
@@ -249,14 +268,13 @@ export class FilesController {
     }
 
     // copy and move from files
-    @Put('move')
+    @Put('move') // copy_origin eventually marks only copied 'files'
     async copyMoveFile(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last, body.timestamp,
             body.sort, 'files', body.from);
         let retVal = new FileMoveResDto();
-        retVal.addarr = [];
-        retVal.delarr = [];
         retVal.failmessage = '';
+        let resAdded: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
             if (!body.timestamp){throw new BadRequestException();}
             if (!body.ignoreTimpstamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
@@ -291,6 +309,7 @@ export class FilesController {
                 }
                 body.overwrite = 'buttonrename';
             }
+            await conn.execute(`update file set copy_origin=0 where user_serial=? and copy_origin<>0`, [userSer]);
             let result: RowDataPacket[];
             let arrDup = resDup.map((val)=>val.file_serial);
             // delete items to overwrite
@@ -333,8 +352,8 @@ export class FilesController {
                 retVal.delarr = Array.from(arrSafe, val=>{return {id: val[0], timestamp: val[1].toISOString()};});
             } else { // copy
                 // duplication to the same dir cannot occur here: all duplications are handled in renamed file operations
-                await conn.execute<RowDataPacket[]>(`insert into file (user_serial, parent_serial, type, file_name)
-                    select ?, ?, type, file_name from file where user_serial=? and file_serial in ?`,
+                await conn.execute(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
+                    select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in ?`,
                     [userSer, body.to, userSer, Array.from(arrSafe, val=>val[0])]
                 );
             }
@@ -350,9 +369,28 @@ export class FilesController {
                 retVal.delarr = body.action === 'move' ? retVal.delarr.concat(delarr) : [];
             }
             retVal.failed = arrFail.map(val=>[val[0], val[1].toISOString()]);
+            [resAdded] = await conn.execute<RowDataPacket[]>(
+                `select file_serial, copy_origin from file where user_serial=? and copy_origin<>0 for share`, [userSer]
+            );
         });
         // do not use here
+        await this.filesService.copyMongo(resAdded.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         retVal.addarr = await this.filesService.resolveBefore(userSer, body.sort, retVal.addarr, 'files', body.from);
+        return retVal;
+    }
+
+    @Put('inbox-save')
+    async saveInbox(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+        let retVal = {success: true};
+        await this.mysqlService.doTransaction('files controller put inbox-save', async conn=>{
+            let ret = await this.filesService.restoreFiles(conn, userSer, body.id);
+            if (ret.arrFail.length > 0){
+                retVal.success = false;
+                return;
+            } else {
+                return;
+            }
+        });
         return retVal;
     }
 

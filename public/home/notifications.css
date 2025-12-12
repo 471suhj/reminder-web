@@ -65,3 +65,8 @@
     color: blue;
     cursor: pointer;
 }
+.putlink{
+	cursor: pointer;
+	color: blue;
+	text-decoration: underline;
+}

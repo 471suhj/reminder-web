@@ -28,7 +28,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, numItemCnt, fncPrintCnt);
+	let objCnt = {numItemCnt};
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, objCnt, fncPrintCnt);
+	numItemCnt = objCnt.numItemCnt;
 }
 
 {
@@ -70,7 +72,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             await doFetch('', 'DELETE', JSON.stringify({action: 'permdel', last: idCurLast, sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
+				let objCnt = {numItemCnt};
+                await fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
+				numItemCnt = objCnt.numItemCnt;
             });
         }
     });
@@ -95,7 +99,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             await doFetch('', 'PUT', JSON.stringify({action: 'restore', last: idCurLast, sort: sortMode, files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '복원에 실패한 항목이 있습니다.', '복원이 완료되었습니다.');
+				let objCnt = {numItemCnt};
+                await fncRemoveItems(jsnRes, fncPrintCnt, '복원에 실패한 항목이 있습니다.', '복원이 완료되었습니다.', objCnt);
+				numItemCnt = objCnt.numItemCnt;
                 if (jsnRes.alreadyExists){
                     alert('같은 파일명이 존재한 경우가 있었으며, 이 경우 파일명에 -2가 추가되었습니다.');
                 }

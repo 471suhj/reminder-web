@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, InternalServerErrorException, Logger, Param, ParseIntPipe, Query, Render } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, InternalServerErrorException, Logger, Param, ParseIntPipe, Query, Render } from '@nestjs/common';
 import { MongoService } from 'src/mongo/mongo.service';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { PrefsService } from 'src/prefs/prefs.service';
@@ -7,7 +7,11 @@ import { HomeGetDto } from './home-get.dto';
 import { NotifGetDto } from './notif-get.dto';
 import { NotifMoreDto } from './notif-more.dto';
 import { RowDataPacket } from 'mysql2';
-import { Document, FindCursor } from 'mongodb';
+import { Document, FindCursor, ObjectId } from 'mongodb';
+import { HomeService } from './home.service';
+import { NotifDelDto } from './notif-del.dto';
+import { FileDelResDto } from 'src/files/file-del-res.dto';
+import { NotifDelResDto } from './notif-del-res.dto';
 
 @Controller('home')
 export class HomeController {
@@ -16,6 +20,7 @@ export class HomeController {
         private readonly mysqlService: MysqlService,
         private readonly mongoService: MongoService,
         private readonly prefsService: PrefsService,
+        private readonly homeService: HomeService,
     ){}
         
     private readonly logger = new Logger(HomeController.name);
@@ -123,43 +128,77 @@ export class HomeController {
         return retVal; 
     }
 
-    @Delete('update')
-    async deleteNotifs(@User() userSer: number){
+    @Delete('notifications/update')
+    async deleteNotifs(@User() userSer: number, @Body() body: NotifDelDto): Promise<NotifDelResDto>{
+        let retVal = new NotifDelResDto();
+        retVal.failed = [];
+        retVal.delarr = [];
+        if (body.action === 'all'){
+            if (body.first === undefined){throw new BadRequestException();}
+            await this.mongoService.getDb().collection('notification')
+            .deleteMany({to: userSer, _id: {$lte: new ObjectId(body.first)}});
+        } else if (body.action === 'selected'){
+            if (body.files === undefined){throw new BadRequestException();}
+            await this.mongoService.getDb().collection('notification')
+            .deleteMany({to: userSer, _id: {$in: body.files.map(val=>new ObjectId(val))}});
+            retVal.delarr = body.files;
+        } else {throw new BadRequestException();}
+        return retVal;
     }
 
     @Get('notifications/:id')
-    async getNotifDetails(@User() userSer: number, @Param('id', ParseIntPipe) id: number){
-        //
+    async getNotifDetails(@User() userSer: number, @Param('id') id: string): Promise<string>{
+        let res = await this.mongoService.getDb().collection('notification')
+            .findOne({to: userSer, _id: new ObjectId(id)}, {projection: {type: 1, data: 1}});
+        if (res === null){
+            return '해당 알림의 정보를 찾을 수 없었습니다.';
+        }
+        return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toISOString());
+
     }
 
     @Get("notifications/loadMore")
-    async getNotifMore(@User() userSer: number, ): Promise<NotifMoreDto> {
+    async getNotifMore(@User() userSer: number, @Query('last') last: string): Promise<NotifMoreDto> {
         let retVal = new NotifMoreDto();
         let result: Document[] = [];
         let dbNof = this.mongoService.getDb().collection('notification');
+        // get count
+        if (last === undefined){throw new BadRequestException();}
         let query: any = {to: userSer};
-        let sort: {[k: string]: 1|-1} = {time: -1};
-        let fields = {id: 1, prevText: 1, urlArr: 1, read: 1};
+        if (last !== ''){
+            query._id = {$lt: new ObjectId(last)};
+            retVal.unreadCnt = 0;
+        } else {
+            retVal.unreadCnt = await dbNof.countDocuments({to: userSer, read: false});
+        }
+        // do the query
+        let sort: {[k: string]: 1|-1} = {_id: -1};
+        let fields = {urlArr: 1, read: 1, type: 1};
         let cur = dbNof.find(query).sort(sort).limit(21).project(fields);
         result = await cur.toArray();
         await cur.close();
-        query.time = {$lte: result[0].time}; // as a way to achieve repeatable read
+        // mark as read
+        query.time = {$lte: result[0]._id}; // as a way to achieve repeatable read
         query.read = false;
-        let update = {$set: {read: true}}
+        let update = {$set: {read: true}};
         await dbNof.updateMany(query, update);
+        // deal with the results
         retVal.loadMore = (result.length > 20) ? 'true' : 'false';
+        if (result.length > 20){
+            result.pop();
+        }
         let arrLst: NotifMoreDto['arr'] = [];
         for (const itm of result){
             arrLst.push({
-                id: 'item' + itm._id,
+                id: itm._id.toString(),
                 unread: itm.read ? 'false' : 'true',
-                text: itm.prevText, // add urlArr later
-                date: itm.time.toISOString()
+                text: await this.homeService.getNotifText(userSer, itm.type, itm.data, '', true),
+                linkText: this.homeService.getNotifLinkText(itm.urlArr),
+                date: itm._id.getTimestamp().toISOString(),
             });
         }
         retVal.arr = arrLst;
 
         return retVal;
     }
-
 }

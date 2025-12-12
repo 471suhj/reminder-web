@@ -1,6 +1,6 @@
 import {doFetch, showMessage} from '/printmsg.js';
 import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
-import {fncAddItems} from '/filemove.js';
+import {fncAddItems, fncRemoveItems} from '/filemove.js';
 
 const list = document.getElementById('list');
 const lblItemCnt = document.getElementById('itemCount');
@@ -29,7 +29,9 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             </div>
         </div>`;
     }
-    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, numItemCnt, fncPrintCnt);
+	let objCnt = {numItemCnt};
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, objCnt, fncPrintCnt);
+	numItemCnt = objCnt.numITemCnt;
 }
 
 {
@@ -103,7 +105,9 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         await doFetch('', 'DELETE', JSON.stringify({sort: sortMode, last: idCurLast, friends: lstDeleteName}), 
         '', '친구 취소에 오류가 발생했습니다.', async function(result){
             const jsnRes = await result.json();
-            fncRemoveItems(jsnRes, fncPrintCnt, '일부 친구 취소를 실패했습니다.', '친구 취소가 완료되었습니다.');
+			let objCnt = {numItemCnt};
+            await fncRemoveItems(jsnRes, fncPrintCnt, '일부 친구 취소를 실패했습니다.', '친구 취소가 완료되었습니다.', objCnt);
+			numItemCnt = objCnt.numItemCnt;
         });
     });
 }

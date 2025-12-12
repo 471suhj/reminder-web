@@ -1,7 +1,7 @@
 import {doFetch, showMessage} from '/printmsg.js';
 import {fncClearPopup} from '/popup.js';
 import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
-import {fncCreateOKCancel, fncAddItems} from '/filemove.js';
+import {fncCreateOKCancel, fncAddItems, fncRemoveItems} from '/filemove.js';
 
 sortMode.criteria = 'colDate';
 const list = document.getElementById('list');
@@ -34,7 +34,9 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, numItemCnt, fncPrintCnt);
+	let objCnt = {numItemCnt};
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, objCnt, fncPrintCnt);
+	numItemCnt = objCnt.numItemCnt;
 }
 
 
@@ -94,7 +96,9 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             await doFetch('/files/manage', 'DELETE', txtBody,
                 '공유가 취소되었습니다.', '공유 취소를 실패했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.');
+				let objCnt = {numItemCnt};
+                await fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.', objCnt);
+				numItemCnt = objCnt.numItemCnt;
             });
         });
     });

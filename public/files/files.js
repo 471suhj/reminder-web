@@ -67,7 +67,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 2, numItemCnt, fncPrintCnt);
+	let objCnt = {numItemCnt};
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 2, objCnt, fncPrintCnt);
+	numItemCnt = objCnt.numItemCnt;
 }
 
 
@@ -180,7 +182,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 						}
 						return;
 					}
-					return fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
+					let objCnt = {numItemCnt};
+					await fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
+					numItemCnt = objCnt.numItemCnt;
 				});
 			}
         }

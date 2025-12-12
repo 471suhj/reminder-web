@@ -32,7 +32,9 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             ><div class='listDate listItemCol'>${listItem.date}</div>
         </div>`;
     }
-    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 3, numItemCnt, fncPrintCnt);
+	let objCnt = {numItemCnt};
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 3, objCnt, fncPrintCnt);
+	numItemCnt = objCnt.numItemCnt;
 }
 
 {
@@ -108,7 +110,9 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
 			'', '공유 취소에 오류가 발생했습니다.', async function(result){
 				const jsnRes = await result.json();
-				fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.');
+				let objCnt = {numItemCnt};
+				await fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.', objCnt);
+				numItemCnt = objCnt.numItemCnt;
 			});
         });
     });

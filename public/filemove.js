@@ -1,30 +1,30 @@
 import {fncClearPopup} from '/popup.js';
-import {doFetch} from '/printmsg.js';
+import {doFetch, showMessage} from '/printmsg.js';
 import {sortMode} from '/autoload.js';
 
 const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
 
-export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos){
+export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt){
     for (listItem of jsnRes.delarr){
         try{
             document.getElementById('item' + (listItem.timestamp ?? '') + listItem.id).remove();
-            itemCnt--;
+            objCnt.numItemCnt--;
         } catch {
             continue;
         }
     }
     fncPrintCnt();
     if (jsnRes.failmessage){
-        return jsnRes.failmessage;
+        showMessage(jsnRes.failmessage);
     } else if (jsnRes.failed.length > 0){
-        return msgNeg;
+        showMessage(msgNeg);
     } else {
-        return msgPos;
+        showMessage(msgPos);
     }
 }
 
-export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, includeBookmark, childLoc, numItemCnt, fncPrintCnt){
+export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, includeBookmark, childLoc, objCnt, fncPrintCnt){
     for (const listItem of jsnRes.addarr){
         let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
@@ -61,7 +61,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         itmNew.addEventListener('dblclick', function(){
             window.location.href = listItem.link;
         })
-        numItemCnt++;
+        objCnt.numItemCnt++;
         if (!includeBookmark){
             continue;
         }
@@ -100,7 +100,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         }
     }
 
-    fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos)
+    await fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt);
 }
 
 export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, link, method){

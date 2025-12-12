@@ -2,14 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { MysqlService } from 'src/mysql/mysql.service';
 import mysql from 'mysql2/promise';
+import { MongoService } from 'src/mongo/mongo.service';
+import { ObjectId } from 'mongodb';
 
 @Injectable()
 export class DeleteExpiredService {
-    constructor(private mysqlService: MysqlService){}
+    constructor(private readonly mysqlService: MysqlService, private readonly mongoService: MongoService){}
 
     private readonly logger = new Logger(DeleteExpiredService.name);
 
-    @Cron('0 0 */6 * * *') // session, old_id, user
+    @Cron('0 0 */6 * * *') // session, old_id, user, notifs
     async DeleteExpiredSeldom(): Promise<void>{
         this.logger.log('start: delete-expired cron job - seldom');
         const pool: mysql.Pool = await this.mysqlService.getSQL();
@@ -17,6 +19,8 @@ export class DeleteExpiredService {
             await pool.execute('delete from session where timestampdiff(day, last_updated, current_timestamp) >= 7');
             await pool.execute('delete from old_id where timestampdiff(month, last_updated, current_timestamp) >= 6');
             await pool.execute('delete from user where timestampdiff(month, last_updated, current_timestamp) >= 3');
+            await this.mongoService.getDb().collection('notification')
+                .deleteMany({_id: {$lt: ObjectId.createFromTime(Math.floor((new Date()).getTime()/1000) - 100 * 24 * 3600)}});
         } catch (err) {
             this.logger.error('delete expired service mysql error. see below.');
             console.log(err);

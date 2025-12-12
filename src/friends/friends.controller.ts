@@ -11,6 +11,9 @@ import { FilesService } from 'src/files/files.service';
 import { PoolConnection } from 'mysql2/promise';
 import { PrefsService } from 'src/prefs/prefs.service';
 import { ProfileGetDto } from './profile-get.dto';
+import { InboxSaveDto } from 'src/files/inbox-save.dto';
+import { MongoService } from 'src/mongo/mongo.service';
+import { NotifColDto } from 'src/mongo/notif-col.dto';
 
 @Controller('friends')
 export class FriendsController {
@@ -19,7 +22,8 @@ export class FriendsController {
         private readonly dataSource: DataSource,
         private readonly mysqlService: MysqlService,
         private readonly filesService: FilesService,
-        private readonly prefsService: PrefsService
+        private readonly prefsService: PrefsService,
+        private readonly mongoService: MongoService,
     ){}
 
     @Get()
@@ -79,9 +83,10 @@ export class FriendsController {
     async addFriends(@User(ParseIntPipe) userSer: number, @Body() body: {id: string}): Promise<{success: boolean, failmessage?: string}>{
         // only undeleted friends, and those who are not friends yet.
         let retVal: {success: boolean, failmessage?: string} = {success: true};
+        let friendSer = 0;
         await this.mysqlService.doTransaction('friends controller delete', async (conn, rb)=>{
             let [result] = await conn.execute<RowDataPacket[]>(
-                `select user_serial from user where user_id=? for share`,
+                `select user_serial from user where user_id=? and user_deleted='false' for share`,
                 [body.id]
             );
             if (result.length <= 0){
@@ -90,7 +95,7 @@ export class FriendsController {
                 rb.rback = true;
                 return;
             }
-            let friendSer = result[0].user_serial;
+            friendSer = result[0].user_serial;
             [result] = await conn.execute<RowDataPacket[]>(
                 `select user_serial_to from friend_mono where user_serial_to=? and user_serial_from=? for update`,
                 [userSer, friendSer]
@@ -116,7 +121,7 @@ export class FriendsController {
             );
             if (result.length > 0){
                 retVal.success = false;
-                // 요청은 승낙/거부/보류(메시지 삭제 포함). 거부시 알림, 보류시 요청 내역에서만 삭제, 요청 내역이 있는 경우 3일 이후 재요청 가능, 재요청시 기간 갱신, 20일 후 요청 내역 삭제
+                // 요청은 승낙/거부/보류(메시지 삭제 포함). 거부시 알림, 요청 내역이 있는 경우 3일 이후 재요청 가능, 재요청시 기간 갱신, 20일 후 요청 내역 삭제
                 retVal.failmessage = '이미 요청이 전송된 사용자입니다.';
                 rb.rback = true;
                 return;
@@ -127,10 +132,14 @@ export class FriendsController {
             );
             retVal.success = true;
         });
-
+        if (retVal.success){
+            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: friendSer, type: 'friend_request', urlArr: []};
+            await this.mongoService.getDb().collection('notification').insertOne(doc);
+        }
         return retVal;
     }
 
+    // checking for user_deleted should be done beforehand
     private async setttleFriend(conn: PoolConnection, userSer: number, id: number){
         await conn.execute(`insert into friend_mono (user_serial_to, user_serial_from) values ?, ?`,
             [[userSer, id], [id, userSer]]);
@@ -139,10 +148,20 @@ export class FriendsController {
     }
 
     @Put('consent')
-    async consentFriend(@User(ParseIntPipe) userSer: number, @Body() body: {id: number}): Promise<{success: boolean, failmessage?: string}>{
+    async consentFriend(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         // only undeleted friends, and those who are not friends yet.
         let retVal: {success: boolean, failmessage?: string} = {success: true};
         await this.mysqlService.doTransaction('friends controller consent', async (conn, rb)=>{
+            let [result1] = await conn.execute<RowDataPacket[]>(
+                `select user_serial from user where user_serial=? and user_deleted='false' for share`,
+                [body.id]
+            )
+            if (result1.length <= 0){
+                rb.rback = true;
+                retVal.success = false;
+                retVal.failmessage = '존재하지 않는 사용자입니다.';
+                return;
+            }
             let [result] = await conn.execute<ResultSetHeader>(
                 `delete from friend_req where user_serial_from=? and user_serial_to=?`,
                 [body.id, userSer]
@@ -152,12 +171,32 @@ export class FriendsController {
                 retVal.success = true;
                 return;
             } else {
-                // rb.rback = true;
+                rb.rback = true;
                 retVal.success = false;
                 retVal.failmessage = '기간이 만료된 요청으로 친구 추가에 실패했습니다. 친구로 추가하려면 다시 요청을 보내야 합니다.';
                 return;
             }
         });
+        if (retVal.success){
+            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: body.id, type: 'friend_request_accepted', urlArr: []};
+            await this.mongoService.getDb().collection('notification').insertOne(doc);
+        }
+        return retVal;
+    }
+
+    @Put('reject')
+    async rejectFriend(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+        let retVal: {success: boolean, failmessage?: string} = {success: true};
+        await this.mysqlService.doTransaction('friends controller reject', async (conn, rb)=>{
+            let [result] = await conn.execute<ResultSetHeader>(
+                `delete from friend_req where user_serial_from=? and user_serial_to=?`,
+                [body.id, userSer]
+            );
+        });
+        if (retVal.success){
+            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: body.id, type: 'friend_request_rejected', urlArr: []};
+            await this.mongoService.getDb().collection('notification').insertOne(doc);
+        }
         return retVal;
     }
 

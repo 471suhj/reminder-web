@@ -1,5 +1,6 @@
 import {doFetch} from '/printmsg.js';
 import {loadNotificationDetails} from './notification.detail.js';
+import {fncRemoveItems} frin '/filemove.js';
 
 const list = document.getElementById('list');
 const lblItemCnt = document.getElementById('newItemCount');
@@ -8,7 +9,11 @@ const cmdLoadMore = document.getElementById('loadMore');
 let linkID = 0;
 
 let unreadCnt = 0;
-let itemCnt = Number(lblItemCnt.dataset.itemcnt);
+let numItemCnt = Number(lblItemCnt.dataset.itemcnt);
+
+cmdLoadMore.addEventListener('click', fncLoadMore);
+fncInitLoad();
+
 function printItemCnt(printNew){
     if (printNew){
         if (unreadCnt){
@@ -19,7 +24,7 @@ function printItemCnt(printNew){
     } else {
         lblItemCnt.innerText = '';
     }
-    lblItemCnt.innerText += `총 ${itemCnt}개의 알림이 있습니다. 알림은 최근 100개만 저장됩니다.`;
+    lblItemCnt.innerText += `총 ${numItemCnt}개의 알림이 있습니다. 알림은 100일 동안만 저장됩니다.`;
 }
 
 async function fncLoadMore(){
@@ -28,50 +33,49 @@ async function fncLoadMore(){
     } else {
         cmdLoadMore.dataset.enabled = 'false';
     }
-    await doFetch('./notifications/loadMore', 'GET', '', '', '로드 과정에 오류가 발생했습니다.', async function(result){
+	const items = list.children;
+	let idCurLast = 0;
+	if (items.length > 0){
+		idCurLast = items.at(-1).dataset.id;
+	}
+    await doFetch('/home/notifications/loadMore?last=' + idCurLast, 'GET', '', '', '로드 과정에 오류가 발생했습니다.', async function(result){
         let jsnRes = await result.json();
+		unreadCnt += jsnRes.unreadCnt;
         for (const listItem of jsnRes.arr){
             list.insertAdjacentHTML('beforeend', `
-                    <div class='listItem grayLink' id='${listItem.id}' data-unread='${listItem.unread}'>
+                    <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-unread='${listItem.unread}'>
                         <input  type='checkbox'><label class='listItemChk'for='${listItem.id}'>  ${listItem.date}</label>
-                        <div class='listItemText'><br>${listItem.text}</div><br>
+                        <div class='listItemText'><br><span id='content${listItem.id}'></span><br>${listItem.linkText}</div><br>
                         <div class='listItemDetails' id='listDetail_${linkID}'>상세 보기</div>
                     </div>
                 `);
+			document.getElementById('content' + listITem.id).innerText = listItem.text;
             document.getElementById('listDetail_' + String(linkID)).addEventListener('click', function(){
                 loadNotificationDetails(divPopup, listItem, listItem.link);
             });
+			const itm = document.getElementById('item' + listItem.id);
+			itm.addEventListener('click', function(event){
+				const listChkbox = itm.firstElementChild;
+				if (event.target !== listChkbox){
+					itm.checked = !itm.checked;
+				}    
+			});
             linkID++;
         }
         if (jsnRes.loadMore === 'false'){
             cmdLoadMore.style.display = 'none';
             document.body.appendChild(cmdLoadMore);
         }
-        printItemCnt(false);
-        return '';
+        printItemCnt(true);
     });
     cmdLoadMore.dataset.enabled = 'true';
 }
-cmdLoadMore.addEventListener('click', fncLoadMore);
 
 async function fncInitLoad(){
     await fncLoadMore();
-
-    for (const listItem of list.children){
-        listItem.addEventListener('click', function(event){
-            const listChkbox = listItem.firstElementChild;
-            if (event.target !== listChkbox){
-                listChkbox.checked = !listChkbox.checked;
-            }    
-        });    
-        if (listItem.dataset.unread === 'true'){
-            unreadCnt++;
-        }    
-    }
     printItemCnt(true);
 }
 
-fncInitLoad();
 
 {
     let tlbItem = document.getElementById('selectAll');
@@ -97,14 +101,16 @@ fncInitLoad();
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.id);
+                lstDeleteName.push(listItem.dataset.id);
             }
         }
         if (lstDeleteName.length > 0){
-            doFetch('./notifications/update', 'DELETE', JSON.stringify({action: 'delete', files: lstDeleteName}), 
+            doFetch('/home/notifications/update', 'DELETE', JSON.stringify({action: 'selected', files: lstDeleteName}), 
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
-                fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.');
+				let objCnt = {numItemCnt};
+                await fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
+				numItemCnt = objCnt.numItemCnt;
             });
         }
     });
@@ -113,9 +119,9 @@ fncInitLoad();
 {
     let tlbItem = document.getElementById('deleteAll');
     tlbItem.addEventListener('click', async function(){
-        doFetch('./notifications/update', 'DELETE', JSON.stringify({action: 'deleteAll'}), '삭제가 완료되었습니다.', '삭제에 오류가 발생했습니다.', async function(result){            
+        doFetch('./notifications/update', 'DELETE', JSON.stringify({action: 'all', first: list.children[0].dataset.id}), '삭제가 완료되었습니다.', '삭제에 오류가 발생했습니다.', async function(result){            
             const jsnRes = await result.json();
-            if (jsnRes.failed){
+            if (jsnRes.failed.length > 0){
                 return '삭제에 오류가 발생했습니다.'
             }
             for (let i = list.children.length - 1; i >= 0; i--){
@@ -123,11 +129,10 @@ fncInitLoad();
                     list.children[i].remove();
                 } catch {}
             }
-            itemCnt = 0;
+            numItemCnt = 0;
             printItemCnt(false);
             cmdLoadMore.style.display = 'none';
             document.body.appendChild(cmdLoadMore);
-            return '';
         });
     });
 }

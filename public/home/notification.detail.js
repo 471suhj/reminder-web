@@ -13,5 +13,22 @@ export function loadNotificationDetails(listItem, link){
         document.getElementById('popupClose__dlg').addEventListener('click', function(){
             fncClearPopup(divPopup);
         });
+		let links = document.getElementsByClassName('putlink');
+		for (const itm of links){
+			itm.addEventListener('click', async function(event){
+				let req = {};
+				req[itm.dataset.prop] = itm.dataset.val;
+				await doFetch(itm.dataset.link, "PUT", JSON.stringify(req), '', '', async (result)=>{
+					let jsnRes = await result.json();
+					if (jsnRes.success){
+						return itm.dataset.msgpos;
+					} else if (jsnRes.failmessage) {
+						return jsnRes.failmessage;
+					} else {
+						return itm.dataset.msgneg;
+					}
+				});
+			});
+		}
     }, () => {fncClearPopup(divPopup);});
 }

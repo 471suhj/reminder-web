@@ -52,10 +52,13 @@ export class PrefsService {
         return result[0].item;
     }
 
-    async getUserName(conn: PoolConnection, userSer: number){
-        let [result] = await conn.execute<RowDataPacket[]>(
-            `select user_name from user where user_serial=? for share`, [userSer]
-        );
+    async getUserName(userSer: number){
+        let result: RowDataPacket[] = [];
+        await this.mysqlService.doQuery('prefs service getUserName', async conn=>{
+            [result] = await conn.execute<RowDataPacket[]>(
+                `select user_name from user where user_serial=? for share`, [userSer]
+            );
+        });
         if (result.length <= 0){throw new BadRequestException();}
         return result[0].user_name;
     }
