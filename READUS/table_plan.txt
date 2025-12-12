@@ -65,6 +65,7 @@ create table file (
 	last_opened timestamp not null default '2000-01-01 00:00:00',
 	to_delete ENUM('direct', 'recursive', 'na') not null default 'na',
 	mark ENUM('false', 'true') not null default 'false',
+	copy_origin bigint unsigned not null default 0,
 	key (user_serial, mark),
 	primary key (user_serial, parent_serial, type, file_name),
 	foreign key (user_serial) references user (user_serial)
@@ -91,6 +92,7 @@ create table recycle (
 	to_restore ENUM('false', 'true') not null default 'false',
 	to_delete ENUM('false', 'true') not null default 'false',
 	mark ENUM('false', 'true') not null default 'false',
+	copy_origin bigint unsigned not null default 0,
 	key (user_serial, mark),
 	primary key (user_serial, type, file_name, file_serial),
 	foreign key (user_serial) references user (user_serial)
