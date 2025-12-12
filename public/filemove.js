@@ -30,6 +30,10 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         let itmNew = null;
         if (!last && listItem.before){
 			itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
+			if (listItem.before === -1){
+				itmAfter = undefined;
+				list.insertAdjacentHTML('afterbegin', strHtml(listItem));
+			}
 		} else if (!last) {
 			itmAfter = lblLoadMore;
 		}
@@ -37,7 +41,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
 			continue;
 		} else if (!itmAfter){
             if (lblLoadMore.parentNode){
-                lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem))
+                lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
             } else {
                 list.insertAdjacentHTML('beforeend', strHtml(listItem));
             }

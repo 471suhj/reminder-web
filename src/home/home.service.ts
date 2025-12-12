@@ -44,7 +44,7 @@ export class HomeService {
             case 'file_shared_hard':
                 // need escaping
                 let tmpStr = `${senderName}이(가) ${data.file_name} 파일의 `;
-                tmpStr += `${data.mode === 'edit' ? '편집' : '읽기'} 권한을 공유했습니다. '공유' 폴더에서 해당 파일을 찾을 수 있습니다.`
+                tmpStr += `${data.mode === 'edit' ? '편집' : '읽기'} 권한을 공유했습니다. '공유된 파일' 폴더에서 해당 파일을 찾을 수 있습니다.`
                 retStr += escape(tmpStr);
                 if (prev) {break;}
                 retStr += `<br><br><a href="/files/shared">폴더 열기</a>&nbsp;&nbsp;&nbsp;`;
