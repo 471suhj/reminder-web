@@ -89,7 +89,7 @@ export class HomeController {
                     for (let i = 0; i < result.length; i++){
                         this.getHome_listFile(i, result[i], arrFile);
                     }
-                retVal.homelist.push({title: '공유', link: '/files/shared', itemList: arrFile});
+                retVal.homelist.push({title: '공유된 파일', link: '/files/shared', itemList: arrFile});
             }
         });
         if (sections.home_notifs === 'true'){

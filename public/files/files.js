@@ -98,6 +98,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     let tlbItem = document.getElementById('upload');
     tlbItem.addEventListener('click', function(){
         divPopup.style.display = 'block';
+		divPopup.appendChild(document.createElement('h1').innerText = '파일 업로드\n\n');
         let ctlFile = divPopup.appendChild(document.createElement('input'));
         ctlFile.setAttribute('type', 'file');
         ctlFile.setAttribute('multiple', 'true');
@@ -106,16 +107,18 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const cmdOK = fncCreateOKCancel(divPopup);
         
         cmdOK.addEventListener('click', async function(){
-            const addedFile = ctlFile.files; // must come before removing
-            let jsonBody = {action: 'upload', sort: sortMode, files: addedFile, dir: Number(lblTitle.dataset.id)};
-            fncClearPopup(divPopup);
-            await doFetch('./manage', 'POST', JSON.stringify(jsonBody), '', '파일 업로드를 실패했습니다.', async function(result){
-                const jsnRes = await result.json(addedFile);
-                if (jsnRes.alreadyExists){
-                    fncAnswerDlg('업로드를 완료했습니다.', '파일 업로드를 실패했습니다.', '업로드에 실패한 파일이 있습니다.', dlgOverwrite, jsonBody);
-                }
+			if (ctlFile.files.length <= 0){
+				return;
+			}
+			const dat = new FormData();
+			for (const itm of ctlFile.files){
+				dat.append('file', itm);
+			}
+            await doFetch('./manage?id=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async function(result){
+				fncClearPopup(divPopup);
+                const jsnRes = await result.json();
                 return await fncInsertFile(jsnRes, false, '업로드를 완료했습니다.', '업로드에 실패한 파일이 있습니다.');
-            });
+            }, undefined, '');
         })
     });
 }

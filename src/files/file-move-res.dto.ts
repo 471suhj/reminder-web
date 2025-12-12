@@ -4,7 +4,7 @@ export class FileMoveResDto { // does not ignore 'before'
     addarr: FilesArrDto['arr'] = [];
     delarr: {id: number, timestamp: string}[] = [];
     alreadyExists?: boolean;
-    failed?: [number, string][] = [];
+    failed: [number, string][] = [];
     failmessage?: string;
     expired?: boolean;
 }

@@ -9,7 +9,6 @@ import { FileIdentResDto } from './file-ident-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
 import { FilesArrDto } from './files-arr.dto';
 import { FileShareResDto } from './file-share-res.dto';
-import { FileNewResDto } from './file-new-res.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { SortModeDto } from './sort-mode.dto';
 import { DataSource, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
@@ -27,6 +26,7 @@ import { NotifColDto } from 'src/mongo/notif-col.dto';
 import { ShareCopyNotifDto } from 'src/home/share-copy-notif.dto';
 import { FiledatColDto } from 'src/mongo/filedat-col.dto';
 import { Document } from 'mongodb';
+import { Readable } from 'node:stream';
 
 @Injectable()
 export class FilesService {
@@ -156,7 +156,7 @@ export class FilesService {
         retObj.dirName = SysdirType.translate(dirType);
         retObj.dirPath = `<a class="addrLink" href="/files">files</a>/<a class="addrLink" href="/files/${dirType}">${dirType}</a>`;
         retObj.dirId = dirid;
-        let sideName =  (dirType === 'recycle' || dirType === 'inbox') ? 'files' : dirType;
+        let sideName =  (dirType === 'recycle' || dirType === 'inbox' || dirType === 'upload_tmp') ? 'files' : dirType;
         retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))}; // overwritten
         return retObj;
     }
@@ -279,7 +279,7 @@ export class FilesService {
                     : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
                 id: val.file_serial,
                 isFolder: val.type === 'dir',
-                text: val.issys === 'true' ? this.translateSysDir(val.file_name) : val.file_name,
+                text: val.issys === 'true' ? SysdirType.translate(val.file_name) : val.file_name,
                 bookmarked: val.bookmarked === 'true',
                 shared: val.shares.map(val=>val.user_serial_to).join(','),
                 date: (val.last_modified as Date).toISOString(),
@@ -293,23 +293,6 @@ export class FilesService {
         }
         await this.replaceNames(userSer, retVal.addarr);
         return retVal;
-    }
-
-    translateSysDir(name: string): string {
-        switch (name){
-            case 'files': 
-                return '파일';
-            case 'bookmarks':
-                return '바로 가기';
-            case 'recycle':
-                return '휴지통';
-            case 'shared':
-                return '공유';
-            case 'inbox':
-                return '받은 파일함';
-            default:
-                return '이상';
-        }
     }
 
     // create a view for this!
@@ -1355,11 +1338,99 @@ export class FilesService {
         return retVal;
     }
 
+    private processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string}, final?: boolean){
+        let commit = ()=>{
+            switch (tmpVar.buf.slice(0, 1)){
+                case 'MItemsCount=': // unrecorded here.
+                    break;
+                case 'P':
+                    let pairVal = tmpVar.buf.slice(1).split('=');
+                    if (pairVal.length > 0){
+                        doc.metadata[pairVal.shift()!] = pairVal.join('=');
+                    }
+                    break;
+                case 'N':
+                    doc.arr.push(tmpVar.buf.slice(1));
+                    break;
+            }
+        }
+        for (let str of arr){
+            if (tmpVar.buf && str.slice(0, 1) === 'A'){
+                tmpVar.buf += '&';
+                tmpVar.buf += str.slice(1);
+            } else if (tmpVar.buf === '') {
+                tmpVar.buf = str;
+            } else {
+                commit();
+                tmpVar.buf = str;
+            }
+        }
+        if (final){
+            commit();
+        }
+    }
+
+    async uploadMongo(fileSer: number, stream: Readable){
+        const availVer = ['0.2, 0.3'];
+        let buf = '';
+        let progress = true;
+        let inspected = false;
+        let objDoc = new FiledatColDto();
+        const tmpVar = {buf: ''};
+        objDoc.serial = fileSer;
+        stream.on('data', chunk=>{
+            buf += chunk.toString();
+            let arrTmp = buf.split('&');
+            buf = arrTmp.at(-1) ?? '';
+            if (!inspected){ // if uninspected either inspect or continue;
+                if (arrTmp.length > 1 || arrTmp[0].length > 16){ // pre-check
+                    if (arrTmp[0].slice(0, 16) !== 'AAMPGRMBFileVer='){
+                        throw new BadRequestException();
+                    }
+                }
+                if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
+                    if (availVer.includes(arrTmp[0].slice(16))){ // inspected
+                        objDoc.type = 'rmb' + arrTmp[0].slice(16) as typeof objDoc.type;
+                        inspected = true; // flow to the next stage
+                        arrTmp.shift();
+                    } else {
+                        throw new BadRequestException();
+                    }
+                } else { // length still 1 and uninspected --> continue;
+                    return;
+                }
+            }
+            arrTmp.pop(); // last buf is processed in 'end' event
+            this.processFileStream(objDoc, arrTmp, tmpVar);
+        });
+        stream.on('end', ()=>{
+            // deal with the last buf!
+            this.processFileStream(objDoc, [buf], tmpVar, true);
+            progress = false;
+        });
+        stream.on('close', ()=>{
+            if (progress){
+                throw new InternalServerErrorException();
+            }
+        });
+        stream.on('error', (err)=>{
+            this.logger.error('uploadMongo stream error. see below.');
+            console.log(err);
+        });
+        //stream.on('pause')
+        //stream.on('readable')
+        //stream.on('resume')
+        while (progress){
+            await new Promise(resolve=>setImmediate(resolve));
+        }
+        await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
+    }
+
     async createFile(conn: PoolConnection, userSer: number, parent: number, name: string){
         if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
-        let retVal = new FileNewResDto();
-        retVal.arr = [];
+        let retVal = new FileMoveResDto();
+        retVal.addarr = [];
         if (!await this.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
             throw new BadRequestException();
         }
@@ -1383,7 +1454,7 @@ export class FilesService {
             this.logger.error(`createFile error: none found for id:${userSer} dir:${parent} name:${name} insertId: ${result.insertId}`);
             throw new InternalServerErrorException();
         }
-        retVal.arr = [{
+        retVal.addarr = [{
             link: `/edit?id=${result.insertId}`,
             id: result.insertId,
             isFolder: false,
@@ -1395,7 +1466,7 @@ export class FilesService {
             timestamp: result2[0].last_renamed.toISOString()
         }]
         const arrDocs: FiledatColDto[] = [];
-        for (const itm of retVal.arr){
+        for (const itm of retVal.addarr){
             arrDocs.push({arr: Array(15).fill(""), metadata: {}, serial: itm.id, type: 'rmb0.3'});
         }
         await this.mongoService.getDb().collection('file_data').insertMany(arrDocs);
@@ -1405,8 +1476,8 @@ export class FilesService {
     async createDir(conn: PoolConnection, userSer: number, parent: number, name: string){
         if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
-        let retVal = new FileNewResDto();
-        retVal.arr = [];
+        let retVal = new FileMoveResDto();
+        retVal.addarr = [];
         if(!await this.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
             throw new BadRequestException();
         }
@@ -1430,7 +1501,7 @@ export class FilesService {
             this.logger.error(`createFile error: none found for id:${userSer} dir:${parent} name:${name} insertId: ${result.insertId}`);
             throw new InternalServerErrorException();
         }
-        retVal.arr = [{
+        retVal.addarr = [{
             link: `/files?dirid=${result.insertId}`,
             id: result.insertId,
             isFolder: false,
@@ -1546,7 +1617,7 @@ export class FilesService {
     async signupCreateDir(conn: PoolConnection, user_serial: number){
         await conn.execute<RowDataPacket[]>(
             `insert into file (user_serial, parent_serial, type, issys, file_name)
-            value (?, 1, 'dir', 'true', 'files')`, [user_serial]
+            values (?, 1, 'dir', 'true', 'files'), (?, 1, 'dir', 'true', 'upload_tmp')`, [user_serial]
         );
         await conn.execute<RowDataPacket[]>(
             'update file set parent_serial=file_serial where user_serial=?', [user_serial]

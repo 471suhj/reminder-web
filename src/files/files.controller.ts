@@ -1,4 +1,4 @@
-import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger } from '@nestjs/common';
+import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 import { FilesGetDto } from './files-get.dto';
@@ -14,11 +14,11 @@ import { FileMoveResDto } from './file-move-res.dto';
 import { FileMoveDto } from './file-move.dto';
 import { FileListResDto } from './file-list-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
-import { FileNewResDto } from './file-new-res.dto';
 import { FriendMoreDto } from './friend-more.dto';
 import { InboxSaveDto } from './inbox-save.dto';
 import { FiledatColDto } from 'src/mongo/filedat-col.dto';
 import { MongoService } from 'src/mongo/mongo.service';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('files')
 export class FilesController {
@@ -153,16 +153,16 @@ export class FilesController {
 
     // rename, create directory, create files from files
     @Put('manage') // 'before's in filesarrdto are not ignored.
-    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileNewResDto|FileMoveResDto>{
+    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
         if (body.action === 'createDir'){
-            let retVal: FileNewResDto;
+            let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
                 retVal = await this.filesService.createDir(conn, userSer, body.id, body.name);
             });
             return retVal!;
         } else if (body.action === 'createFile'){
-            let retVal: FileNewResDto;
+            let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
                 retVal = await this.filesService.createFile(conn, userSer, body.id, body.name);
             });
@@ -175,6 +175,43 @@ export class FilesController {
             });
             return retVal!;
         } else {throw new BadRequestException();}
+    }
+
+    @Post('manage')
+    @UseInterceptors(FilesInterceptor('file'))
+    async uploadFile(@User(ParseIntPipe) userSer: number, @UploadedFiles() arrFile: Express.Multer.File[]){
+        let retVal = new FileMoveResDto();
+        const dir = await this.filesService.getUserRoot(userSer, 'upload_tmp');
+        const root = await this.filesService.getUserRoot(userSer, 'files');
+        const subt = '(user_serial, parent_serial, type, file_name)';
+        for (const itm of arrFile){
+            let res: RowDataPacket[] = [];
+            await this.mysqlService.doTransaction('files controller post manage', async conn=>{
+                await conn.execute(`delete file where user_serial=? and parent_serial=?`, [userSer, dir]);
+                await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
+                    [userSer, dir, itm.originalname.length > 4 ? itm.originalname.slice(0, -4) : itm.originalname]
+                );
+                [res] = await conn.execute<RowDataPacket[]>(
+                    `select file_serial, last_renamed from file where user_serial=? and parent_serial=?`,
+                    [userSer, dir]
+                );
+            });
+            await this.filesService.uploadMongo(res[0].file_serial, itm.stream);
+            await this.mysqlService.doTransaction('files controller post manage', async conn=>{
+                let {failed} = await this.copyMoveFile(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
+                    from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimpstamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
+                if (failed.length <= 0){
+                    let [res2] = await conn.execute<RowDataPacket[]>(`select * from file where file_serial=?`, [res[0].file_serial]);
+                    retVal.addarr.push({date: res2[0].last_modified, id: res2[0].file_serial, isFolder: false, text: res2[0].file_name,
+                        timestamp: res2[0].last_renamed, before: {id: -1, timestamp: ''}, link: '/edit?id=' + res2[0].file_serial, shared: ''
+                    });
+                } else {
+                    retVal.failed.push([0, itm.originalname]);
+                    await this.mongoService.getDb().collection('file_data').deleteOne({serial: res[0].file_serial});
+                }
+            });
+        }
+        return retVal;
     }
 
     // delete from files, bookmarks and shared

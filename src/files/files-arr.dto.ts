@@ -9,12 +9,12 @@ export class FilesArrDto {
         text: string;
         bookmarked?: boolean;
         shared?: string;
-        date: string;
+        date: string|Date;
         dateDeleted?: string;
         origPath?: string;
         ownerImg?: string;
         ownerName?: string;
-        timestamp: string;
+        timestamp: string|Date;
     }[];
     arrFriend: {
         before?: {id: number};
