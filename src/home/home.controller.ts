@@ -82,7 +82,7 @@ export class HomeController {
             if (sections.home_shared === 'true'){
                 let crit = sections.save_recent === 'true' ? 'last_opened desc' : 'file_name asc';
                 [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial, file_name from file where user_serial_to=? order by ${crit} limit 7`,
+                    `select file_serial, file_name from shared_def where user_serial_to=? order by ${crit} limit 7`,
                     [userSer]
                 );
                     const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];

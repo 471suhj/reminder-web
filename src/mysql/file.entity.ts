@@ -18,7 +18,7 @@ export class Efile {
     @PrimaryColumn({type: 'int', unsigned: true})
     parent_serial: number;
 
-    @OneToOne(()=>Efile, {nullable: false})
+    @OneToOne(()=>Efile) // nullabe true to prevent circular relations
     @JoinColumn({name: 'parent_serial', referencedColumnName: 'file_serial'})
     parent_serial_1: Efile;
     

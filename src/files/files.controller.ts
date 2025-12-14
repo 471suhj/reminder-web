@@ -49,10 +49,10 @@ export class FilesController {
     async getFileMore(
         @User(ParseIntPipe) userSer: number,
         @Query('startafter', ParseIntPipe) startAfter: number, // 0 for initial or others
-        @Query('startaftertimestamp', ParseDatePipe) timestamp: Date, // 0 for initial or others
+        @Query('startaftertimestamp', new ParseDatePipe()) timestamp: Date, // 0 for initial or others
         @Query('dirid', ParseIntPipe) dirId: number, 
         @Query('sort') sort: string,
-        @Query('lastrenamed', ParseDatePipe) lastrenamed: Date,
+        @Query('lastrenamed', new ParseDatePipe()) lastrenamed: Date,
         @Query('sortincr', ParseBoolPipe) sortincr: boolean,
         @Query('mode') mode: string // files, profile, shared, friends, bookmarks, recycle
     ): Promise<FilesMoreDto|FriendMoreDto>{

@@ -45,14 +45,14 @@ export class EncryptService {
 
     async getPublicPWKey(): Promise<KeyObject>{
         while (this.#updating){
-            await new Promise(function(resolve, _){setImmediate(resolve)});;
+            await new Promise((resolve, _)=>{setImmediate(resolve)});;
         }
         return this.#publicPWKey;
     }
 
     async decryptPW(pubKey: KeyObject, encrPW: string): Promise<string>{
         while (this.#updating){
-            await new Promise(function(resolve, _){setImmediate(resolve)});;
+            await new Promise((resolve, _)=>{setImmediate(resolve)});;
         }
         if (JSON.stringify(pubKey) !== JSON.stringify(this.#publicPWKey)){
             throw new EncryptError("expired");

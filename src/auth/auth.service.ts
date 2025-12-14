@@ -72,7 +72,7 @@ export class AuthService {
 
     async googleCheckState(state, response): Promise<boolean>{
         let success: boolean = false;
-        this.mysqlService.doTransaction('auth google response', async function(conn: mysql.PoolConnection){
+        await this.mysqlService.doTransaction('auth google response', async (conn: mysql.PoolConnection)=>{
             const [result] = await conn.execute<mysql.RowDataPacket[]>('select token from google_consent where token=? for update', [state]);
             if (result.length > 0){
                 await conn.execute<mysql.RowDataPacket[]>('delete from google_consent where token=? order by last_updated asc limit 1', [state]);
@@ -90,7 +90,7 @@ export class AuthService {
 
     async getToken(userSerial, response: Response): Promise<void>{
         let strToken: string = await this.hashPasswordService.getToken();
-        await this.mysqlService.doTransaction('auth controller', async function(conn){
+        await this.mysqlService.doTransaction('auth controller', async (conn)=>{
             let result: mysql.RowDataPacket[];
             do{
                 [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from session where token=? for share', [strToken]);

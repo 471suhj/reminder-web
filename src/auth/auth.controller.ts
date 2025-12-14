@@ -14,6 +14,7 @@ import { randomBytes } from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { HttpService } from '@nestjs/axios';
 import { SignupService } from 'src/signup/signup.service';
+import axios from 'axios';
 
 @AuthDec('anony-only')
 @Controller('auth')
@@ -26,8 +27,9 @@ export class AuthController {
         private httpService: HttpService,
         private signupService: SignupService,
     ){
-        this.oauth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, 
-                'https://localhost:3000/auth/google/response');
+        this.oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 
+            'https://localhost:3000/auth/google/response'
+        );
     }
 
     oauth2Client: OAuth2Client;
@@ -114,7 +116,7 @@ export class AuthController {
             }
 
             let username: string = '사용자';
-            let res;
+            let res: axios.AxiosResponse;
             try{
                 res = await this.httpService.axiosRef.get('https://www.googleapis.com/oauth2/v2/userinfo',
                     {headers: {'Authorization': 'Bearer ' + tokens.access_token}}
@@ -125,10 +127,10 @@ export class AuthController {
                 this.authService.googleAuthFailed(response);
                 return;
             }
-            if (typeof res['name'] === 'string'){
-                username = res['name'];
+            if (typeof res.data['name'] === 'string'){
+                username = res.data['name'];
             }
-            const signupRes = await this.signupService.registerUser('', '', username, res['email'], 'google', {tokens: tokens, ...res});
+            const signupRes = await this.signupService.registerUser('', '', username, res.data['email'], 'google', {tokens: tokens, ...res.data});
             if (!signupRes.success){
                 this.logger.error('error signing up google user. message:' + String(signupRes.message));
                 this.authService.googleAuthFailed(response);
@@ -158,7 +160,7 @@ export class AuthController {
             const state = randomBytes(32).toString('hex');
             const pool: mysql.Pool = await this.mysqlService.getSQL();
             try{
-                const [result] = await pool.execute<RowDataPacket[]>('insert into google_consent (token) value (?) on duplicate key update token=?', [state, state]);
+                await pool.execute('insert into google_consent (token) value (?) on duplicate key update token=?', [state, state]);
             } catch (err) {
                 this.mysqlService.writeError('auth google', err);
                 throw new InternalServerErrorException();

@@ -34,7 +34,7 @@ export class MysqlService {
 
     async getSQL(): Promise<mysql.Pool>{
         while (!this.#connected){
-            await new Promise(function(resolve, _){setImmediate(resolve)});
+            await new Promise((resolve, _)=>{setImmediate(resolve)});
         }
         return this.#pool;;
     }
@@ -47,17 +47,17 @@ export class MysqlService {
     async doTransaction(servicename: string, process: (connection: PoolConnection, rb: {rback: boolean})=>Promise<void>): Promise<void>{
         const conn: PoolConnection = await (await this.getSQL()).getConnection();
         try{
-            console.log(await conn.execute('start transaction'));
+            await conn.query('start transaction');
             let rback = false;
             await process(conn, {rback});
             if (rback){
-                await conn.execute('rollback');
+                await conn.query('rollback');
             } else {
-                console.log(await conn.execute('commit'));
+                await conn.query('commit');
             }
         } catch (err) {
             try{
-                await conn.execute('rollback');
+                await conn.query('rollback');
             } catch {
                 this.logger.log("'rollback' error. see below.");
                 console.log(err);

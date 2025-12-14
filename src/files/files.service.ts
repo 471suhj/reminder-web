@@ -94,7 +94,7 @@ export class FilesService {
         let result: RowDataPacket[];
         let curId = fileId;
         let accessErr = false;
-        await this.mysqlService.doTransaction('files service getPath', async function(conn, rb){
+        await this.mysqlService.doTransaction('files service getPath', async (conn, rb)=>{
             while (cont){
                 let firstReq = true;
                 [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
@@ -1705,7 +1705,7 @@ export class FilesService {
     async signupCreateDir(conn: PoolConnection, user_serial: number){
         await conn.execute<RowDataPacket[]>(
             `insert into file (user_serial, parent_serial, type, issys, file_name)
-            values (?, 1, 'dir', 'true', 'files'), (?, 1, 'dir', 'true', 'upload_tmp')`, [user_serial]
+            values (?, 1, 'dir', 'true', 'files'), (?, 1, 'dir', 'true', 'upload_tmp')`, [user_serial, user_serial]
         );
         await conn.execute<RowDataPacket[]>(
             'update file set parent_serial=file_serial where user_serial=?', [user_serial]
@@ -1717,7 +1717,7 @@ export class FilesService {
             `insert into file (user_serial, parent_serial, type, issys, file_name)
             values (?, ?, 'dir', 'true', 'bookmarks'), (?, ?, 'dir', 'true', 'inbox'),
             (?, ?, 'dir', 'true', 'shared'), (?, ?, 'dir', 'true', 'recycle')`,
-            Array(4).fill([user_serial, result[0].file_serial])
+            Array(4).fill([user_serial, result[0].file_serial]).flat()
         );
     }
 

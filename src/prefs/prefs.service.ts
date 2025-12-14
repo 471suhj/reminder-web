@@ -17,7 +17,7 @@ export class PrefsService {
         let result;
         try {
             [result] = await pool.execute<RowDataPacket[]>(
-                'select name, side_bookmarks, side_shared from user where user_id=?', [userSer]);
+                'select name, side_bookmarks, side_shared from user where user_serial=?', [userSer]);
             if (result.length <= 0){
                 this.logger.error('the user cannot be found: serial=' + userSer);
                 throw new InternalServerErrorException();

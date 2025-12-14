@@ -7,7 +7,9 @@ import { FilesService } from 'src/files/files.service';
 @Injectable()
 export class SignupService {
     constructor(
-        private mysqlService: MysqlService,
+        private readonly mysqlService: MysqlService,
+        private readonly hashPasswordService: HashPasswordService,
+        private readonly filesService: FilesService,
     ){}
 
     private readonly logger = new Logger(SignupService.name);
@@ -22,7 +24,7 @@ export class SignupService {
 
         try{
             let retVal: {success: boolean, message?: string, serial: number} = {success: false, serial: 0};
-            await this.mysqlService.doTransaction('signup register', async function(conn, rb){
+            await this.mysqlService.doTransaction('signup register', async (conn, rb)=>{
                 let updateinfo = false;
                 let result: mysql.RowDataPacket[];
                 if (mode === 'google'){
@@ -70,11 +72,15 @@ export class SignupService {
                     let pwEncr: string = '';
                     if (pw !== ''){
                         pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString();
-                        [result] = await conn.execute<mysql.RowDataPacket[]>(
-                            'insert into user (user_id, name, password, email, email2, salt) value (?,?,?,?,?,?)', [id, username, pwEncr, email.slice(0, 65), email.slice(65), salt]);
                     }
+                    [result] = await conn.execute<mysql.RowDataPacket[]>(
+                        'insert into user (user_id, name, password, email, email2, salt) value (?,?,?,?,?,?)', [id, username, pwEncr, email.slice(0, 65), email.slice(65), salt]);
                 }
-                [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
+                if (mode === 'google'){
+                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user_google where google_id=? for share', [googleObj.id]);                
+                } else {
+                    [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
+                }
                 if (!updateinfo){
                     await this.filesService.signupCreateDir(conn, result[0].user_serial)
                 }
