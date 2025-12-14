@@ -18,5 +18,17 @@ fleProfImg.addEventListener('change', async event=>{
 		} else {
 			showMessage('이미지 파일 업로드에 실패했습니다.');
 		}
-	}, undefined, '');
+	}, undefined, 'FormData');
+});
+
+document.getElementById('delAccount').addEventListener('click', async ()=>{
+	if (!confirm(정말로 회원을 탈퇴하시겠습니까?)){
+		return;
+	}
+	await doFetch('/prefs/update/delaccount', 'PUT', '', '', '', async result=>{
+		alert('회원 탈퇴가 완료되었습니다.');
+		window.href = '/';
+	}, async ()=>{
+		alert('회원 탈퇴에 실패했습니다.');
+	});
 });

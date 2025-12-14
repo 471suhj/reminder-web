@@ -57,21 +57,9 @@ export class FriendsController {
         @User(ParseIntPipe) userSer: number,
         @Body() body: {sort: SortModeDto, last: number, friends: Array<number>}
     ): Promise<FileDelResDto>{
-        let result: RowDataPacket[];
         await this.filesService.resolveFriendLoadmore(userSer, body.friends, body.last, body.sort);
         await this.mysqlService.doTransaction('friends controller delete', async (conn)=>{
-            await conn.execute(
-                `delete from shared_def where (user_serial_to=? and user_serial_from in ?) or (user_serial_from=? and user_serial_to in ?)`,
-                [userSer, body.friends, userSer, body.friends]
-            );
-            await conn.execute(
-                `delete from friend where (user_serial_to=? and user_serial_from in ?) or (user_serial_from=? and user_serial_to in ?)`,
-                [userSer, body.friends, userSer, body.friends]
-            );
-            await conn.execute(
-                `delete from friend_mono where (user_serial_to=? and user_serial_from in ?) or (user_serial_from=? and user_serial_to in ?)`,
-                [userSer, body.friends, userSer, body.friends]
-            );
+            await this.filesService.deleteFriends(conn, userSer, body.friends);
         });
         let retVal = new FileDelResDto();
         retVal.delarr = body.friends.map(val=>{return {id: val, timestamp: ''};});

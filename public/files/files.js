@@ -98,16 +98,18 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     let tlbItem = document.getElementById('upload');
     tlbItem.addEventListener('click', function(){
         divPopup.style.display = 'block';
-		divPopup.appendChild(document.createElement('h1').innerText = '파일 업로드\n\n');
+		divPopup.appendChild(document.createElement('h1').innerText = '파일 업로드\n');
+		divPopup.appendChild(document.createElement('p').innerText = '업로드할 파일을 선택하십시오. 파일은 100개 까지만 한 번에 업로드할 수 있습니다.');
         let ctlFile = divPopup.appendChild(document.createElement('input'));
-        ctlFile.setAttribute('type', 'file');
-        ctlFile.setAttribute('multiple', 'true');
-        ctlFile.setAttribute('accept', '.rmb');
+        ctlFile.type = 'file';
+        ctlFile.multiple = true;
+        ctlFile.accept = '.rmb';
         
         const cmdOK = fncCreateOKCancel(divPopup);
         
         cmdOK.addEventListener('click', async function(){
-			if (ctlFile.files.length <= 0){
+			if (ctlFile.files.length <= 0 || ctlFile.files.length > 20){
+				alert('파일이 선택되지 않았거나 20개를 초과하여 선택되었습니다.');
 				return;
 			}
 			const dat = new FormData();
@@ -118,7 +120,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 				fncClearPopup(divPopup);
                 const jsnRes = await result.json();
                 return await fncInsertFile(jsnRes, false, '업로드를 완료했습니다.', '업로드에 실패한 파일이 있습니다.');
-            }, undefined, '');
+            }, undefined, 'FormData');
         })
     });
 }

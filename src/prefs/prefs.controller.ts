@@ -9,6 +9,7 @@ import { PrefCheckedDto } from './pref-checked.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import sharp, { Sharp } from 'sharp';
 import { join } from 'node:path';
+import { FilesService } from 'src/files/files.service';
 
 class SuccDto {
     success: boolean = true;
@@ -17,7 +18,11 @@ class SuccDto {
 @Controller('prefs')
 export class PrefsController {
 
-    constructor(private readonly mysqlService: MysqlService, private readonly prefsService: PrefsService){}
+    constructor(
+        private readonly mysqlService: MysqlService,
+        private readonly prefsService: PrefsService,
+        private readonly filesService: FilesService,
+    ){}
 
     private readonly logger = new Logger(PrefsController.name);
     
@@ -213,6 +218,13 @@ export class PrefsController {
             }
         });
         return retVal;
+    }
+
+    @Put('update/delaccount')
+    async delAccount(@User() userSer: number){
+        await this.mysqlService.doTransaction('prefs controller delaccount', async conn=>{
+            await this.filesService.preDelUser(conn, userSer);
+        });
     }
 
 

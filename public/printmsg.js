@@ -23,11 +23,11 @@ export function hideMessage(){
     lblMsgBox.dataset.show = 'false';
 }
 
-export async function doFetch(link, method, data, msgSuccess, msgFail, process, fprocess, isText){
+export async function doFetch(link, method, data, msgSuccess, msgFail, process, fprocess, type){
     try{
         let result = null;
         showProgressMessage('처리 중입니다...');
-        if (data === '' || isText = ''){
+        if (data === '' || type === 'FormData'){
             result = await fetch(link, {method: method});
         } else if (isText === 'text') {
             result = await fetch(link, {method: method, headers: {'Content-Type': 'text/plain'}, body: data});

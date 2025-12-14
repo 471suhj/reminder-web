@@ -2,11 +2,12 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger }
 import { MysqlService } from 'src/mysql/mysql.service';
 import { UserCommonDto } from 'src/user/user-common.dto';
 import mysql, { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
+import { MongoService } from 'src/mongo/mongo.service';
 
 @Injectable()
 export class PrefsService {
 
-    constructor(private mysqlService: MysqlService){}
+    constructor(private mysqlService: MysqlService, private readonly mongoService: MongoService){}
 
     private readonly logger = new Logger(PrefsService.name);
 
@@ -39,7 +40,7 @@ export class PrefsService {
         retVal.sideItem.push(['/friends', pageSel === 'friends' ? '' : 'Sel', '/graphics/friends.png', '친구']);
         retVal.sideItem.push(['/prefs', pageSel === 'prefs' ? '' : 'Sel', '/graphics/prefs.png', '설정']);
         
-        retVal.notificationCnt = 3;
+        retVal.notificationCnt = await this.mongoService.getDb().collection('notification').countDocuments({to: userSer, read: false});
         retVal.countItem = 'false';
         return retVal;
     }

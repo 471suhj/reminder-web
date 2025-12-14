@@ -178,8 +178,11 @@ export class FilesController {
     }
 
     @Post('manage')
-    @UseInterceptors(FilesInterceptor('file'))
+    @UseInterceptors(FilesInterceptor('file', 100))
     async uploadFile(@User(ParseIntPipe) userSer: number, @UploadedFiles() arrFile: Express.Multer.File[]){
+        if (arrFile.length > 100 || arrFile.length <= 0){
+            throw new BadRequestException();
+        }
         let retVal = new FileMoveResDto();
         const dir = await this.filesService.getUserRoot(userSer, 'upload_tmp');
         const root = await this.filesService.getUserRoot(userSer, 'files');
@@ -196,7 +199,13 @@ export class FilesController {
                     [userSer, dir]
                 );
             });
-            await this.filesService.uploadMongo(res[0].file_serial, itm.stream);
+            try {
+                await this.filesService.uploadMongo(res[0].file_serial, itm.stream);
+            } catch {
+                retVal.failed.push([0, itm.originalname]);
+                itm.stream.destroy(); // need to check
+                continue;
+            }
             await this.mysqlService.doTransaction('files controller post manage', async conn=>{
                 let {failed} = await this.copyMoveFile(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
                     from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimpstamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
