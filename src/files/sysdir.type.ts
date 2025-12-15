@@ -6,7 +6,7 @@ export class SysdirType {
     static translate(val: string){
         switch(val){
             case 'bookmarks':
-                return '바로 가기';
+                return '즐겨 찾기';
             case 'recycle':
                 return '휴지통';
             case 'shared':

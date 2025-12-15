@@ -16,8 +16,8 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
 }
 
-function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
-    const strHtml = function(listItem){
+async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
+    const strHtml = (listItem)=>{
         return `
         <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}'>
             <input class='listItemChkbox' type='checkbox'>

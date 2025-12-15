@@ -1,7 +1,8 @@
 import { BadRequestException, Controller, Get, InternalServerErrorException, ParseIntPipe, Query, StreamableFile } from '@nestjs/common';
 import { RowDataPacket } from 'mysql2';
-import { createReadStream, ReadStream } from 'node:fs';
+import { createReadStream, ReadStream, access } from 'node:fs';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 
@@ -43,7 +44,10 @@ export class GraphicsController {
         let ret: ReadStream;
         if (useCus){
             try{
-                ret = createReadStream(join(__dirname, `../userfiles/profimg/${id}.png`));
+                const pth = join(__dirname, `../../userfiles/profimg/${id}.png`);
+                const accessFile = promisify(access);
+                await accessFile(pth);
+                ret = createReadStream(pth);
                 return new StreamableFile(ret);
             } catch {
                 if (cus === 'true'){
@@ -51,7 +55,7 @@ export class GraphicsController {
                 } // else, get the standard img
             }
         }
-        ret = createReadStream(join(__dirname, `../public/graphics/profile/${(id % 5) + 1}.png`));
+        ret = createReadStream(join(__dirname, `../../public/graphics/profile/${(id % 5) + 1}.png`));
         return new StreamableFile(ret);
     }
 }

@@ -13,7 +13,7 @@
         <div class="heading">
             <a href="/home"><img class="logo" src="/graphics/aam_online.png" alt="ComphyCat Reminder Online"></a>
             <div class="user">
-                <a class="blackLink grayLink" href="/prefs/account"><img src="/images/user">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a class="blackLink grayLink" href="/prefs/account"><img src="/graphics/profimg" width="30" height="30">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/home/notifications">알림 {{ notificationCnt }}개</a>
             </div>
@@ -35,10 +35,10 @@
                     </div>
                     <div class="bodyItem">
                         <h2>프로필 사진</h2>
-                        <input class="chkItem" data-link="profimg" data-action="default" type="radio" id="profImgDef" {{profImg.defChk}}><label for="profImgDef">기본 이미지 사용</label><br>
-                        <input class="chkItem" data-link="profimg" data-action="custom" type="radio" id="profImgCus" {{profImg.cusChk}}><label for="profImgCus">직접 업로드</label>
+                        <input class="chkItem" data-link="profimg" name="profImg" data-action="default" type="radio" id="profImgDef" {{profImg.defChk}}><label for="profImgDef">기본 이미지 사용</label><br>
+                        <input class="chkItem" data-link="profimg" name="profImg" data-action="custom" type="radio" id="profImgCus" {{profImg.cusChk}}><label for="profImgCus">직접 업로드</label>
                         <input type="file" id="profImgFile" accept="image/*">
-                        <img id="profImgPrev" src="/graphics/profimg?cus=true" style="display: inline-block">
+                        <img id="profImgPrev" src="/graphics/profimg?cus=true" style="display: inline-block" width="40" height="40">
                     </div>
                     <div class="bodyItem">
                         <h2>등록 정보</h2>

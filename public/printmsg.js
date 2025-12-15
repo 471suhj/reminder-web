@@ -9,7 +9,7 @@ lblMsgBox.addEventListener('mouseleave', function(event){
 export function showMessage(message){
     lblMsgBox.innerText = message;
     lblMsgBox.dataset.show = 'true';
-    setTimeout(() => {
+	setTimeout(() => {
         lblMsgBox.dataset.show = 'false';
     }, 5000);
 }
@@ -27,9 +27,11 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
     try{
         let result = null;
         showProgressMessage('처리 중입니다...');
-        if (data === '' || type === 'FormData'){
+        if (data === ''){
             result = await fetch(link, {method: method});
-        } else if (isText === 'text') {
+		} else if (type === 'FormData'){
+			result = await fetch(link, {method: method, body: data});
+        } else if (type === 'text') {
             result = await fetch(link, {method: method, headers: {'Content-Type': 'text/plain'}, body: data});
         } else {
             result = await fetch(link, {method: method, headers: {'Content-Type': 'application/json'}, body: data});
@@ -37,14 +39,13 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
         if (!result.ok) {
             throw new Error(`result error: status ${result.status}`);
         }
+        hideMessage();
         let msg = '';
         if (process){
             msg = await process(result);
         }
-        if (msgSuccess !== '' || (msg !== '' && msg !== undefined)){
+		if (msgSuccess !== '' || (msg !== '' && msg !== undefined)){
             showMessage(msgSuccess + msg);
-        } else {
-            hideMessage();
         }
     } catch (error) {
         if (error instanceof Error){

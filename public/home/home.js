@@ -10,7 +10,7 @@ for (const listItem of items){
         } else if (listItem.dataset.popup === 'newwin'){
             window.open(listItem.dataset.link);
         } else {
-			window.href = listItem.dataset.link;
+			window.location.href = listItem.dataset.link;
 		}
     })
 }

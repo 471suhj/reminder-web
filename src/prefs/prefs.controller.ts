@@ -87,6 +87,7 @@ export class PrefsController {
                 sharedChk: result[0].side_shared === 'true' ? 'checked' : '',
             }
         });
+        retVal = {...retVal, ...(await this.prefsService.getUserCommon(userSer, 'prefs'))};
         return retVal;
     }
 
@@ -96,7 +97,7 @@ export class PrefsController {
         let retVal = new SuccDto();
         retVal.success = true;
         try{
-            await sharp(file.buffer).resize(480, 480, {fit: 'contain'}).toFile(join(__dirname, `../userfiles/profimg/${userSer}.png`));
+            await sharp(file.buffer).resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}).toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
         } catch (err) {
             this.logger.log('error while converting profile image. see below.');
             console.log(err);
@@ -176,8 +177,8 @@ export class PrefsController {
         }
         await this.mysqlService.doQuery('prefs controller update profimg', async conn=>{
             let [result] = await conn.execute<ResultSetHeader>(
-                `update user set ?=? where user_serial=?`,
-                [strColName, body.checked ? 'true' : 'false', userSer]
+                `update user set ${strColName}=? where user_serial=?`,
+                [body.checked ? 'true' : 'false', userSer]
             );
             if (result.affectedRows <= 0){
                 retVal.success = false;

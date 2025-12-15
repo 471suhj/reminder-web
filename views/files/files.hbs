@@ -13,7 +13,7 @@
         <div class="heading">
             <a href="/home"><img class="logo" src="/graphics/aam_online.png" alt="ComphyCat Reminder Online"></a>
             <div class="user">
-                <a class="blackLink grayLink" href="/prefs/account"><img src="/images/user">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a class="blackLink grayLink" href="/prefs/account"><img src="/graphics/profimg" width="30" height="30">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/home/notifications">알림 {{ notificationCnt }}개</a>
             </div>
@@ -25,14 +25,14 @@
                 {{/each}}
             </div>
             <div class="top">
-                <h1 class="title" data-path="{{path}}" data-id="{{dirId}}" data-timestamp="{{timestamp}}">{{dirName}}</h1>
+                <h1 id="title" data-path="{{path}}" data-id="{{dirId}}" data-timestamp="{{timestamp}}">{{dirName}}</h1>
                 <div>{{{dirPath}}}</div>
             </div>
             <div class="main">
                 <div class="toolbar">
                     <a href="{{uplink}}"><div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div></a>|<!-
                     ><div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
-                    <div class="toolItem grayLink" id="upload"><img src="/graphics/toolbars/add.png" width="20" height="20"></div>|<!--
+                    ><div class="toolItem grayLink" id="upload"><img src="/graphics/toolbars/add.png" width="20" height="20"></div>|<!--
                     <div class="toolItem grayLink" id="download"><img src="/graphics/toolbars/download.png" width="20" height="20"></div>|<!-
                     --><div class="toolItem grayLink" id="rename"><img src="/graphics/toolbars/rename.png" width="20" height="20"></div>|<!-
                     ><div class="toolItem grayLink" id="share"><img src="/graphics/toolbars/share.png" width="20" height="20"></div>|<!-

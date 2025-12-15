@@ -34,6 +34,7 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid, dirmode){
 		if (jsnRes.needReload){
 			location.reload();
 			return;
+		}
 		if (jsnRes.needRefresh){
 			document.getElementById('refresh').click();
 			return;
@@ -79,7 +80,7 @@ export function fncResort(colName, colItem, fncResetSort, listHead, fncInsertFil
         fncResetSort(listHead);
         colItem.dataset.set = '1';
     }
-    fncRefresh(list, sortMode, fncInsertFile, fncPrintCnt, dirid);
+    fncRefresh(fncInsertFile, fncPrintCnt, dirid);
 }
 
 export function fncResetSort(listHead){

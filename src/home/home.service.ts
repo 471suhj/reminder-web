@@ -56,7 +56,7 @@ export class HomeService {
                 retStr += '<br>';
                 retStr += data.saved ? '파일이 받은 파일함에 저장되었습니다.' : '파일을 저장하려면 <span class="putlink" data-link="/files/inbox-save"';
                 retStr += data.saved ? '' : `data-prop="id" data-val="${data.file_ser}" data-msgpos="저장이 완료되었습니다." data-msgneg="저장에 실패했습니다.">여기</span>를 누르십시오.`;
-                retStr += data.saved ? '<br><br><a href="/files/inbox">받은 파일함 바로 가기</a>' : '';
+                retStr += data.saved ? '<br><br><a href="/files/inbox">받은 파일함 즐겨 찾기</a>' : '';
                 break;
             case 'friend_request_accepted':
                 retStr += escape(`${senderName}이(가) 친구로 추가되었습니다.`);

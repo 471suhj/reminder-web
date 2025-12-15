@@ -13,7 +13,7 @@
         <div class="heading">
             <a href="/home"><img class="logo" src="/graphics/aam_online.png" alt="ComphyCat Reminder Online"></a>
             <div class="user">
-                <a class="blackLink grayLink" href="/prefs/account"><img src="/images/user">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
+                <a class="blackLink grayLink" href="/prefs/account"><img src="/graphics/profimg" width="30" height="30">  {{username}}</a>님&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/">로그아웃</a>&nbsp;&nbsp;&nbsp;
                 <a class="blackLink grayLink" href="/home/notifications">알림 {{ notificationCnt }}개</a>
             </div>
@@ -35,14 +35,14 @@
                     </div>
                     <div class="bodyItem">
                         <h2>사이드바 설정</h2>
-                        <input class="chkItem" data-link="side" data-action="bookmark" type="checkbox" id="sideBookmarks" {{side.bookmarkChk}}><label for="sideBookmarks">바로 가기 표시</label><br>
+                        <input class="chkItem" data-link="side" data-action="bookmark" type="checkbox" id="sideBookmarks" {{side.bookmarkChk}}><label for="sideBookmarks">즐겨 찾기 표시</label><br>
                         <input class="chkItem" data-link="side" data-action="shared" type="checkbox" id="sideShared" {{side.sharedChk}}><label for="sideShared">공유 파일 표시</label><br>
                     </div>
                     <div class="bodyItem">
                         <h2>홈 화면 설정</h2>
                         <input class="chkItem" data-link="home" data-action="history" type="checkbox" id="homeHis" {{home.hisChk}}><label for="homeHis">파일 접근 일자 기록</label><br>
                         <input class="chkItem" data-link="home" data-action="recent" type="checkbox" id="homeRecent" {{home.recentChk}}><label for="homeRecent">최근 파일 표시</label><br>
-                        <input class="chkItem" data-link="home" data-action="bookmarks" type="checkbox" id="homeBookmarks" {{home.bookmarkChk}}><label for="homeBookmarks">바로 가기 표시</label><br>
+                        <input class="chkItem" data-link="home" data-action="bookmarks" type="checkbox" id="homeBookmarks" {{home.bookmarkChk}}><label for="homeBookmarks">즐겨 찾기 표시</label><br>
                         <input class="chkItem" data-link="home" data-action="notifs" type="checkbox" id="homeNotifs" {{home.notifChk}}><label for="homeNotifs">알림 목록 표시</label><br>
                         <input class="chkItem" data-link="home" data-action="shared" type="checkbox" id="homeShared" {{home.sharedChk}}><label for="homeShared">공유 파일 표시</label><br>
                     </div>

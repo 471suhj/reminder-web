@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Post, Put, Body, Query, ParseIntPipe, Logger, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put, Body, Query, ParseIntPipe, Logger, BadRequestException, Param, Render } from '@nestjs/common';
 import { FriendListDto } from './friend-list.dto';
 import { User } from 'src/user/user.decorator';
 import { SortModeDto } from 'src/files/sort-mode.dto';
@@ -27,8 +27,9 @@ export class FriendsController {
     ){}
 
     @Get()
+    @Render('friends/friends')
     async getFriends(@User(ParseIntPipe) userSer: number): Promise<UserCommonDto>{
-        return new UserCommonDto();
+        return await this.prefsService.getUserCommon(userSer, 'friends');
     }
 
     @Put()

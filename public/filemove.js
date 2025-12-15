@@ -6,7 +6,7 @@ const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
 
 export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt){
-    for (listItem of jsnRes.delarr){
+    for (listItem of jsnRes.delarr ?? []){
         try{
             document.getElementById('item' + (listItem.timestamp ?? '') + listItem.id).remove();
             objCnt.numItemCnt--;
@@ -17,7 +17,7 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt
     fncPrintCnt();
     if (jsnRes.failmessage){
         showMessage(jsnRes.failmessage);
-    } else if (jsnRes.failed.length > 0){
+    } else if ((jsnRes.failed ?? []).length > 0){
         showMessage(msgNeg);
     } else {
         showMessage(msgPos);

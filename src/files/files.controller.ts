@@ -47,7 +47,7 @@ export class FilesController {
 
     @Get('loadmore') // files, shared, bookmarks, inbox, recycle
     async getFileMore(
-        @User(ParseIntPipe) userSer: number,
+        @User() userSer: number,
         @Query('startafter', ParseIntPipe) startAfter: number, // 0 for initial or others
         @Query('startaftertimestamp', new ParseDatePipe()) timestamp: Date, // 0 for initial or others
         @Query('dirid', ParseIntPipe) dirId: number, 
@@ -101,15 +101,15 @@ export class FilesController {
         let resDelFiles: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller permdelete', async (conn)=>{
             let arr = body.files.map((val)=>val.id);
-            await conn.execute<RowDataPacket[]>(
-                `update recycle set to_delete='true' where user_serial=? and fie_serial in ?`, [userSer, arr]);
+            await conn.query(
+                `update recycle set to_delete='true' where user_serial=? and fie_serial in (?)`, [userSer, arr]);
             while (arr.length > 0){
-                await conn.execute<RowDataPacket[]>(
-                    `update recycle set to_delete='true' where user_serial=? and parent_serial in ? and del_type='recursive' `,
+                await conn.query(
+                    `update recycle set to_delete='true' where user_serial=? and parent_serial in (?) and del_type='recursive' `,
                     [userSer, arr]
                 );
-                let [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial from recycle where user_serial=? and parent_serial in ? and type='dir' and del_type='recursive' `,
+                let [result] = await conn.query<RowDataPacket[]>(
+                    `select file_serial from recycle where user_serial=? and parent_serial in (?) and type='dir' and del_type='recursive' `,
                     [userSer, arr]
                 );
                 arr = result.map((val)=>val.file_serial);
@@ -285,17 +285,17 @@ export class FilesController {
         await this.mysqlService.doTransaction('files controller put share', async (conn, rb)=>{
             // verify that they are friends
             let fverbose = body.files.map(val=>[val.id, val.timestamp]);
-            let [result] = await conn.execute<RowDataPacket[]>(
-                `select user_serial_from from friend_mono where user_serial_to=? and user_serial from in ? for share`,
+            let [result] = await conn.query<RowDataPacket[]>(
+                `select user_serial_from from friend_mono where user_serial_to=? and user_serial from in (?) for share`,
                 [userSer, body.friends]
             );
             if (result.length < body.friends.length){throw new BadRequestException();}
             // verify that the files are valid
-            [result] = await conn.execute<RowDataPacket[]>(
-                `select file_serial from file where user_serial=? and (file_serial, last_renamed) in ? for share`, [userSer, fverbose]
+            [result] = await conn.query<RowDataPacket[]>(
+                `select file_serial from file where user_serial=? and (file_serial, last_renamed) in (?) for share`, [userSer, fverbose]
             );
-            let [result2] = await conn.execute<RowDataPacket[]>(
-                `select file_serial from shared_def where user_serial_to=? and (file_serial, last_renamed) in ? for share`, [userSer, fverbose]
+            let [result2] = await conn.query<RowDataPacket[]>(
+                `select file_serial from shared_def where user_serial_to=? and (file_serial, last_renamed) in (?) for share`, [userSer, fverbose]
             );
             if (result.length + result2.length < body.files.length){
                 rb.rback = true;
@@ -342,8 +342,8 @@ export class FilesController {
             let {retArr: arrSafe, arrFail, resName} = await this.filesService.moveFiles_validateFiles(conn, userSer, body.from, body.files.map(val=>[val.id, val.timestamp]));            
             
             // get the list of files with the same name in the destination
-            let [resDup] = await conn.execute<RowDataPacket[]>(
-                `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in ? for update`,
+            let [resDup] = await conn.query<RowDataPacket[]>(
+                `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
                 [userSer, body.to, resName]
             );
             // requset overwrite mode if needed
@@ -361,8 +361,8 @@ export class FilesController {
             // delete items to overwrite
             if (body.overwrite === 'buttonoverwrite'){
                 // get original items to overwrite
-                [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in ? for update`,
+                [result] = await conn.query<RowDataPacket[]>(
+                    `select file_serial from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
                     [userSer, body.to, resName]
                 );
                 // actually delete the items to overwrite
@@ -392,14 +392,14 @@ export class FilesController {
                 arrSafe.delete(arrDup[i]);
             }
             if (body.action === 'move'){
-                await conn.execute<RowDataPacket[]>(`update file set parent_serial=?, last_renamed=current_timestamp where user_serial=? and file_serial in ?`,
+                await conn.execute<RowDataPacket[]>(`update file set parent_serial=?, last_renamed=current_timestamp where user_serial=? and file_serial in (?)`,
                     [body.to, userSer, Array.from(arrSafe, val=>val[0])]
                 );
                 retVal.delarr = Array.from(arrSafe, val=>{return {id: val[0], timestamp: val[1].toISOString()};});
             } else { // copy
                 // duplication to the same dir cannot occur here: all duplications are handled in renamed file operations
-                await conn.execute(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
-                    select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in ?`,
+                await conn.query(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
+                    select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in (?)`,
                     [userSer, body.to, userSer, Array.from(arrSafe, val=>val[0])]
                 );
             }

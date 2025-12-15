@@ -1,6 +1,6 @@
 import {doFetch} from '/printmsg.js';
 import {loadNotificationDetails} from './notification.detail.js';
-import {fncRemoveItems} frin '/filemove.js';
+import {fncRemoveItems} from '/filemove.js';
 
 const list = document.getElementById('list');
 const lblItemCnt = document.getElementById('newItemCount');
@@ -38,7 +38,7 @@ async function fncLoadMore(){
 	if (items.length > 0){
 		idCurLast = items.at(-1).dataset.id;
 	}
-    await doFetch('/home/notifications/loadMore?last=' + idCurLast, 'GET', '', '', '로드 과정에 오류가 발생했습니다.', async function(result){
+    await doFetch('/home/notifications/loadmore?last=' + idCurLast, 'GET', '', '', '로드 과정에 오류가 발생했습니다.', async function(result){
         let jsnRes = await result.json();
 		unreadCnt += jsnRes.unreadCnt;
         for (const listItem of jsnRes.arr){
@@ -119,6 +119,9 @@ async function fncInitLoad(){
 {
     let tlbItem = document.getElementById('deleteAll');
     tlbItem.addEventListener('click', async function(){
+		if (list.children.length <= 0){
+			return;
+		}
         doFetch('./notifications/update', 'DELETE', JSON.stringify({action: 'all', first: list.children[0].dataset.id}), '삭제가 완료되었습니다.', '삭제에 오류가 발생했습니다.', async function(result){            
             const jsnRes = await result.json();
             if (jsnRes.failed.length > 0){

@@ -31,14 +31,14 @@ export class PrefsService {
         }
         retVal.username = String(result[0].name);
 
-        retVal.sideItem = [['/home', pageSel === 'home' ? '' : 'Sel', '/graphics/home.png', '홈']];
-        retVal.sideItem.push(['/files', pageSel === 'files' ? '' : 'Sel', '/graphics/files.png', '파일']);
+        retVal.sideItem = [['/home', pageSel === 'home' ? 'Sel' : '', '/graphics/home.png', '홈']];
+        retVal.sideItem.push(['/files', pageSel === 'files' ? 'Sel' : '', '/graphics/files.png', '파일']);
         if(result[0].side_bookmarks === 'true')
-            {retVal.sideItem.push(['/files/bookmarks', pageSel === 'bookmarks' ? '' : 'Sel', '/graphics/bookmarks.png', '즐겨찾기']);}
+            {retVal.sideItem.push(['/files/bookmarks', pageSel === 'bookmarks' ? 'Sel' : '', '/graphics/bookmarks.png', '즐겨찾기']);}
         if(result[0].side_shared === 'true')
-            {retVal.sideItem.push(['/files/shared', pageSel === 'shared' ? '' : 'Sel', '/graphics/shared.png', '공유']);}
-        retVal.sideItem.push(['/friends', pageSel === 'friends' ? '' : 'Sel', '/graphics/friends.png', '친구']);
-        retVal.sideItem.push(['/prefs', pageSel === 'prefs' ? '' : 'Sel', '/graphics/prefs.png', '설정']);
+            {retVal.sideItem.push(['/files/shared', pageSel === 'shared' ? 'Sel' : '', '/graphics/shared.png', '공유']);}
+        retVal.sideItem.push(['/friends', pageSel === 'friends' ? 'Sel' : '', '/graphics/friends.png', '친구']);
+        retVal.sideItem.push(['/prefs', pageSel === 'prefs' ? 'Sel' : '', '/graphics/prefs.png', '설정']);
         
         retVal.notificationCnt = await this.mongoService.getDb().collection('notification').countDocuments({to: userSer, read: false});
         retVal.countItem = 'false';

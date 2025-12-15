@@ -26,7 +26,7 @@ async function fncRename(){
     if (newName !== ''){
 		let jsonBody = {action: 'rename', sort: sortMode, id: Number(lblTitle.datset.id), file: Number(itemId), name: newName, timestamp: new Date(txtRename.dataset.timestamp)};
         await doFetch('./manage', 'PUT', JSON.stringify(jsonBody),
-			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async function(result){
+			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async (result)=>{
 			const jsnRes = await result.json();
 				if (jsnRes.expired){
 					return '창을 새로고침(Ctrl+R)한 후 다시 시도해 주십시오.';
@@ -43,12 +43,12 @@ async function fncRename(){
     }
 }
 txtRename.addEventListener('focusout', fncRename);
-txtRename.addEventListener('keyup', async function(event){
+txtRename.addEventListener('keyup', async (event)=>{
     if (event.key === 'Enter'){
         fncRename(event);
     }
 });
-txtRename.addEventListener('input', function(event){
+txtRename.addEventListener('input', (event)=>{
 	event.target.value = event.target.value.slice(0, 40);
 });
 
@@ -57,7 +57,7 @@ function fncPrintCnt(){
 }
 
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
-    const strHtml = function(listItem){
+    const strHtml = (listItem)=>{
         return `
         <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
         <input class='listItemChkbox listItemCol' type='checkbox'><!-
@@ -75,7 +75,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('selectAll');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         let allchecked = true;
         for (const listItem of list.children){
             if (!listItem.firstElementChild.checked){
@@ -96,7 +96,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('upload');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         divPopup.style.display = 'block';
 		divPopup.appendChild(document.createElement('h1').innerText = '파일 업로드\n');
 		divPopup.appendChild(document.createElement('p').innerText = '업로드할 파일을 선택하십시오. 파일은 100개 까지만 한 번에 업로드할 수 있습니다.');
@@ -107,7 +107,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         
         const cmdOK = fncCreateOKCancel(divPopup);
         
-        cmdOK.addEventListener('click', async function(){
+        cmdOK.addEventListener('click', async ()=>{
 			if (ctlFile.files.length <= 0 || ctlFile.files.length > 20){
 				alert('파일이 선택되지 않았거나 20개를 초과하여 선택되었습니다.');
 				return;
@@ -116,7 +116,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			for (const itm of ctlFile.files){
 				dat.append('file', itm);
 			}
-            await doFetch('./manage?id=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async function(result){
+            await doFetch('./manage?id=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async (result)=>{
 				fncClearPopup(divPopup);
                 const jsnRes = await result.json();
                 return await fncInsertFile(jsnRes, false, '업로드를 완료했습니다.', '업로드에 실패한 파일이 있습니다.');
@@ -127,14 +127,16 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('download');
-    tlbItem.addEventListener('click', function(){
-        open('./download', '_blank', 'popup=true');
-    });
+	if (tlbItem){
+		tlbItem.addEventListener('click', ()=>{
+			open('./download', '_blank', 'popup=true');
+		});
+	}
 }
 
 {
     let tlbItem = document.getElementById('rename');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         let divSelected = null;
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
@@ -160,11 +162,11 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('delete');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: new Date(listItem.dataset.timestamp));
+                lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: new Date(listItem.dataset.timestamp)});
             }
         }
 		let idCurLast = {id: '0', timestamp: new Date()};
@@ -174,9 +176,9 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 		}
         if (lstDeleteName.length > 0){
 			let fncFetch;
-			fncFetch = async function(){
+			fncFetch = async ()=>{
 				await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', last: idCurLast, sort: sortMode, from: Number(lblTitle.dataset.id), files: lstDeleteName, timestamp: lblTitle.dataset.timestamp}), 
-				'', '삭제에 오류가 발생했습니다.', async function(result){
+				'', '삭제에 오류가 발생했습니다.', async (result)=>{
 					const jsnRes = await result.json();
 					if (jsnRes.expired){
 						if (confirm('현재 창이 표시된 이후 폴더의 위치나 이름이 바뀌었습니다.\n'
@@ -198,53 +200,53 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('share');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
 		await fncShare(divPopup, list);
     });
 }
 
 {
     let tlbItem = document.getElementById('copy');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', async ()=>{
         await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite, './manage', 'POST');
     });
 }
 
 {
     let tlbItem = document.getElementById('move');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', async ()=>{
         await fncCopyMove('move', '이동을 완료했습니다.', '이동을 실패했습니다.', '이동되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite);
     });
 }
 
 {
     let tlbItem = document.getElementById('createDir');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
         let strName = '';
 		while ((strName = prompt('폴더의 이름을 입력하십시오.', strName)).length > 40){
 			alert('폴더의 이름은 40자를 넘을 수 없습니다.');
 		}
         if (strName){
-            await doFetch('./manage', 'PUT', JSON.stringify({action: 'createDir', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp}), '', '파일 추가에 실패했습니다.', async function(result){
+            await doFetch('./manage', 'PUT', JSON.stringify({action: 'createDir', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp)}), '', '파일 추가에 실패했습니다.', async (result)=>{
                 const jsnRes = await result.json();
 				if (jsnRes.alreadyExists){
 					showMessage('이미 존재하는 파일 이름입니다.');
 				}
                 return await fncInsertFile(jsnRes, false, '', '폴더 추가에 실패했습니다.');
-            })
+            });
         }
     });
 }
 
 {
     let tlbItem = document.getElementById('createFile');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
         let strName = '';
 		while ((strName = prompt('파일의 이름을 입력하십시오.', strName)).length > 40){
 			alert('파일의 이름은 40자를 넘을 수 없습니다.');
 		}
         if (strName){
-            await doFetch('./manage', 'PUT', JSON.stringify({action: 'createFile', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp)}), '', '파일 추가에 실패했습니다.', async function(result){
+            await doFetch('./manage', 'PUT', JSON.stringify({action: 'createFile', sort: sortMode, id: Number(lblTitle.dataset.id), name: strName, timestamp: new Date(lblTitle.dataset.timestamp)}), '', '파일 추가에 실패했습니다.', async (result)=>{
                 const jsnRes = await result.json();
 				if (jsnRes.alreadyExists){
 					showMessage('이미 존재하는 파일 이름입니다.');

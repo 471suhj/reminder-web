@@ -25,7 +25,7 @@ export class HomeController {
         
     private readonly logger = new Logger(HomeController.name);
 
-    private getHome_listFile(i, itm: any, arrFile: HomeGetDto['homelist'][number]['itemList']){
+    private getHome_listFile(i: number, itm: any, arrFile: HomeGetDto['homeList'][number]['itemList']){
         let isFile = itm.type === 'file' || itm.type === undefined;
         let link = '';
         if (itm.issys === 'true'){ // false if undefined (for shared_defs)
@@ -45,7 +45,7 @@ export class HomeController {
     @Render('home/home')
     async getHome(@User() userSer: number): Promise<HomeGetDto>{
         let retVal = new HomeGetDto();
-        retVal.homelist = [];
+        retVal.homeList = [];
         let sections: {[k: string]: 'true'|'false'} = {};
         await this.mysqlService.doQuery('home controller get home', async conn=>{
             let [result] = await conn.execute<RowDataPacket[]>(
@@ -60,23 +60,23 @@ export class HomeController {
                     `select file_serial, file_name, type, issys from bookmark where reader=? order by ${crit} limit 7`,
                     [userSer]
                 );
-                const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                 for (let i = 0; i < result.length; i++){
                     this.getHome_listFile(i, result[i], arrFile);
                 }
-                retVal.homelist.push({title: '바로 가기', link: '/files/bookmarks', itemList: arrFile});
+                retVal.homeList.push({title: '즐겨 찾기', link: '/files/bookmarks', itemList: arrFile});
             }
             if (sections.home_files === 'true'){
                 if (sections.save_recent === 'true'){
                     [result] = await conn.execute<RowDataPacket[]>(
-                        `select file_serial, file_name, type, issys from file where user_serial=? order by last_opened desc limit 7`,
+                        `select file_serial, file_name, type, issys from file where user_serial=? and issys='false' order by last_opened desc limit 7`,
                         [userSer]
                     );
-                    const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                    const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                     for (let i = 0; i < result.length; i++){
                         this.getHome_listFile(i, result[i], arrFile);
                     }
-                    retVal.homelist.push({title: '최근 파일', link: '/files', itemList: arrFile});
+                    retVal.homeList.push({title: '최근 파일', link: '/files', itemList: arrFile});
                 }
             }
             if (sections.home_shared === 'true'){
@@ -85,11 +85,11 @@ export class HomeController {
                     `select file_serial, file_name from shared_def where user_serial_to=? order by ${crit} limit 7`,
                     [userSer]
                 );
-                    const arrFile: HomeGetDto['homelist'][number]['itemList'] = [];
+                    const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                     for (let i = 0; i < result.length; i++){
                         this.getHome_listFile(i, result[i], arrFile);
                     }
-                retVal.homelist.push({title: '공유된 파일', link: '/files/shared', itemList: arrFile});
+                retVal.homeList.push({title: '공유된 파일', link: '/files/shared', itemList: arrFile});
             }
         });
         if (sections.home_notifs === 'true'){
@@ -100,12 +100,13 @@ export class HomeController {
                 let sort: {[k: string]: 1|-1} = {time: -1};
                 let fields = {id: 1, prevText: 1};
                 cur = dbNof.find(query).sort(sort).limit(7).project(fields);
-                let arrList: HomeGetDto['homelist'][number]['itemList'] = [];
+                let arrList: HomeGetDto['homeList'][number]['itemList'] = [];
                 let i = 0;
                 for await (const itm of cur){
                     arrList.push([i % 2 ? 'A' : 'B', i, itm.prevText, 'notif', '/home/notifications/' + itm.id]);
                 }
                 await cur.close();
+                retVal.homeList.push({title: '알림', link: '/home/notifications', itemList: arrList});
             } catch (err) {
                 this.logger.log(err);
                 try{await cur!.close();}catch{}
@@ -146,18 +147,7 @@ export class HomeController {
         return retVal;
     }
 
-    @Get('notifications/:id')
-    async getNotifDetails(@User() userSer: number, @Param('id') id: string): Promise<string>{
-        let res = await this.mongoService.getDb().collection('notification')
-            .findOne({to: userSer, _id: new ObjectId(id)}, {projection: {type: 1, data: 1}});
-        if (res === null){
-            return '해당 알림의 정보를 찾을 수 없었습니다.';
-        }
-        return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toISOString());
-
-    }
-
-    @Get("notifications/loadMore")
+    @Get("notifications/loadmore")
     async getNotifMore(@User() userSer: number, @Query('last') last: string): Promise<NotifMoreDto> {
         let retVal = new NotifMoreDto();
         let result: Document[] = [];
@@ -165,7 +155,7 @@ export class HomeController {
         // get count
         if (last === undefined){throw new BadRequestException();}
         let query: any = {to: userSer};
-        if (last !== ''){
+        if (last !== '0'){
             query._id = {$lt: new ObjectId(last)};
             retVal.unreadCnt = 0;
         } else {
@@ -178,10 +168,12 @@ export class HomeController {
         result = await cur.toArray();
         await cur.close();
         // mark as read
-        query.time = {$lte: result[0]._id}; // as a way to achieve repeatable read
-        query.read = false;
-        let update = {$set: {read: true}};
-        await dbNof.updateMany(query, update);
+        if (result.length > 0){
+            query.time = {$lte: result[0]._id}; // as a way to achieve repeatable read
+            query.read = false;
+            let update = {$set: {read: true}};
+            await dbNof.updateMany(query, update);
+        }
         // deal with the results
         retVal.loadMore = (result.length > 20) ? 'true' : 'false';
         if (result.length > 20){
@@ -201,4 +193,16 @@ export class HomeController {
 
         return retVal;
     }
+
+    @Get('notifications/:id')
+    async getNotifDetails(@User() userSer: number, @Param('id') id: string): Promise<string>{
+        let res = await this.mongoService.getDb().collection('notification')
+            .findOne({to: userSer, _id: new ObjectId(id)}, {projection: {type: 1, data: 1}});
+        if (res === null){
+            return '해당 알림의 정보를 찾을 수 없었습니다.';
+        }
+        return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toISOString());
+
+    }
+
 }

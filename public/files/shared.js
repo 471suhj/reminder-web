@@ -20,8 +20,8 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
 }
 
-function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
-    const strHtml = function(listItem){
+async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
+    const strHtml = (listItem)=>{
         return `
         <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
@@ -39,7 +39,7 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('selectAll');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         let allchecked = true;
         for (const listItem of list.children){
             if (!listItem.firstElementChild.checked){
@@ -60,28 +60,28 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('download');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         open('./download', '_blank', 'popup=true');
     });
 }
 
 {
     let tlbItem = document.getElementById('share');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
 		await fncShare(divPopup, list);
     });
 }
 
 {
     let tlbItem = document.getElementById('up');
-    tlbItem.addEventListener('click', async function(){
+    tlbItem.addEventListener('click', async ()=>{
         window.location.href = '/files'
     })
 }
 
 {
     let tlbItem = document.getElementById('delete');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', ()=>{
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
@@ -99,7 +99,7 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         divPopup.appendChild('p').innerText = '전송할 메시지를 입력하십시오.';
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         const cmdOK = fncCreateOKCancel(divPopup);
-        cmdOK.addEventListener('click', async function(){
+        cmdOK.addEventListener('click', async ()=>{
 		let idCurLast = {id: '0', timestamp: new Date()};
 		if (list.children.length !== 1){
 			idCurLast.id = list.children[list.children.length - 2].dataset.id;
@@ -108,7 +108,7 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 		const jsonBody = {action: 'unshare', last: idCurLast, sort: sortMode, files: lstDeleteName, message: txtMsg.value};
 		fncClearPopup(divPopup);
 			await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
-			'', '공유 취소에 오류가 발생했습니다.', async function(result){
+			'', '공유 취소에 오류가 발생했습니다.', async (result)=>{
 				const jsnRes = await result.json();
 				let objCnt = {numItemCnt};
 				await fncRemoveItems(jsnRes, fncPrintCnt, '공유 취소에 실패한 항목이 있습니다.', '공유 취소가 완료되었습니다.', objCnt);
@@ -120,7 +120,7 @@ function async fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('copy');
-    tlbItem.addEventListener('click', function(){
+    tlbItem.addEventListener('click', async ()=>{
         await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 않은 파일이 있습니다.', divPopup, list, dlgOverwrite);
     });
 }
