@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsDate, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDate, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
 import { FileIdentReqDto } from "./file-ident-req.dto";
@@ -15,6 +15,7 @@ export class FileMoveDto {
     @IsIn(['move', 'copy'])
     action: 'move'|'copy';
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>SortModeDto)
     sort: SortModeDto;
@@ -35,7 +36,7 @@ export class FileMoveDto {
     to: number;
 
     @IsBoolean()
-    ignoreTimpstamp: boolean;
+    ignoreTimestamp: boolean;
 
     @IsInt()
     last: number;

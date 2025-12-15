@@ -43,7 +43,7 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid, dirmode){
         fncPrintCnt();
         if (jsnRes.loadMore === false) {
             lblLoadMore.style.display = 'none';
-            document.body.appendChild(lblLoadMore);
+            //document.body.appendChild(lblLoadMore);
         }
         return;
     });
@@ -60,7 +60,7 @@ export function fncAutoloadSetup(fncInsertFile, fncPrintCnt, dirid, dirmode){
     });
 
     document.addEventListener('scroll', async function(){
-        if (lblLoadMore.parentNode && (lblLoadMore.dataset.isbutton === 'true') && (document.body.scrollHeight - 45 - lblLoadMore.scrollHeight <= window.innerHeight + window.scrollY)){
+        if (lblLoadMore.style.display !== 'none' && (lblLoadMore.dataset.isbutton === 'true') && (document.body.scrollHeight - 45 - lblLoadMore.scrollHeight <= window.innerHeight + window.scrollY)){
             fncLoadMore(fncInsertFile, fncPrintCnt, dirid, globdirmode);
         }
     });

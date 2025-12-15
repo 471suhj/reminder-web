@@ -1,7 +1,7 @@
-import { ViewColumn, ViewEntity } from "typeorm";
+import { PrimaryColumn, ViewColumn, ViewEntity } from "typeorm";
 
 @ViewEntity({
-    name: 'bookmark',
+    name: 'friend_mul',
     expression:`
     select friend_mono.user_serial_to, friend_mono.user_serial_from, friend.date_added, friend_mono.nickname
     from friend inner join friend_mono using (user_serial_to, user_serial_from)
@@ -13,10 +13,10 @@ import { ViewColumn, ViewEntity } from "typeorm";
 })
 export class Efriend_mul{
 
-    @ViewColumn()
+    @PrimaryColumn()
     user_serial_to: number;
 
-    @ViewColumn()
+    @PrimaryColumn()
     user_serial_from: number;
 
     @ViewColumn()

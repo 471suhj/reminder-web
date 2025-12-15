@@ -97,6 +97,8 @@ export class PrefsController {
         let retVal = new SuccDto();
         retVal.success = true;
         try{
+            // use stream instead of buffer
+            throw new InternalServerErrorException();
             await sharp(file.buffer).resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}).toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
         } catch (err) {
             this.logger.log('error while converting profile image. see below.');

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
-import { RowDataPacket, Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
+import mysql, { RowDataPacket, Pool, PoolConnection, ResultSetHeader, Connection } from 'mysql2/promise';
 import { FilesGetDto } from './files-get.dto';
 import { PrefsService } from 'src/prefs/prefs.service';
 import { SysdirType } from './sysdir.type';
@@ -29,7 +29,6 @@ import { Document } from 'mongodb';
 import { Readable } from 'node:stream';
 import fs, { FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 
 @Injectable()
 export class FilesService {
@@ -85,7 +84,7 @@ export class FilesService {
     }
 
     // includes user verification
-    async getDirInfo(userSer: number, fileId: number)
+    async getDirInfo(conn: Connection, userSer: number, fileId: number)
     : Promise<{path: string, pathHtml: string, parentId: number, dirName: string, lastRenamed: Date}>{
         let path = '';
         let pathHtml = '';
@@ -95,40 +94,32 @@ export class FilesService {
         let cont = true;
         let result: RowDataPacket[];
         let curId = fileId;
-        let accessErr = false;
-        await this.mysqlService.doTransaction('files service getPath', async (conn, rb)=>{
-            while (cont){
-                let firstReq = true;
-                [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
-                    'select parent_serial, file_name, last_renamed from file where user_serial=? and file_serial=? for share', [userSer, fileId]);
-                if (result.length <= 0) {
-                    if (firstReq){
-                        rb.rback = true;
-                        accessErr = true;
-                        return;
-                    } else {
-                        throw new Error('result is empty');
-                    }
-                }
+        while (cont){
+            let firstReq = true;
+            [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
+                'select parent_serial, file_name, last_renamed from file where user_serial=? and file_serial=? for share', [userSer, fileId]);
+            if (result.length <= 0) {
                 if (firstReq){
-                    parentId = Number(result[0].parent_serial);
-                    dirName = String(result[0].file_name);
-                    lastRenamed = result[0].last_renamed;
-                }
-                path = result[0].file_name + path;
-                pathHtml = `<a class="addrLink" href="/files?dirid=${curId}">${result[0].file_name}</a>`+ pathHtml;
-                if (Number(result[0].parent_serial) === curId){
-                    cont = false;
+                    throw new BadRequestException();
                 } else {
-                    path = '/' + path;
-                    pathHtml = '/' + pathHtml;
-                    curId = Number(result[0].parent_serial);
-                    firstReq = false;
+                    throw new Error('result is empty');
                 }
             }
-        });
-        if (accessErr){
-            throw new BadRequestException();
+            if (firstReq){
+                parentId = Number(result[0].parent_serial);
+                dirName = String(result[0].file_name);
+                lastRenamed = result[0].last_renamed;
+            }
+            path = result[0].file_name + path;
+            pathHtml = `<a class="addrLink" href="/files?dirid=${curId}">${result[0].file_name}</a>`+ pathHtml;
+            if (Number(result[0].parent_serial) === curId){
+                cont = false;
+            } else {
+                path = '/' + path;
+                pathHtml = '/' + pathHtml;
+                curId = Number(result[0].parent_serial);
+                firstReq = false;
+            }
         }
         return {path, pathHtml, parentId, dirName, lastRenamed};
     }
@@ -136,16 +127,20 @@ export class FilesService {
     async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetDto>{
         let retObj: FilesGetDto = new FilesGetDto();
         // includes user verification
-        const {path, pathHtml, parentId, dirName, lastRenamed} = await this.getDirInfo(userSer, dirid);
-        
-        retObj.countItem = 'false';
-        retObj.path = path;
-        retObj.uplink = '/files?dirid=' + String(parentId);
-        retObj.dirName = dirName;
-        retObj.dirPath = pathHtml;
-        retObj.dirId = dirid;
-        retObj.timestamp = lastRenamed.toISOString();
-
+        try{
+            const {path, pathHtml, parentId, dirName, lastRenamed} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
+            retObj.countItem = 'false';
+            retObj.path = path;
+            retObj.uplink = '/files?dirid=' + String(parentId);
+            retObj.dirName = dirName;
+            retObj.dirPath = pathHtml;
+            retObj.dirId = dirid;
+            retObj.timestamp = lastRenamed.toISOString();
+        } catch (err) {
+            this.logger.error('renderFilesPage. see below.');
+            console.log(err);
+            throw new InternalServerErrorException();
+        }
         retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, 'files'))};
         return retObj;
     }
@@ -170,7 +165,7 @@ export class FilesService {
     }
 
     async checkTimestamp(conn: PoolConnection, userSer: number, fileSer: number, time: Date, mode?: 'dir'|'file'){
-        let str1 = `select file_serial from file where user_serial=? and fileSer=? and last_renamed=? `
+        let str1 = `select file_serial from file where user_serial=? and file_serial=? and last_renamed=? `
         if (mode === 'dir'){
             str1 += `and type='dir' `;
         } else if (mode === 'file'){
@@ -183,7 +178,7 @@ export class FilesService {
     }
 
     async checkAccess(conn: PoolConnection, userSer: number, fileSer: number, mode?: 'dir'|'file', nosys?: 'true'|'fileonly'){
-        let str1 = `select file_serial from file where user_serial=? and fileSer=? `;
+        let str1 = `select file_serial from file where user_serial=? and file_serial=? `;
         if (mode === 'dir'){
             str1 += `and type='dir' `;
         } else if (mode === 'file'){
@@ -227,7 +222,6 @@ export class FilesService {
             let result = await manager.find(Efile, {
                 where: {
                     user_serial: userSer,
-                    parent_serial: dir,
                     file_serial: dir
                 }
             });
@@ -714,7 +708,7 @@ export class FilesService {
     private async deleteFiles_validity(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]){
         let arr = arr_.slice(0);
         let str1 = `select file_serial as id, last_renamed as timestamp from file `;
-        str1 += `where user_serial=? and (file_serial,last_renamed) in (?)) `;
+        str1 += `where user_serial=? and (file_serial,last_renamed) in (?) `;
         str1 += 'for update';
         let arr2 = arr.map((val)=>(val.timestamp.toISOString() + val.id));
         let retArr: Array<[number, string]> = [];
@@ -734,7 +728,7 @@ export class FilesService {
     private async deleteFiles_mark(conn: PoolConnection, userSer: number, arr_: readonly [number, string][]){
         let arr = new Map(arr_);
         let str1 = `update file set to_delete='direct' `;
-        str1 += `where user_serial=? and file_serial in (?) `;
+        str1 += `where user_serial=? and issys='false' and file_serial in (?) `;
         // str1 += 'for update';
         await conn.query<RowDataPacket[]>(
             str1, [userSer, Array.from(arr.keys())]
@@ -757,7 +751,7 @@ export class FilesService {
     private async deleteFiles_recurse(conn: PoolConnection, userSer: number, arr_: readonly number[]){
         let arr = arr_.slice();
         let str1 = `update file set to_delete='recursive' `;
-        str1 += `where user_serial=? and parent_serial in (?) `;
+        str1 += `where user_serial=? and issys='false' and parent_serial in (?) `;
         await conn.query(str1, [userSer, arr]);
 
         str1 = `select file_serial as id from file `;
@@ -810,10 +804,10 @@ export class FilesService {
         arrFail.push(...arrFail2);
         result = Array.from(arr.keys());
         while (result.length > 0) {
-            [result] = await this.deleteFiles_recurse(conn, userSer, result);
+            result = await this.deleteFiles_recurse(conn, userSer, result);
         }
         await this.deleteFiles_removeShares(conn, userSer);
-        const { path } = await this.getDirInfo(userSer, from);
+        const { path } = await this.getDirInfo(conn, userSer, from);
         if (path.length > 255 && rb !== 'force'){ // too long and not force
             rb.rback = true;
             let retVal = new FileDelResDto();
@@ -993,14 +987,14 @@ export class FilesService {
         let arr2 = arr.map((val)=>val.id);
         // fetch names and other info
         let str1 = `select file_serial, parent_path, file_name, type from recycle `;
-        str1 += `where user_serial=? and (file_serial, file_timestamp) in (?) order by parent_path `;
+        str1 += `where user_serial=? and (file_serial, last_renamed) in (?) order by parent_path `;
         str1 += 'for update';
         let [result] = await conn.query<RowDataPacket[]>(
             str1, [userSer, arr.map((val)=>[val.id, val.timestamp])]
         );
         // make path (call makepath), and check for name clashes
         str1 = `select file_serial from file `;
-        str1 += `where user_serial=? and parent_serial=? and file_type=? and file_name=? `;
+        str1 += `where user_serial=? and parent_serial=? and type=? and file_name=? `;
         str1 += 'for update';
         let curPath = '';
         let dirid: number;
@@ -1447,9 +1441,8 @@ export class FilesService {
         let objDoc = new FiledatColDto();
         const tmpVar = {buf: '', phase: 'M', idx: -1};
         objDoc.serial = fileSer;
-        const md = promisify(fs.mkdir);
         const dirpath = join(__dirname, `../../${fileSer}`);
-        await md(dirpath, {});
+        await fs.mkdir(dirpath, {});
         try{
             stream.on('readable', async ()=>{
                 let chunk: string|Buffer;
@@ -1516,7 +1509,7 @@ export class FilesService {
         }
     }
 
-    async createFile(conn: PoolConnection, userSer: number, parent: number, name: string){
+    async createFile(conn: PoolConnection, userSer: number, parent: number, name: string, sort: SortModeDto){
         if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
@@ -1555,11 +1548,11 @@ export class FilesService {
             ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
         }]
+        await this.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
         const arrDocs: FiledatColDto[] = [];
-        const md = promisify(fs.mkdir);
         for (const itm of retVal.addarr){
-            const dirpath = join(__dirname, `../../${itm.id}`);
-            await md(dirpath, {});
+            const dirpath = join(__dirname, `../../filesys/${itm.id}`);
+            await fs.mkdir(dirpath, {});
             await (await fs.open(join(dirpath, '1'), 'wx')).close();
             arrDocs.push({arrlen: 1, metadata: {}, serial: itm.id, type: 'rmb0.3'});
         }
@@ -1567,7 +1560,7 @@ export class FilesService {
         return retVal;
     }
 
-    async createDir(conn: PoolConnection, userSer: number, parent: number, name: string){
+    async createDir(conn: PoolConnection, userSer: number, parent: number, name: string, sort: SortModeDto){
         if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
@@ -1598,14 +1591,15 @@ export class FilesService {
         retVal.addarr = [{
             link: `/files?dirid=${result.insertId}`,
             id: result.insertId,
-            isFolder: false,
+            isFolder: true,
             text: name,
             bookmarked: false,
             shared: '',
             date: result2[0].last_modified.toISOString(),
             ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
-        }]
+        }];
+        await this.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
         return retVal;
     }
 
@@ -1669,13 +1663,12 @@ export class FilesService {
     }
 
     async resolveBefore<T extends {id: number, before?: FileIdentResDto}>(
-        userSer: number, sort: SortModeDto, files_: readonly T[],
+        conn: Connection, userSer: number, sort: SortModeDto, files_: readonly T[],
         mode: 'files'|'profile', parent?: number, friend?: number
     ){
         let mapRes = new Map<number, FileIdentResDto>();
         let files = files_.slice();
         let filearr = files.map(val=>val.id);
-        await this.mysqlService.doQuery('resolvelbefore', async (conn)=>{
             if (mode === 'files' && parent === undefined){throw new BadRequestException();}
             if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
             let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
@@ -1691,17 +1684,16 @@ export class FilesService {
                 source += `inner join file using (file_serial)`;
                 arrParam = [userSer, friend!, friend!, userSer, filearr]
             } else {throw new BadRequestException();}
-            let str1 = `select lead(file_serial, 1, 0) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
+            let str1 = `select lead(file_serial, 1, -1) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
             str1 += source;
-            str1 += `where file_serial in (?) `;
+            str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
+            str1 += 'for share'; // ignored for autocommits
             let [result] = await conn.query<RowDataPacket[]>(
                 str1, arrParam
             );
             for (let i = 0; i < result.length; i++){
-                if (result[i].pserial === 0){continue;}
-                mapRes.set(result[i].file_serial, {id: result[i].pserial, timestamp: result[i].ptime.toISOString()});
+                mapRes.set(result[i].file_serial, {id: result[i].pserial, timestamp: result[i].ptime});
             }
-        });
         for (let i = 0; i < files.length; i++){
             files[i].before = mapRes.get(files[i].id);
         }
@@ -1713,9 +1705,9 @@ export class FilesService {
             `insert into file (user_serial, parent_serial, type, issys, file_name)
             values (?, 1, 'dir', 'true', 'files'), (?, 1, 'dir', 'true', 'upload_tmp')`, [user_serial, user_serial]
         );
-        await conn.execute<RowDataPacket[]>(
-            'update file set parent_serial=file_serial where user_serial=?', [user_serial]
-        );
+        // await conn.execute<RowDataPacket[]>(
+        //     'update file set parent_serial=file_serial where user_serial=?', [user_serial]
+        // );
         let [result] = await conn.execute<RowDataPacket[]>(
             `select file_serial from file where user_serial=? and file_name='files' for share`, [user_serial]
         );

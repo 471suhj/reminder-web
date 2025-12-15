@@ -1,4 +1,4 @@
-import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
+import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, Redirect } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 import { FilesGetDto } from './files-get.dto';
@@ -19,6 +19,8 @@ import { InboxSaveDto } from './inbox-save.dto';
 import { FiledatColDto } from 'src/mongo/filedat-col.dto';
 import { MongoService } from 'src/mongo/mongo.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import fs from 'node:fs/promises';
+import { join } from 'node:path';
 
 @Controller('files')
 export class FilesController {
@@ -38,6 +40,10 @@ export class FilesController {
         }
         return await this.filesService.renderFilesPage(userSer, dirid);
     }
+
+    @Get('files')
+    @Redirect('/files')
+    redirectFiles(){}
 
     @Get('inbox')
     @Render('files/files')
@@ -102,7 +108,7 @@ export class FilesController {
         await this.mysqlService.doTransaction('files controller permdelete', async (conn)=>{
             let arr = body.files.map((val)=>val.id);
             await conn.query(
-                `update recycle set to_delete='true' where user_serial=? and fie_serial in (?)`, [userSer, arr]);
+                `update recycle set to_delete='true' where user_serial=? and file_serial in (?)`, [userSer, arr]);
             while (arr.length > 0){
                 await conn.query(
                     `update recycle set to_delete='true' where user_serial=? and parent_serial in (?) and del_type='recursive' `,
@@ -129,6 +135,9 @@ export class FilesController {
         const arrMongo = resDelFiles.map(val=>val.file_serial);
         for (let i = 0; i < limit; i++){
             await this.mongoService.getDb().collection('file_data').deleteMany({serial: {$in: arrMongo.slice(80 * i, 80 * (i + 1))}});
+        }
+        for (const itm of retVal.delarr.map(val=>val.id)){
+            await fs.rm(join(__dirname, `../../filesys/${itm}`), {force: true, recursive: true});
         }
         return retVal;
     }
@@ -158,13 +167,13 @@ export class FilesController {
         if (body.action === 'createDir'){
             let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
-                retVal = await this.filesService.createDir(conn, userSer, body.id, body.name);
+                retVal = await this.filesService.createDir(conn, userSer, body.id, body.name, body.sort);
             });
             return retVal!;
         } else if (body.action === 'createFile'){
             let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
-                retVal = await this.filesService.createFile(conn, userSer, body.id, body.name);
+                retVal = await this.filesService.createFile(conn, userSer, body.id, body.name, body.sort);
             });
             return retVal!;
         } else if (body.action === 'rename'){
@@ -179,7 +188,7 @@ export class FilesController {
 
     @Post('manage')
     @UseInterceptors(FilesInterceptor('file', 100))
-    async uploadFile(@User(ParseIntPipe) userSer: number, @UploadedFiles() arrFile: Express.Multer.File[]){
+    async uploadFile(@User() userSer: number, @UploadedFiles() arrFile: Express.Multer.File[]){
         if (arrFile.length > 100 || arrFile.length <= 0){
             throw new BadRequestException();
         }
@@ -190,7 +199,7 @@ export class FilesController {
         for (const itm of arrFile){
             let res: RowDataPacket[] = [];
             await this.mysqlService.doTransaction('files controller post manage', async conn=>{
-                await conn.execute(`delete file where user_serial=? and parent_serial=?`, [userSer, dir]);
+                await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
                 await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
                     [userSer, dir, itm.originalname.length > 4 ? itm.originalname.slice(0, -4) : itm.originalname]
                 );
@@ -208,7 +217,7 @@ export class FilesController {
             }
             await this.mysqlService.doTransaction('files controller post manage', async conn=>{
                 let {failed} = await this.copyMoveFile(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
-                    from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimpstamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
+                    from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
                 if (failed.length <= 0){
                     let [res2] = await conn.execute<RowDataPacket[]>(`select * from file where file_serial=?`, [res[0].file_serial]);
                     retVal.addarr.push({date: res2[0].last_modified, id: res2[0].file_serial, isFolder: false, text: res2[0].file_name,
@@ -223,15 +232,39 @@ export class FilesController {
         return retVal;
     }
 
-    // delete from files, bookmarks and shared
-    @Delete('manage') // do not delete system dirs
-    async deleteFile(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    //@Delete('bookmark')
+    async deleteBookmark(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
         switch (body.action){
             case 'bookmark': strMode = 'bookmarks'; break;
+            default: throw new BadRequestException();
+        }
+        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+            body.sort, strMode, body.from);
+        let retVal = new FileDelResDto();
+        retVal.delarr = [];
+        retVal.failed = [];
+        await this.mysqlService.doTransaction('files controller delete manage', async (conn, rb)=>{
+            switch (body.action){
+                case 'bookmark':
+                    retVal = await this.filesService.removeBookmark(conn, userSer, body.files);
+                    return;
+                default:
+                    throw new BadRequestException();
+                }
+        });
+        return retVal;
+    }
+
+    // delete from files, bookmarks and shared
+    @Delete(['manage', 'bookmark']) // do not delete system dirs
+    async deleteFile(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
+        switch (body.action){
             case 'permdel': case 'restore': strMode = 'recycle'; break;
             case 'selected': strMode = 'files'; break;
             case 'unshare': strMode = 'shared'; break;
+            case 'bookmark': strMode = 'bookmarks'; break;
             default: throw new BadRequestException();
         }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
@@ -243,7 +276,7 @@ export class FilesController {
             switch (body.action){
                 case 'selected':
                     if (!body.timestamp || !body.from){throw new BadRequestException();}
-                    if (await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
+                    if (!body.ignoreTimestamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
                         retVal.expired = true;
                         rb.rback = true;
                         return;
@@ -307,9 +340,14 @@ export class FilesController {
             }
             retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode);
         });
-        if (body.sort !== undefined){
-            retVal!.addarr = await this.filesService.resolveBefore(userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
-        }
+        try{
+            if (body.sort !== undefined){
+                retVal!.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
+            }
+        } catch (err) {
+            this.logger.error(err);
+            throw new InternalServerErrorException();
+        } 
         return retVal!;
     }
 
@@ -323,7 +361,7 @@ export class FilesController {
         let resAdded: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
             if (!body.timestamp){throw new BadRequestException();}
-            if (!body.ignoreTimpstamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
+            if (!body.ignoreTimestamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
                 rb.rback = true;
                 retVal.expired = true;
                 return;
@@ -421,7 +459,12 @@ export class FilesController {
         });
         // do not use here
         await this.filesService.copyMongo(resAdded.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
-        retVal.addarr = await this.filesService.resolveBefore(userSer, body.sort, retVal.addarr, 'files', body.from);
+        try{
+            retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
+        } catch (err) {
+            this.logger.error(err);
+            throw new InternalServerErrorException();
+        }
         return retVal;
     }
 

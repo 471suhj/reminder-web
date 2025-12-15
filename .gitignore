@@ -8,6 +8,10 @@ pfx_pass.env
 /node_modules
 /build
 
+# service oparational files
+/filesys
+/userfiles
+
 # Logs
 logs
 *.log

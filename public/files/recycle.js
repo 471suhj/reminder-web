@@ -19,7 +19,7 @@ function fncPrintCnt(){
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = function(listItem){
         return `
-        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listITem.timestamp}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
             ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' style='display:none'></div><!-
             ><div class='listItemText listItemCol'>${listItem.text}</div><!-
@@ -60,12 +60,12 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.dataset.id);
+                lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: listItem.dataset.timestamp});
             }
         }
-		let idCurLast = {id: '0', timestamp: new Date()};
+		let idCurLast = {id: 0, timestamp: new Date()};
 		if (list.children.length !== 1){
-			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 		}
         if (lstDeleteName.length > 0){
@@ -86,12 +86,12 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const lstDeleteName = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                lstDeleteName.push(listItem.dataset.id);
+                lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: listItem.dataset.timestamp});
             }
         }
 		let idCurLast = {id: '0', timestamp: new Date()};
 		if (list.children.length !== 1){
-			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 		}
 

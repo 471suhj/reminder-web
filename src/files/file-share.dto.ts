@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
 import { FileIdentReqDto } from "./file-ident-req.dto";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
@@ -22,10 +22,12 @@ export class FileShareDto {
     @IsInt({each: true})
     friends: number[];
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>FileIdentReqDto)
     last: FileIdentReqDto;
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>SortModeDto)
     sort: SortModeDto;

@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsDate, IsIn, IsInstance, IsInt, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDate, IsIn, IsInstance, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
 import { FileIdentReqDto } from "./file-ident-req.dto";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
@@ -14,8 +14,8 @@ export class FileDeleteDto {
     @ValidateNested({each: true})
     @Type(()=>FileIdentReqDto)
     files: FileIdentReqDto[];
+    
     // when unsharing only
-
     @IsOptional()
     @IsString()
     message?: string;
@@ -31,12 +31,14 @@ export class FileDeleteDto {
 
     @IsOptional()
     @IsBoolean()
-    ignoreTimpstamp?: boolean; // file delete/unshare only
+    ignoreTimestamp?: boolean; // file delete/unshare only
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>FileIdentReqDto)
     last: FileIdentReqDto;
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>SortModeDto)
     sort: SortModeDto;

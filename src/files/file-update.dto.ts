@@ -1,4 +1,4 @@
-import { IsDate, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, ValidateNested } from "class-validator";
+import { IsDate, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, ValidateNested } from "class-validator";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
 
@@ -9,6 +9,7 @@ export class FileUpdateDto { // createdir: update current folder to have more ch
     @IsIn(['rename', 'createDir', 'createFile'])
     action: 'rename'|'createDir'|'createFile';
 
+    @IsObject()
     @ValidateNested()
     @Type(()=>SortModeDto)
     sort: SortModeDto;

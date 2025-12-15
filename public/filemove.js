@@ -6,7 +6,7 @@ const list = document.getElementById('list');
 const lblLoadMore = document.getElementById('loadMore');
 
 export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt){
-    for (listItem of jsnRes.delarr ?? []){
+    for (const listItem of jsnRes.delarr ?? []){
         try{
             document.getElementById('item' + (listItem.timestamp ?? '') + listItem.id).remove();
             objCnt.numItemCnt--;
@@ -31,24 +31,20 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         if (!last && listItem.before){
 			itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
 			if (listItem.before === -1){
-				itmAfter = undefined;
+				itmAfter = null;
 				list.insertAdjacentHTML('afterbegin', strHtml(listItem));
 			}
-		} else if (!last) {
-			itmAfter = lblLoadMore;
+		} else if (!last) { // shouldn't happen
+			itmAfter = undefined;
 		}
-		if (itmAfter === lblLoadMore || itmAfter === undefined){
+		if (itmAfter === undefined){
 			continue;
-		} else if (!itmAfter){
-            if (lblLoadMore.parentNode){
-                lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
-            } else {
-                list.insertAdjacentHTML('beforeend', strHtml(listItem));
-            }
+		} else if (itmAfter === null){
+            lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
             itmNew = list.children[list.children.length - 2];
         } else {
             itmAfter.insertAdjacentHTML('beforebegin', strHtml(listItem));
-            itmNew = itmAfter.nextSibling;
+            itmNew = itmAfter.previousSibling;
         }
 
         let imgBookmark = null;
@@ -76,9 +72,11 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
             if (divBookmark.dataset.bookmarked === 'true'){
                 action = 'DELETE';
             }
-            await doFetch('./bookmark', action, JSON.stringify({action: 'bookmark', soft: sortMode, files: [{id: Number(itmNew.dataset.id), timestamp: new Date(itmNew.dataset.timestamp)}]}),
+			const reqBody = {action: 'bookmark', sort: sortMode, files: [{id: Number(itmNew.dataset.id),
+			timestamp: new Date(itmNew.dataset.timestamp)}], last: {id: 0, timestamp: '2000-01-01T00:00:00.000Z'}};
+            await doFetch('./bookmark', action, JSON.stringify(reqBody),
             '', '처리에 실패했습니다.', async function(result){
-                const jsnRes = result.json();
+                const jsnRes = await result.json();
                 if (jsnRes.failed.length > 0){
                     return '처리에 실패했습니다.'
                 }

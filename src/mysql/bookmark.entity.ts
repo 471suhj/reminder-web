@@ -27,7 +27,6 @@ export class Ebookmark{
     file_name: string;
 
     @PrimaryColumn()
-    @ViewColumn()
     file_serial: number;
 
     @ViewColumn()
@@ -37,7 +36,6 @@ export class Ebookmark{
     last_modified: Date;
 
     @PrimaryColumn()
-    @ViewColumn()
     reader: number;
 
     @ViewColumn()

@@ -32,6 +32,33 @@
 .grayLink:hover{
     background-color: lightgray;
 }
+.listItemCol{
+    display: inline-block;
+    position: relative;
+    padding: 0px;
+    margin: 0px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: pre;
+}
+.listItemCol[data-set="1"]{
+    background-color: lightgray;
+}
+.listItemCol[data-set="2"]{
+    background-color: lightgreen;
+}
+.listProfile{
+    font-size: small;
+    color: gray;
+}
+.listDate{
+    font-size: small;
+    color: gray;
+}
+.listHeader{
+    font-size: medium;
+    color: black;
+}
 #messageBox{
     background-color: beige;
     border-style: solid;

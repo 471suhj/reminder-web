@@ -98,13 +98,17 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     let tlbItem = document.getElementById('upload');
     tlbItem.addEventListener('click', ()=>{
         divPopup.style.display = 'block';
-		divPopup.appendChild(document.createElement('h1').innerText = '파일 업로드\n');
-		divPopup.appendChild(document.createElement('p').innerText = '업로드할 파일을 선택하십시오. 파일은 100개 까지만 한 번에 업로드할 수 있습니다.');
+		let ctl = document.createElement('h1');
+		ctl.innerText = '파일 업로드\n';
+		divPopup.appendChild(ctl);
+		ctl = document.createElement('p');
+		ctl.innerText = '업로드할 파일을 선택하십시오. 파일은 100개 까지만 한 번에 업로드할 수 있습니다.';
+		divPopup.appendChild(ctl);
         let ctlFile = divPopup.appendChild(document.createElement('input'));
         ctlFile.type = 'file';
         ctlFile.multiple = true;
         ctlFile.accept = '.rmb';
-        
+        divPopup.appendChild(document.createElement('br'));
         const cmdOK = fncCreateOKCancel(divPopup);
         
         cmdOK.addEventListener('click', async ()=>{
@@ -169,15 +173,17 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
                 lstDeleteName.push({id: Number(listItem.dataset.id), timestamp: new Date(listItem.dataset.timestamp)});
             }
         }
-		let idCurLast = {id: '0', timestamp: new Date()};
+		let idCurLast = {id: 0, timestamp: new Date()};
 		if (list.children.length !== 1){
-			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 		}
         if (lstDeleteName.length > 0){
 			let fncFetch;
+			const jsonBody = {action: 'selected', last: idCurLast, sort: sortMode, from: Number(lblTitle.dataset.id),
+				files: lstDeleteName, timestamp: lblTitle.dataset.timestamp};
 			fncFetch = async ()=>{
-				await doFetch('./manage', 'DELETE', JSON.stringify({action: 'selected', last: idCurLast, sort: sortMode, from: Number(lblTitle.dataset.id), files: lstDeleteName, timestamp: lblTitle.dataset.timestamp}), 
+				await doFetch('./manage', 'DELETE', JSON.stringify(jsonBody), 
 				'', '삭제에 오류가 발생했습니다.', async (result)=>{
 					const jsnRes = await result.json();
 					if (jsnRes.expired){
@@ -185,7 +191,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 						+ '"계속"할 경우 표시된 폴더가 아닌 새로 바뀐 위치의 폴더에서 삭제가 진행됩니다.\n'
 						+ '현재 폴더가 작업하려는 폴더가 맞는지 확실하지 않다면 작업을 "취소"하고 새로고침(Ctrl+R)하십시오. "계속"하시겠습니까?')){
 							jsonBody.ignoreTimestamp = true;
-							fncFetch();
+							await fncFetch();
 						}
 						return;
 					}
@@ -194,6 +200,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 					numItemCnt = objCnt.numItemCnt;
 				});
 			}
+			await fncFetch();
         }
     });
 }
@@ -223,7 +230,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     let tlbItem = document.getElementById('createDir');
     tlbItem.addEventListener('click', async ()=>{
         let strName = '';
-		while ((strName = prompt('폴더의 이름을 입력하십시오.', strName)).length > 40){
+		while (((strName = prompt('폴더의 이름을 입력하십시오.', strName)) ?? []).length > 40){
+			if (strName === null){
+				return;
+			}
 			alert('폴더의 이름은 40자를 넘을 수 없습니다.');
 		}
         if (strName){
@@ -242,7 +252,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     let tlbItem = document.getElementById('createFile');
     tlbItem.addEventListener('click', async ()=>{
         let strName = '';
-		while ((strName = prompt('파일의 이름을 입력하십시오.', strName)).length > 40){
+		while (((strName = prompt('파일의 이름을 입력하십시오.', strName)) ?? []).length > 40){
+			if (strName === null){
+				return;
+			}
 			alert('파일의 이름은 40자를 넘을 수 없습니다.');
 		}
         if (strName){

@@ -1,7 +1,7 @@
 import { Column, Entity, Generated, JoinColumn, OneToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { Euser } from "./user.entity";
 
-@Entity('freind_mono')
+@Entity('friend_mono')
 export class Efriend_mono {
     
     @PrimaryColumn({type: 'int', unsigned: true})
