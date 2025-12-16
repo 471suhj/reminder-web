@@ -1,6 +1,7 @@
 import { IsDate, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Length, ValidateNested } from "class-validator";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
+import { FileIdentReqDto } from "./file-ident-req.dto";
 
 export class FileUpdateDto { // createdir: update current folder to have more child directories
 
@@ -18,15 +19,17 @@ export class FileUpdateDto { // createdir: update current folder to have more ch
     id: number; // id of directory
 
     @IsOptional()
-    @IsInt()
-    file?: number; // for rename only
+    @IsObject()
+    @ValidateNested()
+    @Type(()=>FileIdentReqDto)
+    file?: FileIdentReqDto; // for rename only
 
     @IsString()
     @IsNotEmpty()
     @Length(1, 40)
     name: string;
 
-    @Type(()=>Date)
     @IsDate()
+    @Type(()=>Date)
     timestamp: Date;
 }

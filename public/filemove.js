@@ -1,4 +1,4 @@
-import {fncClearPopup} from '/popup.js';
+import {fncClearPopup, fncCreateOKCancel} from '/popup.js';
 import {doFetch, showMessage} from '/printmsg.js';
 import {sortMode} from '/autoload.js';
 
@@ -28,20 +28,27 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
     for (const listItem of jsnRes.addarr){
         let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
         let itmNew = null;
-        if (!last && listItem.before){
+		let notFound = false;
+        if (!last && listItem.before !== undefined){
+			// this returns null if not exists
 			itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
-			if (listItem.before === -1){
-				itmAfter = null;
-				list.insertAdjacentHTML('afterbegin', strHtml(listItem));
+			if (itmAfter === null){
+				notFound = true;
 			}
 		} else if (!last) { // shouldn't happen
-			itmAfter = undefined;
+			notFound = true;
+			listItem.before.id = -1;
 		}
-		if (itmAfter === undefined){
-			continue;
-		} else if (itmAfter === null){
-            lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
-            itmNew = list.children[list.children.length - 2];
+		if (last === true){ // when last===true
+			lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
+			itmNew = list.children[list.children.length - 2];
+		} else if (notFound === true || itmAfter === null){
+			if (listItem.before.id === -1){
+				list.insertAdjacentHTML('afterbegin', strHtml(listItem));
+				itmNew = list.children[0];
+			} else { // when new item belongs to overflow
+				continue;
+			}
         } else {
             itmAfter.insertAdjacentHTML('beforebegin', strHtml(listItem));
             itmNew = itmAfter.previousSibling;
@@ -97,7 +104,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
                 imgBookmark.style.display = 'none';
             }
         })
-        if (divBookmark.dataset.bookmarked === 'false'){
+        if (divBookmark.dataset.bookmarked !== 'true'){
             imgBookmark.style.display = 'none';
         }
     }
@@ -105,7 +112,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
     await fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt);
 }
 
-export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, link, method){
+export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, link, method, fncInsertFile){
     let btnDlg = document.getElementById('buttonrename');
     btnDlg.onclick = async function(event){
         btnDlg.close();
@@ -140,16 +147,7 @@ export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBo
     dlgOverwrite.showModal();
 }
 
-export function fncCreateOKCancel(divPopup){
-    const cmdOK = divPopup.appendChild(document.createElement('button'));
-    cmdOK.innerText = '확인';
-    const cmdCancel = divPopup.appendChild(document.createElement('button'));
-    cmdCancel.innerText = '취소';
-    cmdCancel.addEventListener('click', () => {fncClearPopup(divPopup);});
-    return cmdOK;
-}
-
-export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list, dlgOverwrite){
+export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list, dlgOverwrite, fncInsertFile){
     divPopup.style.display = 'block';
 	const lblTitle = document.getElementById('title');
     let arrSelFiles = [];
@@ -165,7 +163,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
     }
 	let idCurLast = {id: '0', timestamp: new Date()};
 	if (list.children.length !== 1){
-		idCurLast.id = list.children[list.children.length - 2].dataset.id;
+		idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 	}
 	let wintitle = (mode === 'copy') ? '복사' : '이동';
@@ -173,7 +171,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 		<h1>파일 ${wintitle}</h1>
 		${wintitle}할 폴더를 선택하십시오.<br><br>
 		<div id='poppath'></div>
-		<select size='8' id='poplst'></select>
+		<select size='8' id='poplst' style="width:100%"></select>
 		<div>선택한 폴더: <span id='popseldir' data-dir='${lblTitle.dataset.id}'>${lblTitle.dataset.path.split('/').slice(-1)[0]}</span></div>
 		<br>`;
 	
@@ -181,36 +179,32 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 	const lstDir = document.getElementById('poplst');
 	const lblSelDir = document.getElementById('popseldir');
 	const cmdOK = fncCreateOKCancel(divPopup);
-	let fncFetchfolder;
+	let fncFetchFolder;
 	const fncClickOption = function(event){
 		lblSelDir.innerText = event.target.innerText;
 		lblSelDir.dataset.dir = event.target.dataset.id;
 	};
 	fncFetchFolder = async function(dirid){
-		lstDir.children.forEach((element)=>{element.remove();});
+		Array.from(lstDir.children).forEach((element)=>{element.remove();});
 		await doFetch('./list?select=folders&dirid=' + dirid, 'GET',
 			'', '', '폴더 목록을 불러올 수 없었습니다.', async function(result){
 			const jsnRes = await result.json();
 			txtPath.innerText = jsnRes.path;
 			for (const listItem of jsnRes.arr){
 				const ctlOption = lstDir.appendChild(document.createElement('option'));
-				ctlOption.innerText = `${listItem.id}`;
+				ctlOption.innerText = `${listItem.name}`;
 				ctlOption.dataset.id = listItem.id;
 				ctlOption.addEventListener('click', fncClickOption);
 				ctlOption.addEventListener('dblclick', async function(event){
 					fncClickOption(event);
-					await fetchFolder(event.target.dataset.id);
+					await fncFetchFolder(event.target.dataset.id);
 				});
 			}
 		});
 	}
 	await fncFetchFolder(lblTitle.dataset.id);
-	cmdOK.addEventListener('click', function(){
-		if (!lstDir.value){
-			showMessage('선택된 폴더가 없습니다.')
-			return;
-		}
-		let jsonBody = {action: mode, last: idCurLast, sort: sortMode, files: arrSelFiles, from: lblTitle.dataset.id, timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
+	cmdOK.addEventListener('click', async ()=>{
+		let jsonBody = {action: mode, last: idCurLast, sort: sortMode, files: arrSelFiles, from: Number(lblTitle.dataset.id), timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
 		let fncFetch;
 		fncFetch = async function(){
 			await doFetch('./move', 'PUT', JSON.stringify(jsonBody), '',
@@ -226,7 +220,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 						}
 						return;
 					} else if (jsnRes.alreadyExists){
-						fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT');
+						fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT', fncInsertFile);
 						return;
 					} else if (jsnRes.failmessage) {
 						return jsnRes.failmessage;
@@ -237,6 +231,7 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 					}
 			});
 		}
+		await fncFetch();
 	});
     
 }

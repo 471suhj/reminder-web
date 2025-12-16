@@ -1,7 +1,7 @@
 import {doFetch, showMessage} from '/printmsg.js';
-import {fncClearPopup} from '/popup.js';
+import {fncClearPopup, fncCreateOKCancel} from '/popup.js';
 import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
-import {fncCreateOKCancel, fncAddItems, fncRemoveItems} from '/filemove.js';
+import {fncAddItems, fncRemoveItems} from '/filemove.js';
 
 sortMode.criteria = 'colDate';
 const list = document.getElementById('list');
@@ -130,7 +130,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 		const txtMessage = document.getElementById('popMsg');
 		const txtPath = document.getElementById('poppath');
 		const cmdOK = fncCreateOKCancel(divPopup);
-		let fncFetchfolder;
+		let fncFetchFolder;
 		fncFetchFolder = async function(dirid){
 			lstDir.children.forEach((element)=>{element.remove();});
 			lstFiles.children.forEach((element)=>{element.remove();});
@@ -146,7 +146,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 					ctlOption.dataset.id = listItem.id;
 					ctlOption.addEventListener('dblclick', async function(event){
 						fncClickOption(event);
-						await fetchFolder(event.target.dataset.id);
+						await fncFetchFolder(event.target.dataset.id);
 					});
 				}
 				for (const listItem of jsnRes.arr2){

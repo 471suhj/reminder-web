@@ -53,7 +53,7 @@ export class SignupController {
             } else {
                 return {valid: true};
             }
-        } catch (err){
+        } catch (err) {
             this.logger.error('signup checkid mysql error. see below');
             console.log(err);
             throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);

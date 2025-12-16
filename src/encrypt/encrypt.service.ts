@@ -33,7 +33,7 @@ export class EncryptService {
             this.#publicPWKey = publicKey;
             this.#privatePWKey = privateKey;
             return;
-        } catch (err){
+        } catch (err) {
             this.logger.log('encrypt.service.ts createpublickey generatekeypair error: see below');
             console.log(err);
             return;

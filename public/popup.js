@@ -8,6 +8,15 @@ export function fncClearPopup(divPopup){
     divPopup.style.display = 'none';
 }
 
+export function fncCreateOKCancel(divPopup){
+    const cmdOK = divPopup.appendChild(document.createElement('button'));
+    cmdOK.innerText = '확인';
+    const cmdCancel = divPopup.appendChild(document.createElement('button'));
+    cmdCancel.innerText = '취소';
+    cmdCancel.addEventListener('click', () => {fncClearPopup(divPopup);});
+    return cmdOK;
+}
+
 export async function fncShare(divPopup, list){
 	divPopup.style.display = 'block';
 	let arrSelFiles = [];
@@ -29,15 +38,15 @@ export async function fncShare(divPopup, list){
 	}
 	divPopup.innerHTML = `
 		<h1>공유</h1>
-		공유 방식: <input type='radio' checked='true' id='popoptCopy'><label for='popoptCopy'>사본 전달</label>
-		<input type='radio' id='popoptRead'><label for='popoptRead'>읽기 권한 공유</label>
-		<input type='radio' id='popoptEdit'><label for='popoptEdit'>편집 권한 공유</label>
+		공유 방식: <br><input type='radio' name="share" checked='true' id='popoptCopy'><label for='popoptCopy'>사본 전달</label>
+		<input type='radio' name="share" id='popoptRead'><label for='popoptRead'>읽기 권한 공유</label>
+		<input type='radio' name="share" id='popoptEdit'><label for='popoptEdit'>편집 권한 공유</label><br><br><br>
 		공유할 친구를 선택하십시오.<br>
 		ctrl 키를 누른 상태에서 클릭하면 여러 친구를 동시에 선택할 수 있습니다.<br><br>
-		<input type='text' placeholder='검색' id='popfriendsearch'>
-		<select multiple='true' id='poplst'></select>
+		<input type='text' placeholder='검색' id='popfriendsearch' style="width:100%"><br>
+		<select multiple='true' id='poplst' style="width:100%"></select><br>
 		공유와 함께 전송할 메시지를 입력하십시오.<br>
-		<textarea id='popMsg'></textarea>
+		<textarea id='popMsg' style="width:100%"></textarea>
 		<br>`;
 	
 	const txtSearch = document.getElementById('popfriendsearch');

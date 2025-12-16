@@ -10,7 +10,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import sharp, { Sharp } from 'sharp';
 import { join } from 'node:path';
 import { FilesService } from 'src/files/files.service';
-import { finished, pipeline } from 'node:stream/promises';
+import { pipeline } from 'node:stream/promises';
 import busboy from 'busboy';
 import type { Request } from 'express';
 import { Readable } from 'node:stream';
@@ -32,7 +32,7 @@ export class PrefsController {
     
     @Get('account')
     @Render('prefs/account')
-    async getAcc(@User() userSer: number): Promise<AccountGetDto> {
+    async getAccount(@User() userSer: number): Promise<AccountGetDto> {
         let retVal = new AccountGetDto();
         await this.mysqlService.doQuery('prefs controller getAccount', async conn=>{
             let [result] = await conn.execute<RowDataPacket[]>(
@@ -96,17 +96,34 @@ export class PrefsController {
     }
 
     @Put('update/uploadprofimg')
-    async uploadProfImg(@User() userSer: number, @Req() req: Request): Promise<SuccDto> {
+    async putUpdateUploadprofimg(@User() userSer: number, @Req() req: Request): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         try{
+            let nullReturned = false;
             const bb = busboy({headers: req.headers, limits: {files: 1}});
-            await pipeline(req, bb);
+            let asyncErr: Error|null = null;
+            // error must not occur!
             bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
-                let fResized: Sharp;
-                await pipeline(fstream, fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}));
-                await fResized.toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+                try{
+                    nullReturned = false;
+                    let fResized: Sharp;
+                    await pipeline(fstream, fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}));
+                    await fResized.toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+                } catch (err) {
+                    asyncErr = err;
+                    return;
+                } finally {
+                    nullReturned = true;
+                }
             });
+            await pipeline(req, bb);
+            while (!nullReturned){
+                await new Promise(resolve=>setImmediate(resolve));
+            }
+            if (asyncErr !== null){
+                throw asyncErr;
+            }
         } catch (err) {
             this.logger.log('error while converting profile image. see below.');
             console.log(err);
@@ -116,7 +133,7 @@ export class PrefsController {
     }
 
     @Put('update/profimg')
-    async updateProfImg(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
+    async putUpdateProfimg(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         const arrPossVal = ['default', 'custom'];
@@ -134,7 +151,7 @@ export class PrefsController {
     }
 
     @Put('update/side')
-    async updateSide(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
+    async putUpdateSide(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         let strColName = '';
@@ -161,7 +178,7 @@ export class PrefsController {
     }
 
     @Put('update/home')
-    async updateHome(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
+    async putUpdateHome(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         let strColName = '';
@@ -207,7 +224,7 @@ export class PrefsController {
     }
 
     @Put('update/misc')
-    async updateMisc(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
+    async putUpdateMisc(@User() userSer: number, @Body() body: PrefCheckedDto): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         let strColName = '';
@@ -231,7 +248,7 @@ export class PrefsController {
     }
 
     @Put('update/delaccount')
-    async delAccount(@User() userSer: number){
+    async putUpdateDelaccount(@User() userSer: number){
         await this.mysqlService.doTransaction('prefs controller delaccount', async conn=>{
             await this.filesService.preDelUser(conn, userSer);
         });

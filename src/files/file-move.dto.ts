@@ -36,8 +36,11 @@ export class FileMoveDto {
     to: number;
 
     @IsBoolean()
-    ignoreTimestamp: boolean;
+    @IsOptional()
+    ignoreTimestamp?: boolean;
 
-    @IsInt()
-    last: number;
+    @ValidateNested()
+    @Type(()=>FileIdentReqDto)
+    @IsObject()
+    last: FileIdentReqDto;
 }

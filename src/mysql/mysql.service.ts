@@ -26,7 +26,7 @@ export class MysqlService {
             });
             this.#connected = true;
             this.logger.log('mysql connected');
-        } catch (err){
+        } catch (err) {
             this.logger.error('mysql.service error: see below');
             console.log(err);
         }

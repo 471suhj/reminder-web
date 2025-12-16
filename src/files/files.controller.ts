@@ -166,26 +166,28 @@ export class FilesController {
     @Put('manage') // 'before's in filesarrdto are not ignored.
     async putManage(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
+        let retVal: FileMoveResDto;
         if (body.action === 'createDir'){
-            let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
                 retVal = await this.filesService.createDir(conn, userSer, body.id, body.name, body.sort);
             });
-            return retVal!;
         } else if (body.action === 'createFile'){
-            let retVal: FileMoveResDto;
             await this.mysqlService.doTransaction('files controller put manage createdir', async (conn)=>{
                 retVal = await this.filesService.createFile(conn, userSer, body.id, body.name, body.sort);
             });
-            return retVal!;
         } else if (body.action === 'rename'){
-            let retVal: FileMoveResDto;
             if (body.file === undefined){throw new BadRequestException();}
             await this.mysqlService.doTransaction('files controller put manage rename', async (conn)=>{
-                retVal = await this.filesService.renameFile(conn, userSer, body.id, body.file!, body.timestamp, body.name);
+                retVal = await this.filesService.renameFile(conn, userSer, body.id, body.file!, body.name);
             });
-            return retVal!;
         } else {throw new BadRequestException();}
+        try{
+            await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'files', body.id);
+        } catch (err) {
+            retVal!.addarr.forEach(val=>{val.before = {id:-1, timestamp: ''};})
+            console.log(err);
+        }
+        return retVal!;
     }
 
     @Post('manage')
@@ -199,45 +201,64 @@ export class FilesController {
         const dir = await this.filesService.getUserRoot(userSer, 'upload_tmp');
         const root = await this.filesService.getUserRoot(userSer, 'files');
         const subt = '(user_serial, parent_serial, type, file_name)';
+        let closeReturned = false;
+        let nullReturned = false;
         
         const bb = busboy({headers: req.headers, fileHwm: 512, limits: {files: 100}});
+        // important!: make sure that all exceptions are handled internally and not thrown
         bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
             let res: RowDataPacket[] = [];
-            await this.mysqlService.doTransaction('files controller post manage1', async conn=>{
-                await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
-                await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
-                    [userSer, dir, info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename]
-                );
-                [res] = await conn.execute<RowDataPacket[]>(
-                    `select file_serial, last_renamed from file where user_serial=? and parent_serial=?`,
-                    [userSer, dir]
-                );
-            });
-            try {
+            try{
+                await this.mysqlService.doTransaction('files controller post manage1', async conn=>{
+                    [res] = await conn.execute<RowDataPacket[]>(
+                        `select file_serial from file where user_serial=? and parent_serial=? for update`, [userSer, dir]
+                    );
+                    for (const itm of res){
+                        try{
+                            await fs.rm(join(__dirname, `../../filesys/${itm.file_serial}`), {force: true, recursive: true});
+                        } catch (err) {}
+                    }
+                    await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
+                    await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
+                        [userSer, dir, info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename]
+                    );
+                    [res] = await conn.execute<RowDataPacket[]>(
+                        `select file_serial, last_renamed from file where user_serial=? and parent_serial=?`,
+                        [userSer, dir]
+                    );
+                });
                 await this.filesService.uploadMongo(res[0].file_serial, fstream);
-            } catch {
-                retVal.failed.push([0, info.filename]);
-                fstream.destroy(); // need to check
-                return;
-            }
-            await this.mysqlService.doTransaction('files controller post manage2', async conn=>{
+                // one transaction
                 let {failed} = await this.putMove(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
-                    from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
-                if (failed.length <= 0){
-                    let [res2] = await conn.execute<RowDataPacket[]>(`select * from file where file_serial=?`, [res[0].file_serial]);
-                    retVal.addarr.push({date: res2[0].last_modified, id: res2[0].file_serial, isFolder: false, text: res2[0].file_name,
-                        timestamp: res2[0].last_renamed, before: {id: -1, timestamp: ''}, link: '/edit?id=' + res2[0].file_serial, shared: ''
-                    });
-                } else {
-                    retVal.failed.push([0, info.filename]);
-                    await this.mongoService.getDb().collection('file_data').deleteOne({serial: res[0].file_serial});
-                }
-            });
+                    from: dir, to: root, last: {id: -1, timestamp: new Date()}, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
+                // another transaction
+                await this.mysqlService.doTransaction('files controller post manage2', async conn=>{
+                    if (failed.length <= 0){
+                        let [res2] = await conn.execute<RowDataPacket[]>(`select * from file where file_serial=?`, [res[0].file_serial]);
+                        retVal.addarr.push({date: res2[0].last_modified, id: res2[0].file_serial, isFolder: false, text: res2[0].file_name,
+                            timestamp: res2[0].last_renamed, bookmarked: false, before: {id: -1, timestamp: '2000-01-01T00:00:00.000Z'}, link: '/edit?id=' + res2[0].file_serial, shared: ''
+                        }); // sort is not transmitted, and uploaded files should be visible
+                        // but shouldn't be relied upon when refreshing, so dummy timestamp is supplied
+                    } else {
+                        retVal.failed.push([0, info.filename]);
+                        await this.mongoService.getDb().collection('file_data').deleteOne({serial: res[0].file_serial});
+                    }
+                });
+            } catch (err) {
+                retVal.failed.push([0, info.filename]);
+                fstream.destroy();
+                return;
+            } finally {
+                nullReturned = true;
+            }
         });
         bb.on('close', ()=>{
-            console.log('file upload finished');
+            closeReturned = true;
         });
         await pipeline(req, bb);
+        while ((!closeReturned) || (!nullReturned)){
+            await new Promise(resolve=>setImmediate(resolve));
+        }
         return retVal;
     }
 
@@ -339,11 +360,11 @@ export class FilesController {
     // copy and move from files
     @Put('move') // copy_origin eventually marks only copied 'files'
     async putMove(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last, body.timestamp,
+        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'files', body.from);
         let retVal = new FileMoveResDto();
         retVal.failmessage = '';
-        let resAdded: RowDataPacket[] = [];
+        let resAddedFiles: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
             if (!body.timestamp){throw new BadRequestException();}
             if (!body.ignoreTimestamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
@@ -366,8 +387,12 @@ export class FilesController {
             
             // get the list of files with the same name in the destination
             let [resDup] = await conn.query<RowDataPacket[]>(
-                `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
+                {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
                 [userSer, body.to, resName]
+            );
+            [resDup] = await conn.query<RowDataPacket[]>(
+                `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
+                [userSer, body.from, resDup]
             );
             // requset overwrite mode if needed
             if (!body.overwrite){
@@ -415,16 +440,20 @@ export class FilesController {
                 arrSafe.delete(arrDup[i]);
             }
             if (body.action === 'move'){
-                await conn.execute<RowDataPacket[]>(`update file set parent_serial=?, last_renamed=current_timestamp where user_serial=? and file_serial in (?)`,
-                    [body.to, userSer, Array.from(arrSafe, val=>val[0])]
-                );
+                if (arrSafe.size > 0){
+                    await conn.query(`update file set parent_serial=?, last_renamed=current_timestamp where user_serial=? and file_serial in (?)`,
+                        [body.to, userSer, Array.from(arrSafe, val=>val[0])]
+                    );
+                }
                 retVal.delarr = Array.from(arrSafe, val=>{return {id: val[0], timestamp: val[1].toISOString()};});
             } else { // copy
-                // duplication to the same dir cannot occur here: all duplications are handled in renamed file operations
-                await conn.query(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
-                    select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in (?)`,
-                    [userSer, body.to, userSer, Array.from(arrSafe, val=>val[0])]
-                );
+                if (arrSafe.size > 0){
+                    // duplication to the same dir cannot occur here: all duplications are handled in renamed file operations
+                    await conn.query(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
+                        select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in (?)`,
+                        [userSer, body.to, userSer, Array.from(arrSafe, val=>val[0])]
+                    );
+                }
             }
             // step2: get the new name and then move/copy after step1, to prevent name collisions with files from step1.
             // don't forget to change last_renamed
@@ -438,12 +467,15 @@ export class FilesController {
                 retVal.delarr = body.action === 'move' ? retVal.delarr.concat(delarr) : [];
             }
             retVal.failed = arrFail.map(val=>[val[0], val[1].toISOString()]);
-            [resAdded] = await conn.execute<RowDataPacket[]>(
+            // step3: copy recursively
+            await this.filesService.moveFiles_copyRecurse(conn, userSer);
+
+            [resAddedFiles] = await conn.execute<RowDataPacket[]>(
                 `select file_serial, copy_origin from file where user_serial=? and copy_origin<>0 for share`, [userSer]
             );
         });
         // do not use here
-        await this.filesService.copyMongo(resAdded.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
+        await this.filesService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         try{
             retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
         } catch (err) {
@@ -484,6 +516,9 @@ export class FilesController {
             let [result] = await conn.execute<RowDataPacket[]>(`select user_serial, parent_serial from file where user_serial=? and file_serial=?`, [userSer, dirid]);
             if (result.length <= 0 || result[0].user_serial !== userSer){throw new BadRequestException();}
             retVal.arr = [{name: '(최상위 폴더)', id: rootid}, {name: '(상위 폴더)', id: Number(result[0].parent_serial)}];
+            if (retVal.arr.at(-1)?.id === 1){
+                retVal.arr.pop();
+            }
             [result] = await conn.execute<RowDataPacket[]>(
                 `select file_name as name, file_serial as id from file where user_serial=? and parent_serial=? and type='dir' and issys='false'`, [userSer, dirid]);
             retVal.arr = retVal.arr.concat(result as FileListResDto['arr']);
@@ -493,6 +528,12 @@ export class FilesController {
                 retVal.arr2 = result as FileListResDto['arr2'];
             }
         });
+        try {
+            retVal.path = (await this.filesService.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid)).path;
+        } catch (err) {
+            retVal.path = '오류가 발생했습니다.';
+            console.log(err);
+        }
         return retVal;
     }
 }

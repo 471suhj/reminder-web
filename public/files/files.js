@@ -1,7 +1,7 @@
 import {doFetch, showMessage} from '/printmsg.js';
-import {fncShare, fncClearPopup} from '/popup.js';
+import {fncShare, fncClearPopup, fncCreateOKCancel} from '/popup.js';
 import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
-import {fncCopyMove, fncRemoveItems, fncAddItems, fncAnswerDlg, fncCreateOKCancel} from '/filemove.js';
+import {fncCopyMove, fncRemoveItems, fncAddItems} from '/filemove.js';
 
 const list = document.getElementById('list');
 const listHead = document.getElementById('listHead');
@@ -22,9 +22,10 @@ fncSetupHeaderSort(listHead, fncInsertFile, fncPrintCnt, lblTitle.dataset.id);
 async function fncRename(){
     const newName = txtRename.value;
     const itemId = txtRename.dataset.itemId;
+	const itemDate = txtRename.dataset.timestamp;
     txtRename.style.display = 'none';
     if (newName !== ''){
-		let jsonBody = {action: 'rename', sort: sortMode, id: Number(lblTitle.datset.id), file: Number(itemId), name: newName, timestamp: new Date(txtRename.dataset.timestamp)};
+		let jsonBody = {action: 'rename', sort: sortMode, file: {id: Number(itemId), timestamp: new Date(itemDate)}, name: newName, id: Number(lblTitle.dataset.id), timestamp: new Date(lblTitle.dataset.timestamp)};
         await doFetch('./manage', 'PUT', JSON.stringify(jsonBody),
 			'', `${newName}로 이름 바꾸기를 실패했습니다.`, async (result)=>{
 			const jsnRes = await result.json();
@@ -42,13 +43,20 @@ async function fncRename(){
 		});
     }
 }
-txtRename.addEventListener('focusout', fncRename);
+txtRename.addEventListener('focusout', async (event)=>{
+	if (txtRename.style.display !== 'none'){
+		await fncRename(event);
+	}
+});
 txtRename.addEventListener('keyup', async (event)=>{
     if (event.key === 'Enter'){
-        fncRename(event);
+        await fncRename(event);
     }
 });
 txtRename.addEventListener('input', (event)=>{
+	if (event.target.length <= 40){
+		return;
+	}
 	event.target.value = event.target.value.slice(0, 40);
 });
 
@@ -158,7 +166,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             txtRename.value = divSelected.children[2].childNodes[1].innerText.trim();
             divSelected.children[2].appendChild(txtRename);
             txtRename.dataset.itemId = divSelected.dataset.id;
-			txtRename.dataset.timestamp = divSelected.timestamp;
+			txtRename.dataset.timestamp = divSelected.dataset.timestamp;
             txtRename.style.display = 'inline';
             txtRename.focus();
         }
@@ -216,14 +224,14 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('copy');
     tlbItem.addEventListener('click', async ()=>{
-        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite, './manage', 'POST');
+        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite, fncInsertFile);
     });
 }
 
 {
     let tlbItem = document.getElementById('move');
     tlbItem.addEventListener('click', async ()=>{
-        await fncCopyMove('move', '이동을 완료했습니다.', '이동을 실패했습니다.', '이동되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite);
+        await fncCopyMove('move', '이동을 완료했습니다.', '이동을 실패했습니다.', '이동되지 못한 파일이 있습니다.', divPopup, list, dlgOverwrite, fncInsertFile);
     });
 }
 

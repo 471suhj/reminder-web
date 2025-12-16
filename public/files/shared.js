@@ -1,7 +1,7 @@
 import {doFetch, showMessage} from '/printmsg.js';
-import {fncShare, fncClearPopup} from '/popup.js';
+import {fncShare, fncClearPopup, fncCreateOKCancel} from '/popup.js';
 import {fncRefresh, fncAutoloadSetup, sortMode, fncSetupHeaderSort} from '/autoload.js';
-import {fncCopyMove, fncRemoveItems, fncAddItems, fncCreateOKCancel} from '/filemove.js';
+import {fncCopyMove, fncRemoveItems, fncAddItems} from '/filemove.js';
 
 sortMode.criteria = 'colOwner';
 const listHead = document.getElementById('listHead');
@@ -121,7 +121,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('copy');
     tlbItem.addEventListener('click', async ()=>{
-        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 않은 파일이 있습니다.', divPopup, list, dlgOverwrite);
+        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 않은 파일이 있습니다.', divPopup, list, dlgOverwrite, fncInsertFile);
     });
 }
 

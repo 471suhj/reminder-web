@@ -95,8 +95,8 @@ export class FilesService {
         let cont = true;
         let result: RowDataPacket[];
         let curId = fileId;
+        let firstReq = true;
         while (cont){
-            let firstReq = true;
             [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
                 'select parent_serial, file_name, last_renamed from file where user_serial=? and file_serial=? for share', [userSer, fileId]);
             if (result.length <= 0) {
@@ -107,7 +107,7 @@ export class FilesService {
                 }
             }
             if (firstReq){
-                parentId = Number(result[0].parent_serial);
+                parentId = Number(result[0].parent_serial === 1 ? fileId : result[0].parent_serial);
                 dirName = String(result[0].file_name);
                 lastRenamed = result[0].last_renamed;
             }
@@ -289,7 +289,7 @@ export class FilesService {
                 timestamp: val.last_renamed.toISOString()
             };});
         });
-        } catch (err){
+        } catch (err) {
             if (err.message !== 'rollback'){
                 throw err;
             }
@@ -633,7 +633,7 @@ export class FilesService {
     async resolveLoadmore(userSer: number, lst: FileIdentReqDto[], lastfile: number, timestamp: Date, sort: SortModeDto,
         context: 'files'|'bookmarks'|'recycle'|'shared', dirOrFriend?: number
     ){
-        if (lst.at(-1)?.id === 0){
+        if (lst.at(-1)?.id === -1 || lst.at(-1)?.id === 0){
             lst.pop();
         } else {
             return;
@@ -845,6 +845,9 @@ export class FilesService {
     // do not modify _arr
     // deals with both move and copy. use 'del' parameter
     async moveFiles_rename(conn: PoolConnection, userSer: number, del: boolean, from: number, to: number, arr_: readonly {file_serial: number, file_name: string, type: string, timestamp: Date}[]){
+        if (arr_.length <= 0){
+            return {arrFail: [], addarr: [], delarr: []};
+        }
         let arr = new Map(arr_.map<[number, [string, string, Date]]>(val=>[val.file_serial, [val.type, val.file_name, val.timestamp]]));
         let arrDirName = new Map<string, [number, Date]>();
         let arrFileName = new Map<string, [number, Date]>();
@@ -857,7 +860,7 @@ export class FilesService {
             await conn.query<RowDataPacket[]>(str1, [to, userSer, from, Array.from(arr.keys())]);
         } else { // copy
             str1 = `insert into file (user_serial, parent_serial, type, file_name, last_modified, copy_origin) `;
-            str1 += `select ?, ?, type, file_name, last_modified, file_serial from file `;
+            str1 += `select ?, ?, if(type='dir','movedir','movefile'), file_name, last_modified, file_serial from file `;
             str1 += `where user_serial=? and parent_serial=? and file_serial in (?) `;
             await conn.query<RowDataPacket[]>(str1, [userSer, to, userSer, from, Array.from(arr.keys())]);
         }
@@ -873,8 +876,8 @@ export class FilesService {
         let str6 = `insert into file values ? `;
         let str3 = `update file set file_name=concat(file_name, '-2') `
         str3 += `where user_serial=? and parent_serial=? and (type='movedir' or type='movefile') `;
-        let subq = `select file_name from file where user_serial=? and parent_serial=? for update `;
-        let str4 = `update file set type=if(type='movedir','dir','file'), last_renamed=current_timestamp where (type='movedir' or type='movefile') and file_name not in (${subq}) `;
+        const subq = `select file_name from file where user_serial=? and parent_serial=? and type in ('file', 'dir') for update `;
+        let str4 = `update file set type=if(type='movedir','dir','file'), last_renamed=current_timestamp where (type='movedir' or type='movefile') and file_name not in (?) `;
         let str7 = `select file_serial from file where user_serial=? and (type='movedir' or type='movefile') for update `;
         let result: RowDataPacket[];
         let arrFail: [number, Date][] = [];
@@ -883,37 +886,44 @@ export class FilesService {
             // select files with names too long
             [result] = await conn.execute<RowDataPacket[]>(str1, [userSer, to, 40-2]);
             // fetch info about those files
-            let [result2] = await conn.query<RowDataPacket[]>(
-                {sql: str5, rowsAsArray: true}, [userSer, result.map(val=>val.file_serial)]);
-                // delete the files
-            await conn.query(str2, [userSer, result.map(val=>val.file_serial)]);
-            for (let i = 0; i < result2.length; i++){
-                // add to info
-                if (del) {
-                    let tval = arr.get(result2[i][0]);
-                    if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
-                    arrFail.push([result2[i][0], tval[2]]);
-                    arr.delete(result2[i][0]);
-                    (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
-                    result2[i][5] = tval[1];
-                    result2[i][3] = tval[0];
-                } else {
-                    let tname = result2[i][5].slice(0, (-2)*cnt);
-                    let tval = (result2[i][3] === 'dir') ? arrDirName.get(tname) : arrFileName.get(tname);
-                    if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
-                    arrFail.push(tval);
-                    arr.delete(tval[0]);
-                    (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
+            let result2: RowDataPacket[] = [];
+            if (result.length > 0){
+                [result2] = await conn.query<RowDataPacket[]>(
+                    {sql: str5, rowsAsArray: true}, [userSer, result.map(val=>val.file_serial)]);
+                    // delete the files
+                await conn.query(str2, [userSer, result.map(val=>val.file_serial)]);
+                for (let i = 0; i < result2.length; i++){
+                    // add to info
+                    if (del) {
+                        let tval = arr.get(result2[i][0]);
+                        if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
+                        arrFail.push([result2[i][0], tval[2]]);
+                        arr.delete(result2[i][0]);
+                        (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
+                        result2[i][5] = tval[1];
+                        result2[i][3] = tval[0];
+                    } else {
+                        let tname = result2[i][5].slice(0, (-2)*cnt);
+                        if (cnt === 0){tname = result2[i][5];}
+                        let tval = (result2[i][3] === 'dir') ? arrDirName.get(tname) : arrFileName.get(tname);
+                        if (tval === undefined){this.logger.error('movefiles_rename: ' + userSer);console.log(result2[i][0]);continue;}
+                        arrFail.push(tval);
+                        arr.delete(tval[0]);
+                        (result2[i][3] === 'dir' ? arrDirName : arrFileName).delete(result2[i][5]);
+                    }
                 }
-            }
-            //re-insert failed files
-            if (del){
-                await conn.execute<RowDataPacket[]>(str6, [result2]);
+                //re-insert failed files
+                if (del){
+                    await conn.execute<RowDataPacket[]>(str6, [result2]);
+                }
             }
             // change remaining file names
             await conn.execute<RowDataPacket[]>(str3, [userSer, to]);
             // update file types of files with suitable filenames
-            await conn.execute<RowDataPacket[]>(str4, [userSer, to]);
+            [result] = await conn.execute<RowDataPacket[]>(subq, [userSer, to]);
+            if (result.length > 0){
+                await conn.query(str4, [result.map(val=>val.file_name)]);
+            }
             // check for unresolved files
             [result] = await conn.execute<RowDataPacket[]>(str7, [userSer]);
             let arrFileN2: typeof arrFileName = new Map();
@@ -929,8 +939,9 @@ export class FilesService {
             cnt++;
         }
         // get info about newly added files
+        const colName = del ? 'file_serial' : 'copy_origin';
         [result] = await conn.query<RowDataPacket[]>(
-            `select * from file where user_serial=? and file_serial in (?) for share `, [userSer, Array.from(arr.keys())]);
+            `select * from file where user_serial=? and ${colName} in (?) for share `, [userSer, Array.from(arr.keys())]);
         let addarr: FilesArrDto['arr'] = result.map((val)=>{
             return {
                 link: val.type==='dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`,
@@ -978,7 +989,9 @@ export class FilesService {
         for (const itm of arrAdded){
             await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
         }
-        coll.insertMany(arrDocs);
+        if (arrDocs.length > 0){
+            await coll.insertMany(arrDocs);
+        }
     }
 
     // important!
@@ -1345,8 +1358,8 @@ export class FilesService {
         return retVal;
     }
 
-    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh?: FileHandle}, pth: string){
-        const availProp = ['FontSize', 'Interval, RemStart, RemEnd'];
+    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle}, pth: string){
+        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
         let newbuf = '';
         let commit = async ()=>{
             if (newbuf === ''){ // A: end phase. note that two consequent '' may arrive.
@@ -1356,7 +1369,7 @@ export class FilesService {
                     case 'M':
                         break;
                     case 'P':
-                        let pairVal = tmpVar.buf.slice(1).split('=');
+                        let pairVal = tmpVar.buf.split('=');
                         if (pairVal.length > 0){
                             if (!availProp.includes(pairVal[0])){
                                 throw new BadRequestException();
@@ -1365,12 +1378,14 @@ export class FilesService {
                         }
                         break;
                     case 'N':
-                        if (!tmpVar.fh){
+                        if (tmpVar.fh === null){
                             throw new InternalServerErrorException();
                         }
                         await tmpVar.fh.appendFile(tmpVar.buf);
                         await tmpVar.fh.close();
+                        tmpVar.fh = null;
                         // push tmpVar.buf, then close the fs.
+                        break;
                     default: 
                         throw new BadRequestException();
                 }
@@ -1382,10 +1397,10 @@ export class FilesService {
                 tmpVar.phase = newbuf.slice(0, 1);
                 newbuf = newbuf.slice(1);
                 tmpVar.buf = '';
-                switch (tmpVar.buf.slice(0, 1)){
+                switch (tmpVar.phase){
                     case 'N':
                         tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
-                        doc.arrlen = tmpVar.idx;
+                        doc.arrlen = tmpVar.idx + 1;
                         break;
                 }
             }
@@ -1401,7 +1416,7 @@ export class FilesService {
                     }
                     break;
                 case 'N':
-                    if (!tmpVar.fh){
+                    if (tmpVar.fh === null){
                         throw new InternalServerErrorException();
                     }
                     await tmpVar.fh.appendFile(tmpVar.buf + newbuf);
@@ -1410,6 +1425,11 @@ export class FilesService {
                 default: 
                     throw new BadRequestException();
             }
+        }
+        if (arr.length <= 0){ // empty array is passed only after all the contents are read
+            newbuf = '';
+            commit();
+            return;
         }
         for (let i = 0; i < arr.length; i++){
             let str = arr[i];
@@ -1435,17 +1455,23 @@ export class FilesService {
     }
 
     async uploadMongo(fileSer: number, stream: Readable){
-        const availVer = ['0.2, 0.3'];
+        const availVer = ['0.2', '0.3'];
         let buf = '';
-        let progress = true;
-        let inspected = false;
+        let nullReturned = false;
+        let finishCalled = false;
+        let asyncErr: Error|null = null;
         let objDoc = new FiledatColDto();
-        const tmpVar = {buf: '', phase: 'M', idx: -1};
+        const tmpVar = {buf: '', phase: 'M', idx: -1, fh: null};
         objDoc.serial = fileSer;
-        const dirpath = join(__dirname, `../../${fileSer}`);
+        const dirpath = join(__dirname, `../../filesys/${fileSer}`);
         await fs.mkdir(dirpath, {});
-        try{
-            stream.on('readable', async ()=>{
+
+        let inspected = false;
+        // make sure that no errors are thrown
+        stream.on('readable', async ()=>{
+            if (asyncErr !== null){stream.destroy(); return;}
+            try{
+                nullReturned = false;
                 let chunk: string|Buffer;
                 while ((chunk = stream.read()) !== null){
                     // buf: at first, store all data to validate 'AAMPGRMB'
@@ -1454,14 +1480,14 @@ export class FilesService {
                     let arrTmp = buf.split('&');
                     buf = arrTmp.at(-1) ?? '';
                     if (!inspected){ // if uninspected either inspect or continue;
-                        if (arrTmp.length > 1 || arrTmp[0].length > 16){ // pre-check
-                            if (arrTmp[0].slice(0, 16) !== 'AAMPGRMBFileVer='){
+                        if (arrTmp.length > 1 || arrTmp[0].length > 17){ // pre-check
+                            if (arrTmp[0].slice(1, 17) !== 'AAMPGRMBFileVer='){
                                 throw new BadRequestException();
                             }
                         }
                         if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
-                            if (availVer.includes(arrTmp[0].slice(16))){ // inspected
-                                objDoc.type = 'rmb' + arrTmp[0].slice(16) as typeof objDoc.type;
+                            if (availVer.includes(arrTmp[0].slice(17))){ // inspected
+                                objDoc.type = 'rmb' + arrTmp[0].slice(17) as typeof objDoc.type;
                                 inspected = true; // flow to the next stage
                                 arrTmp.shift();
                             } else {
@@ -1478,33 +1504,54 @@ export class FilesService {
                     }
                     await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
                 }
-            });
-            stream.on('end', async ()=>{
-                progress = false;
-                await this.processFileStream(objDoc, [''], tmpVar, dirpath);
-                if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
-                    objDoc.type = 'rmb0.3';
+            } catch (err) {
+                try{
+                    this.logger.error('uploadMongo stream error. see below.');
+                    console.log(err);
+                    asyncErr = err;
+                    stream.destroy();
+                } catch (err) {
+                    return;
                 }
-            });
-            stream.on('close', ()=>{
-                if (progress){
-                    throw new InternalServerErrorException();
-                }
-            });
-            stream.on('error', (err)=>{
-                this.logger.error('uploadMongo stream error. see below.');
-                console.log(err);
+            } finally {
+                nullReturned = true;
+            }
+        });
+        // end and close are run before data event finishes
+        stream.on('end', ()=>{
+        });
+        stream.on('close', ()=>{
+            finishCalled = true;
+        });
+        stream.on('error', (err)=>{
+            this.logger.error('uploadMongo stream error. see below.');
+            console.log(err);
+            stream.destroy();
+        });
+        try{
+            while((!finishCalled) || (!nullReturned)){
+                await new Promise(resolve=>setImmediate(resolve));
+            }
+            if (asyncErr !== null){
                 stream.destroy();
-            });
-            //stream.on('pause')
-            //stream.on('readable')
-            //stream.on('resume')
-            await finished(stream);
+                throw asyncErr;
+            }
+            await this.processFileStream(objDoc, [], tmpVar, dirpath);
+            if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
+                objDoc.type = 'rmb0.3';
+            }
             await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
         } catch (err) {
-            throw err;
-        } finally {
-            await fs.rm(dirpath, {force: true, recursive: true});
+            try{
+                await fs.rm(dirpath, {force: true, recursive: true});
+            } catch (err) {
+                console.log(err);
+            }
+            if (err instanceof BadRequestException){
+                throw err;
+            } else {
+                throw new InternalServerErrorException();
+            }
         }
     }
 
@@ -1602,7 +1649,7 @@ export class FilesService {
         return retVal;
     }
 
-    async renameFile(conn: PoolConnection, userSer: number, parent: number, file: number, timestamp: Date, name: string){
+    async renameFile(conn: PoolConnection, userSer: number, parent: number, file: {id: number, timestamp: Date}, name: string){
         if (name.length <= 0) {throw new BadRequestException();}
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
@@ -1614,12 +1661,12 @@ export class FilesService {
         // validate timestamp and get file type
         let [result] = await conn.execute<RowDataPacket[]>(
             `select type from file where user_serial=? and parent_serial=? and file_serial=? and last_renamed=? for update `,
-            [userSer, parent, file, timestamp]
+            [userSer, parent, file.id, file.timestamp]
         );
         // if expired
         if (result.length <= 0){
             retVal.expired = true;
-            retVal.failed = [[file, timestamp.toISOString()]];
+            retVal.failed = [[file.id, file.timestamp.toISOString()]];
             return retVal;
         }
         // if already exists
@@ -1629,26 +1676,26 @@ export class FilesService {
         );
         if (result.length > 0){
             retVal.alreadyExists = true;
-            retVal.failed = [[file, timestamp.toISOString()]];
+            retVal.failed = [[file.id, file.timestamp.toISOString()]];
             return retVal;
         }
         await conn.execute(
-            `update file set file_name=?, last_renamed=current_timestamp where user_serial=? and file_serial=?`, [name, userSer, file]
+            `update file set file_name=?, last_renamed=current_timestamp where user_serial=? and file_serial=?`, [name, userSer, file.id]
         );
         await conn.execute(
-            `update shared_def set file_name=? where user_serial_from=? and file_serial=?`, [name, userSer, file]
+            `update shared_def set file_name=? where user_serial_from=? and file_serial=?`, [name, userSer, file.id]
         );
         [result] = await conn.execute<RowDataPacket[]>(
-            `select * from file where user_serial=? and file_serial=? for share`, [userSer, file]
+            `select * from file where user_serial=? and file_serial=? for share`, [userSer, file.id]
         );
         let [result2] = await conn.execute<RowDataPacket[]>(
             `select user_serial_to from shared_def where user_serial_from=? and file_serial=?`,
-            [userSer, file]
+            [userSer, file.id]
         );
-        retVal.delarr = [{id: file, timestamp: timestamp.toISOString()}];
+        retVal.delarr = [{id: file.id, timestamp: file.timestamp}];
         retVal.addarr.push({
-            link: `/files?dirid=${file}`,
-            id: file,
+            link: `/files?dirid=${file.id}`,
+            id: file.id,
             isFolder: false,
             text: name,
             bookmarked: false,
@@ -1665,6 +1712,9 @@ export class FilesService {
         conn: Connection, userSer: number, sort: SortModeDto, files_: readonly T[],
         mode: 'files'|'profile', parent?: number, friend?: number
     ){
+        if (files_.length <= 0){
+            return files_.slice();
+        }
         let mapRes = new Map<number, FileIdentResDto>();
         let files = files_.slice();
         let filearr = files.map(val=>val.id);
