@@ -29,6 +29,7 @@ import { Document } from 'mongodb';
 import { Readable } from 'node:stream';
 import fs, { FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
+import { finished } from 'node:stream/promises';
 
 @Injectable()
 export class FilesService {
@@ -1498,9 +1499,7 @@ export class FilesService {
             //stream.on('pause')
             //stream.on('readable')
             //stream.on('resume')
-            while (progress){
-                await new Promise(resolve=>setImmediate(resolve));
-            }
+            await finished(stream);
             await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
         } catch (err) {
             throw err;

@@ -112,13 +112,14 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         const cmdOK = fncCreateOKCancel(divPopup);
         
         cmdOK.addEventListener('click', async ()=>{
-			if (ctlFile.files.length <= 0 || ctlFile.files.length > 20){
-				alert('파일이 선택되지 않았거나 20개를 초과하여 선택되었습니다.');
+			if (ctlFile.files.length <= 0 || ctlFile.files.length > 100){
+				alert('파일이 선택되지 않았거나 100개를 초과하여 선택되었습니다.');
 				return;
 			}
 			const dat = new FormData();
+			let cnt = 0;
 			for (const itm of ctlFile.files){
-				dat.append('file', itm);
+				dat.append('file' + (cnt++), itm);
 			}
             await doFetch('./manage?id=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async (result)=>{
 				fncClearPopup(divPopup);

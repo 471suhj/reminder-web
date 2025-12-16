@@ -1,4 +1,4 @@
-import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, Redirect } from '@nestjs/common';
+import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, Redirect, Req } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
 import { FilesGetDto } from './files-get.dto';
@@ -16,11 +16,13 @@ import { FileListResDto } from './file-list-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
 import { FriendMoreDto } from './friend-more.dto';
 import { InboxSaveDto } from './inbox-save.dto';
-import { FiledatColDto } from 'src/mongo/filedat-col.dto';
 import { MongoService } from 'src/mongo/mongo.service';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import fs from 'node:fs/promises';
 import { join } from 'node:path';
+import type { Request } from 'express';
+import busboy from 'busboy';
+import { pipeline } from 'node:stream/promises';
+import { Readable } from 'node:stream';
 
 @Controller('files')
 export class FilesController {
@@ -43,7 +45,7 @@ export class FilesController {
 
     @Get('files')
     @Redirect('/files')
-    redirectFiles(){}
+    getFilesFiles(){}
 
     @Get('inbox')
     @Render('files/files')
@@ -52,7 +54,7 @@ export class FilesController {
     }
 
     @Get('loadmore') // files, shared, bookmarks, inbox, recycle
-    async getFileMore(
+    async getLoadmore(
         @User() userSer: number,
         @Query('startafter', ParseIntPipe) startAfter: number, // 0 for initial or others
         @Query('startaftertimestamp', new ParseDatePipe()) timestamp: Date, // 0 for initial or others
@@ -99,7 +101,7 @@ export class FilesController {
     }
 
     @Delete('recycle')
-    async delPermanent(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async delRecycle(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         if (body.action !== 'permdel'){throw new BadRequestException();}
@@ -143,7 +145,7 @@ export class FilesController {
     }
 
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
-    async restoreFile(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async putRecycle(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         let arr: FileIdentReqDto[], arrFail: FileIdentReqDto[], clash_toolong: boolean, namechange: boolean;
@@ -162,7 +164,7 @@ export class FilesController {
 
     // rename, create directory, create files from files
     @Put('manage') // 'before's in filesarrdto are not ignored.
-    async manageFile(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
+    async putManage(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
         if (body.action === 'createDir'){
             let retVal: FileMoveResDto;
@@ -187,21 +189,24 @@ export class FilesController {
     }
 
     @Post('manage')
-    @UseInterceptors(FilesInterceptor('file', 100))
-    async uploadFile(@User() userSer: number, @UploadedFiles() arrFile: Express.Multer.File[]){
-        if (arrFile.length > 100 || arrFile.length <= 0){
+    async postManage(@User() userSer: number, @Req() req: Request){
+        let reqOrigin = req.headers['sec-fetch-site'];
+        if (reqOrigin !== 'same-origin' && reqOrigin !== 'same-site'){
             throw new BadRequestException();
         }
+
         let retVal = new FileMoveResDto();
         const dir = await this.filesService.getUserRoot(userSer, 'upload_tmp');
         const root = await this.filesService.getUserRoot(userSer, 'files');
         const subt = '(user_serial, parent_serial, type, file_name)';
-        for (const itm of arrFile){
+        
+        const bb = busboy({headers: req.headers, fileHwm: 512, limits: {files: 100}});
+        bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
             let res: RowDataPacket[] = [];
-            await this.mysqlService.doTransaction('files controller post manage', async conn=>{
+            await this.mysqlService.doTransaction('files controller post manage1', async conn=>{
                 await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
                 await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
-                    [userSer, dir, itm.originalname.length > 4 ? itm.originalname.slice(0, -4) : itm.originalname]
+                    [userSer, dir, info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename]
                 );
                 [res] = await conn.execute<RowDataPacket[]>(
                     `select file_serial, last_renamed from file where user_serial=? and parent_serial=?`,
@@ -209,14 +214,14 @@ export class FilesController {
                 );
             });
             try {
-                await this.filesService.uploadMongo(res[0].file_serial, itm.stream);
+                await this.filesService.uploadMongo(res[0].file_serial, fstream);
             } catch {
-                retVal.failed.push([0, itm.originalname]);
-                itm.stream.destroy(); // need to check
-                continue;
+                retVal.failed.push([0, info.filename]);
+                fstream.destroy(); // need to check
+                return;
             }
-            await this.mysqlService.doTransaction('files controller post manage', async conn=>{
-                let {failed} = await this.copyMoveFile(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
+            await this.mysqlService.doTransaction('files controller post manage2', async conn=>{
+                let {failed} = await this.putMove(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
                     from: dir, to: root, last: 0, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
                 if (failed.length <= 0){
                     let [res2] = await conn.execute<RowDataPacket[]>(`select * from file where file_serial=?`, [res[0].file_serial]);
@@ -224,41 +229,21 @@ export class FilesController {
                         timestamp: res2[0].last_renamed, before: {id: -1, timestamp: ''}, link: '/edit?id=' + res2[0].file_serial, shared: ''
                     });
                 } else {
-                    retVal.failed.push([0, itm.originalname]);
+                    retVal.failed.push([0, info.filename]);
                     await this.mongoService.getDb().collection('file_data').deleteOne({serial: res[0].file_serial});
                 }
             });
-        }
-        return retVal;
-    }
-
-    //@Delete('bookmark')
-    async deleteBookmark(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
-        let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
-        switch (body.action){
-            case 'bookmark': strMode = 'bookmarks'; break;
-            default: throw new BadRequestException();
-        }
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
-            body.sort, strMode, body.from);
-        let retVal = new FileDelResDto();
-        retVal.delarr = [];
-        retVal.failed = [];
-        await this.mysqlService.doTransaction('files controller delete manage', async (conn, rb)=>{
-            switch (body.action){
-                case 'bookmark':
-                    retVal = await this.filesService.removeBookmark(conn, userSer, body.files);
-                    return;
-                default:
-                    throw new BadRequestException();
-                }
         });
+        bb.on('close', ()=>{
+            console.log('file upload finished');
+        });
+        await pipeline(req, bb);
         return retVal;
     }
 
     // delete from files, bookmarks and shared
     @Delete(['manage', 'bookmark']) // do not delete system dirs
-    async deleteFile(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async delManage(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
         switch (body.action){
             case 'permdel': case 'restore': strMode = 'recycle'; break;
@@ -299,7 +284,7 @@ export class FilesController {
     }
 
     @Put('bookmark')
-    async setBookmark(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async putBookmark(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'bookmark'){throw new BadRequestException();}
         let retVal: FileDelResDto;
         await this.mysqlService.doTransaction('files controller put bookmark', async (conn)=>{
@@ -311,7 +296,7 @@ export class FilesController {
     // sharing from files or profile
     // addarr is prepared with the assumption that the window is profile.
     @Put('share')
-    async shareFile(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
+    async putShare(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from);
         let retVal: FileShareResDto;
@@ -353,7 +338,7 @@ export class FilesController {
 
     // copy and move from files
     @Put('move') // copy_origin eventually marks only copied 'files'
-    async copyMoveFile(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
+    async putMove(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last, body.timestamp,
             body.sort, 'files', body.from);
         let retVal = new FileMoveResDto();
@@ -469,7 +454,7 @@ export class FilesController {
     }
 
     @Put('inbox-save')
-    async saveInbox(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+    async putInbox(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         let retVal = {success: true};
         await this.mysqlService.doTransaction('files controller put inbox-save', async conn=>{
             let ret = await this.filesService.restoreFiles(conn, userSer, body.id);
@@ -485,7 +470,7 @@ export class FilesController {
 
     // get list for dialogs
     @Get('list')
-    async getFileList(
+    async getList(
         @User(ParseIntPipe) userSer: number,
         @Query('select') select: 'folders'|'sepall',
         @Query('dirid', new ParseIntPipe({optional: true})) dirid?: number

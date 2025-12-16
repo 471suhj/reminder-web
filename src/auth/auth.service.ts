@@ -5,9 +5,10 @@ import { HashPasswordService } from '../hash-password/hash-password.service';
 import type { Response } from 'express';
 
 export class setCookie{
-    static setTokenCookie(response: Response, value: string){
+    static setTokenCookie(response: Response, value: string, remove?: boolean){
         // lax: allow direct login from remote, without first being redirected to home
-        response.cookie('__Host-Http-userToken', value, {maxAge: 7*24*60*60*1000, httpOnly: true, secure: true, sameSite: 'lax'});
+        response.cookie('__Host-Http-userToken', value, {maxAge: remove ? 0 : 7*24*60*60*1000, httpOnly: true, secure: true, sameSite: 'lax'});
+
     }
 }
 

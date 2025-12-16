@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Logger, Put, Render, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Logger, Put, Render, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { User } from 'src/user/user.decorator';
 import { AccountGetDto } from './account-get.dto';
 import { PrefsGetDto } from './prefs-get.dto';
@@ -10,6 +10,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import sharp, { Sharp } from 'sharp';
 import { join } from 'node:path';
 import { FilesService } from 'src/files/files.service';
+import { finished, pipeline } from 'node:stream/promises';
+import busboy from 'busboy';
+import type { Request } from 'express';
+import { Readable } from 'node:stream';
 
 class SuccDto {
     success: boolean = true;
@@ -92,14 +96,17 @@ export class PrefsController {
     }
 
     @Put('update/uploadprofimg')
-    @UseInterceptors(FileInterceptor('file'))
-    async uploadProfImg(@User() userSer: number, @UploadedFile() file: Express.Multer.File): Promise<SuccDto> {
+    async uploadProfImg(@User() userSer: number, @Req() req: Request): Promise<SuccDto> {
         let retVal = new SuccDto();
         retVal.success = true;
         try{
-            // use stream instead of buffer
-            throw new InternalServerErrorException();
-            await sharp(file.buffer).resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}).toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+            const bb = busboy({headers: req.headers, limits: {files: 1}});
+            await pipeline(req, bb);
+            bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
+                let fResized: Sharp;
+                await pipeline(fstream, fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}));
+                await fResized.toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+            });
         } catch (err) {
             this.logger.log('error while converting profile image. see below.');
             console.log(err);

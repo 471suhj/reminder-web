@@ -4,7 +4,7 @@ import { EncryptService } from '../encrypt/encrypt.service';
 import { EncryptError } from '../encrypt/encrypt-error';
 import { RespondLoginDto } from './respond-login.dto';
 import { HashPasswordService } from '../hash-password/hash-password.service';
-import { AuthService } from './auth.service';
+import { AuthService, setCookie } from './auth.service';
 import type { Request, Response } from 'express';
 import { MysqlService } from '../mysql/mysql.service';
 import mysql, { RowDataPacket } from 'mysql2/promise';
@@ -15,6 +15,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { HttpService } from '@nestjs/axios';
 import { SignupService } from 'src/signup/signup.service';
 import axios from 'axios';
+import { User } from 'src/user/user.decorator';
 
 @AuthDec('anony-only')
 @Controller('auth')
@@ -33,10 +34,17 @@ export class AuthController {
     }
 
     oauth2Client: OAuth2Client;
-    private readonly logger = new Logger('auth controller')
+    private readonly logger = new Logger('auth controller');
+
+    @AuthDec()
+    @Get('signout')
+    async getSignout (@User() userSer: number, @Res({passthrough: true}) res: Response){
+        setCookie.setTokenCookie(res, '', true);
+        res.redirect('/');
+    }
 
     @Post('auth')
-    async authPassword (@Body() body: GetPWDto, @Res({ passthrough: true }) response: Response): Promise<RespondLoginDto>{
+    async authPassword (@Body() body: GetPWDto, @Res({passthrough: true}) response: Response): Promise<RespondLoginDto>{
         const resLogin: RespondLoginDto = new RespondLoginDto();
         if (!body.nokey && body.key){
             try{
@@ -95,7 +103,7 @@ export class AuthController {
     }
 
     @Get('google/response')
-    async googleRes(@Query('error') error, @Query('code') code, @Query('state') state, @Res({ passthrough: true }) response: Response){
+    async googleRes(@Query('error') error: string, @Query('code') code: string, @Query('state') state: string, @Res({ passthrough: true }) response: Response){
         if (!this.authService.googleCheckParams(error, code, state, response)){
             return;
         }
