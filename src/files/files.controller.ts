@@ -66,7 +66,7 @@ export class FilesController {
     ): Promise<FilesMoreDto|FriendMoreDto>{
         switch (mode){
             case 'files':
-                return await this.filesService.loadFileMore(userSer, dirId, startAfter, timestamp, {criteria: sort, incr: sortincr});
+                return await this.filesService.loadFileMore(userSer, dirId, lastrenamed, startAfter, timestamp, {criteria: sort, incr: sortincr});
             case 'profile':
                 return await this.filesService.loadSharedMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr}, dirId);
             case 'shared':
@@ -274,15 +274,13 @@ export class FilesController {
             default: throw new BadRequestException();
         }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
-            body.sort, strMode, body.from);
+            body.sort, strMode, body.from, body.timestamp);
         let retVal = new FileDelResDto();
-        retVal.delarr = [];
-        retVal.failed = [];
         await this.mysqlService.doTransaction('files controller delete manage', async (conn, rb)=>{
             switch (body.action){
                 case 'selected':
                     if (!body.timestamp || !body.from){throw new BadRequestException();}
-                    if (!body.ignoreTimestamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
+                    if (!body.ignoreTimestamp && !(await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
                         retVal.expired = true;
                         rb.rback = true;
                         return;
@@ -319,7 +317,7 @@ export class FilesController {
     @Put('share')
     async putShare(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
-            body.sort, body.source === 'profile' ? 'files' : 'shared', body.from);
+            body.sort, body.source === 'profile' ? 'files' : 'shared', body.from, body.timestamp);
         let retVal: FileShareResDto;
         await this.mysqlService.doTransaction('files controller put share', async (conn, rb)=>{
             // verify that they are friends
@@ -361,19 +359,27 @@ export class FilesController {
     @Put('move') // copy_origin eventually marks only copied 'files'
     async putMove(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
-            body.sort, 'files', body.from);
+            body.sort, 'files', body.from, body.timestamp);
         let retVal = new FileMoveResDto();
         retVal.failmessage = '';
         let resAddedFiles: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
             if (!body.timestamp){throw new BadRequestException();}
-            if (!body.ignoreTimestamp && await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir')){
+            if (!body.ignoreTimestamp && !(await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
                 rb.rback = true;
                 retVal.expired = true;
                 return;
             }
             if (!await this.filesService.checkAccess(conn, userSer, body.to, 'dir', 'fileonly')){
                 throw new BadRequestException();
+            }
+            if (body.action === 'move'){
+                const arrFiles = body.files.map(val=>val.id);
+                if ((await this.filesService.getDirInfo(conn, userSer, body.to)).arrParentId.some(val=>arrFiles.includes(val))){
+                    retVal.failed = body.files.map(val=>[val.id, val.timestamp]);
+                    retVal.failmessage = '이동하려는 경로가 선택된 폴더이거나 그 하위 폴더입니다.';
+                    return;
+                }
             }
             // access control: from dir, to dir, and files
             // consider duplicating in the same folder
@@ -390,10 +396,12 @@ export class FilesController {
                 {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
                 [userSer, body.to, resName]
             );
-            [resDup] = await conn.query<RowDataPacket[]>(
-                `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
-                [userSer, body.from, resDup]
-            );
+            if (resDup.length > 0){
+                [resDup] = await conn.query<RowDataPacket[]>(
+                    `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
+                    [userSer, body.from, resDup]
+                );
+            }
             // requset overwrite mode if needed
             if (!body.overwrite){
                 if ((resDup.length > 0) && (relDir.length >= 2)){ // assumes rename for copying to the same dir
@@ -410,11 +418,11 @@ export class FilesController {
             if (body.overwrite === 'buttonoverwrite'){
                 // get original items to overwrite
                 [result] = await conn.query<RowDataPacket[]>(
-                    `select file_serial from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
+                    `select file_serial, last_renamed from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
                     [userSer, body.to, resName]
                 );
                 // actually delete the items to overwrite
-                const { delarr, failed, failmessage } = await this.filesService.deleteFiles(conn, userSer, result.map((val)=>val.file_serial), body.to, 'force');
+                const { delarr, failed, failmessage } = await this.filesService.deleteFiles(conn, userSer, result.map((val)=>{return {id: val.file_serial, timestamp: val.last_renamed}}), body.to, 'force');
                 if (failmessage){this.logger.error('file copy error: failed to delete some: ' + failmessage);}
                 for (let i = 0; i < resName.length; i++){
                     if (resName[i][0] === 'dir'){

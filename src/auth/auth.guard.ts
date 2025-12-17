@@ -9,6 +9,7 @@ import mysql from 'mysql2/promise';
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private reflector: Reflector, private mysqlService: MysqlService){}
+  readonly #strTokenCookie = '__Host-Http-userToken';
 
   private readonly logger = new Logger('auth guard');
 
@@ -32,13 +33,17 @@ export class AuthGuard implements CanActivate {
     return result[0]['user_serial'] as number;
   }
 
+  getToken(request: Request){
+    return request.cookies[this.#strTokenCookie];
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() === 'http'){
       const authVal: string = this.reflector.getAllAndOverride(AuthDec, [context.getHandler(), context.getClass()]);
       const ctx: HttpArgumentsHost = context.switchToHttp();
       const request: Request = ctx.getRequest<Request>();
       const response: Response = ctx.getResponse<Response>();
-      const token: undefined|string = request.cookies['__Host-Http-userToken'];
+      const token: undefined|string = request.cookies[this.#strTokenCookie];
       let user: false|number;
       if (token){
         user = await this.inspectToken(token);

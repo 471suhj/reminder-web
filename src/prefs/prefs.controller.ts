@@ -14,6 +14,7 @@ import { pipeline } from 'node:stream/promises';
 import busboy from 'busboy';
 import type { Request } from 'express';
 import { Readable } from 'node:stream';
+import { createWriteStream } from 'node:fs';
 
 class SuccDto {
     success: boolean = true;
@@ -107,9 +108,9 @@ export class PrefsController {
             bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
                 try{
                     nullReturned = false;
-                    let fResized: Sharp;
-                    await pipeline(fstream, fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}));
-                    await fResized.toFile(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+                    const writeStream = createWriteStream(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
+                    const fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}).toFormat('png');
+                    await pipeline(fstream, fResized, writeStream);
                 } catch (err) {
                     asyncErr = err;
                     return;
@@ -167,8 +168,8 @@ export class PrefsController {
         }
         await this.mysqlService.doQuery('prefs controller update profimg', async conn=>{
             let [result] = await conn.execute<ResultSetHeader>(
-                `update user set ?=? where user_serial=?`,
-                [strColName, body.checked ? 'true' : 'false', userSer]
+                `update user set ${strColName}=? where user_serial=?`,
+                [body.checked ? 'true' : 'false', userSer]
             );
             if (result.affectedRows <= 0){
                 retVal.success = false;
@@ -237,8 +238,8 @@ export class PrefsController {
         }
         await this.mysqlService.doQuery('prefs controller update profimg', async conn=>{
             let [result] = await conn.execute<ResultSetHeader>(
-                `update user set ?=? where user_serial=?`,
-                [strColName, body.checked ? 'true' : 'false', userSer]
+                `update user set ${strColName}=? where user_serial=?`,
+                [body.checked ? 'true' : 'false', userSer]
             );
             if (result.affectedRows <= 0){
                 retVal.success = false;

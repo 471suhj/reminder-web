@@ -5,10 +5,11 @@ import { EncryptModule } from '../encrypt/encrypt.module';
 import { HashPasswordModule } from '../hash-password/hash-password.module';
 import { SignupModule } from '../signup/signup.module';
 import { HttpModule } from '@nestjs/axios';
+import { AuthGuard } from './auth.guard';
 
 @Module({
   imports: [EncryptModule, HashPasswordModule, SignupModule, HttpModule],
   controllers: [AuthController],
-  providers: [AuthService]
+  providers: [AuthService, AuthGuard]
 })
 export class AuthModule {}

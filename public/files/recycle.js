@@ -24,8 +24,8 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' style='display:none'></div><!-
             ><div class='listItemText listItemCol'>${listItem.text}</div><!-
             ><div class='listPath listItemCol'>${listItem.origPath}</div><!-
-            ><div class='listDelDate listItemCol'>${listItem.dateDeleted}</div><!-
-            ><div class='listDate listItemCol'>${listItem.date}</div>
+            ><div class='listDelDate listItemCol'>${new Date(listItem.dateDeleted).toLocaleString()}</div><!-
+            ><div class='listDate listItemCol'>${new Date(listItem.date).toLocaleString()}</div>
         </div>`;
     }
 	let objCnt = {numItemCnt};

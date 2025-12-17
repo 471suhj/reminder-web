@@ -24,6 +24,9 @@ async function fncRename(){
     const itemId = txtRename.dataset.itemId;
 	const itemDate = txtRename.dataset.timestamp;
     txtRename.style.display = 'none';
+	if (newName === txtRename.dataset.origName){
+		return;
+	}
     if (newName !== ''){
 		let jsonBody = {action: 'rename', sort: sortMode, file: {id: Number(itemId), timestamp: new Date(itemDate)}, name: newName, id: Number(lblTitle.dataset.id), timestamp: new Date(lblTitle.dataset.timestamp)};
         await doFetch('./manage', 'PUT', JSON.stringify(jsonBody),
@@ -72,7 +75,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         ><div class='listItemType listItemCol'><img class='listItemCol isFolder' src='/graphics/toolbars/folder.png' width='15' height='15' data-visible='${listItem.isFolder}'></div><!-
         ><div class='listItemText listItemCol'>${listItem.text}  <div class='itemBookmark listItemCol' data-bookmarked='${listItem.bookmarked}'><img src='/graphics/toolbars/bookmark.png' width='15' height='15'></div></div><!-
         ><div class='listProfile listItemCol'>${listItem.shared}</div><!-
-        ><div class='listDate listItemCol'>${listItem.date}</div>
+        ><div class='listDate listItemCol'>${new Date(listItem.date).toLocaleString()}</div>
         </div>`;
     }
 	let objCnt = {numItemCnt};
@@ -163,9 +166,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             }
         }
         if (divSelected){
-            txtRename.value = divSelected.children[2].childNodes[1].innerText.trim();
+            txtRename.value = divSelected.children[2].childNodes[0].data.slice(0, -2);
             divSelected.children[2].appendChild(txtRename);
             txtRename.dataset.itemId = divSelected.dataset.id;
+			txtRename.dataset.origName = txtRename.value;
 			txtRename.dataset.timestamp = divSelected.dataset.timestamp;
             txtRename.style.display = 'inline';
             txtRename.focus();

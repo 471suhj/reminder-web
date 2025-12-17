@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from "class-validator";
 import { FileIdentReqDto } from "./file-ident-req.dto";
 import { SortModeDto } from "./sort-mode.dto";
 import { Type } from "class-transformer";
@@ -39,4 +39,8 @@ export class FileShareDto {
     @IsNotEmpty()
     @IsIn(['files', 'profile'])
     source: 'files'|'profile';
+
+    @IsDate()
+    @Type(()=>Date)
+    timestamp: Date;
 }

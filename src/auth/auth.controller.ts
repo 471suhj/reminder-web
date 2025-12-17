@@ -16,6 +16,7 @@ import { HttpService } from '@nestjs/axios';
 import { SignupService } from 'src/signup/signup.service';
 import axios from 'axios';
 import { User } from 'src/user/user.decorator';
+import { AuthGuard } from './auth.guard';
 
 @AuthDec('anony-only')
 @Controller('auth')
@@ -27,6 +28,7 @@ export class AuthController {
         private mysqlService: MysqlService,
         private httpService: HttpService,
         private signupService: SignupService,
+        private authGuard: AuthGuard,
     ){
         this.oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 
             'https://localhost:3000/auth/google/response'
@@ -38,8 +40,10 @@ export class AuthController {
 
     @AuthDec()
     @Get('signout')
-    async getSignout (@User() userSer: number, @Res({passthrough: true}) res: Response){
+    async getSignout (@User() userSer: number, @Req() req: Request, @Res({passthrough: true}) res: Response){
         setCookie.setTokenCookie(res, '', true);
+        const pool = await this.mysqlService.getSQL();
+        await pool.execute(`delete from session where token=?`, [this.authGuard.getToken(req)]);
         res.redirect('/');
     }
 

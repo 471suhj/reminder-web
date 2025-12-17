@@ -44,7 +44,7 @@ async function fncLoadMore(){
         for (const listItem of jsnRes.arr){
             list.insertAdjacentHTML('beforeend', `
                     <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-unread='${listItem.unread}'>
-                        <input  type='checkbox'><label class='listItemChk'for='${listItem.id}'>  ${listItem.date}</label>
+                        <input  type='checkbox'><label class='listItemChk'for='${listItem.id}'>  ${new Date(listItem.date).toLocaleString()}</label>
                         <div class='listItemText'><br><span id='content${listItem.id}'></span><br>${listItem.linkText}</div><br>
                         <div class='listItemDetails' id='listDetail_${linkID}'>상세 보기</div>
                     </div>

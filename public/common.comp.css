@@ -49,11 +49,15 @@
 }
 .listProfile{
     font-size: small;
-    color: gray;
 }
 .listDate{
     font-size: small;
-    color: gray;
+}
+.listPath{
+    font-size: small;
+}
+.listDelDate{
+    font-size: small;
 }
 .listHeader{
     font-size: medium;

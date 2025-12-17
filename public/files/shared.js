@@ -25,11 +25,11 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         return `
         <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
-            ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='30' height='30' style='display:none'></div><!-
+            ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='25' height='25' style='display:none'></div><!-
             ><div class='listOwner listItemCol'>${listItem.ownerName}</div><!-
             ><div class='listItemText listItemCol'>${listItem.text}  <div class='itemBookmark listItemCol' data-bookmarked='${listItem.bookmarked}'><img src='/graphics/toolbars/bookmark.png' width='15' height='15'></div></div><!-
             ><div class='listProfile listItemCol'>${listItem.shared}</div><!-
-            ><div class='listDate listItemCol'>${listItem.date}</div>
+            ><div class='listDate listItemCol'>${new Date(listItem.date).toLocaleString()}</div>
         </div>`;
     }
 	let objCnt = {numItemCnt};

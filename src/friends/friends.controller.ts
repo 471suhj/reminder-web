@@ -130,9 +130,9 @@ export class FriendsController {
 
     // checking for user_deleted should be done beforehand
     private async setttleFriend(conn: PoolConnection, userSer: number, id: number){
-        await conn.execute(`insert into friend_mono (user_serial_to, user_serial_from) values ?, ?`,
+        await conn.query(`insert into friend_mono (user_serial_to, user_serial_from) values (?), (?)`,
             [[userSer, id], [id, userSer]]);
-        await conn.execute(`insert into friend (user_serial_to, user_serial_from) value ?`,
+        await conn.query(`insert into friend (user_serial_to, user_serial_from) value (?)`,
             [[userSer, id]]);
     }
 

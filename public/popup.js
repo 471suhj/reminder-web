@@ -84,7 +84,7 @@ export async function fncShare(divPopup, list){
 		}
 		let shareMode = null;
 		if (optCopy.checked){shareMode = 'copy'} else if (optShareRead) {shareMode = 'read'} else {shareMode = 'edit'} 
-		const jsonBody = {files: arrSelFiles, last: idCurLast, source: 'files', sort: sortMode, from: Number(lblTitle.dataset.id), mode: shareMode, message: txtMessage.value, friends: Array.from(lstFriends.selectedOptions).map((val)=>Number(val.dataset.id))};
+		const jsonBody = {files: arrSelFiles, last: idCurLast, source: 'files', sort: sortMode, from: Number(lblTitle.dataset.id), timestamp: lblTitle.dataset.timestamp, mode: shareMode, message: txtMessage.value, friends: Array.from(lstFriends.selectedOptions).map((val)=>Number(val.dataset.id))};
 		await doFetch('./share', 'PUT', JSON.stringify(jsonBody), '',
 			'공유에 실패했습니다.', async function(result){
 				fncClearPopup(divPopup);

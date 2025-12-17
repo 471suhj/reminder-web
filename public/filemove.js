@@ -56,7 +56,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
 
         let imgBookmark = null;
         itmNew.firstElementChild.checked = checkItems;
-        itmNew.addEventListener('click', function(event){
+        itmNew.addEventListener('click', (event)=>{
             const listChkbox = itmNew.firstElementChild;
             if (event.target !== listChkbox && event.target !== imgBookmark){
                 for (const tmpListItem of list.children){
@@ -65,9 +65,16 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
                 listChkbox.checked = true;
             }    
         });
-        itmNew.addEventListener('dblclick', function(){
-            window.location.href = listItem.link;
-        })
+		if (listItem.link === undefined){
+		} else if (listItem.link.slice(0, 5) === '/edit'){
+			itmNew.addEventListener('dblclick', ()=>{
+				open(listItem.link, '_blank');
+			});
+		} else {
+			itmNew.addEventListener('dblclick', ()=>{
+				window.location.href = listItem.link;
+			});
+		}
         objCnt.numItemCnt++;
         if (!includeBookmark){
             continue;
@@ -113,36 +120,37 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
 }
 
 export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, link, method, fncInsertFile){
+	const dlg =  document.getElementById('overwriteDlg');
     let btnDlg = document.getElementById('buttonrename');
-    btnDlg.onclick = async function(event){
-        btnDlg.close();
+    btnDlg.onclick = async (event)=>{
+        dlg.close();
         jsonBody.overwrite = event.target.id;
-        await doFetch(link, method, JSON.stringify(jsonBody), '', msgNegAll, async function(result){
+        await doFetch(link, method, JSON.stringify(jsonBody), '', msgNegAll, async (result)=>{
             const jsonNew = await result.json();
             return await fncInsertFile(jsonNew, false, msgPos, msgNegPart);
         })
     }
     btnDlg = document.getElementById('buttonoverwrite');
-    btnDlg.onclick = async function(event){
-        btnDlg.close();
+    btnDlg.onclick = async (event)=>{
+        dlg.close();
         jsonBody.overwrite = event.target.id;
-        await doFetch('./manage', 'POST', JSON.stringify(jsonBody), '', msgNegAll, async function(result){
+        await doFetch(link, method, JSON.stringify(jsonBody), '', msgNegAll, async (result)=>{
             const jsonNew = await result.json();
             return await fncInsertFile(jsonNew, false, msgPos, msgNegPart);
         })
     }
     btnDlg = document.getElementById('buttonskip');
-    btnDlg.onclick = async function(event){
-        btnDlg.close();
+    btnDlg.onclick = async (event)=>{
+        dlg.close();
         jsonBody.overwrite = event.target.id;
-        await doFetch('./manage', 'POST', JSON.stringify(jsonBody), '', msgNegAll, async function(result){
+        await doFetch(link, method, JSON.stringify(jsonBody), '', msgNegAll, async (result)=>{
             const jsonNew = await result.json();
             return await fncInsertFile(jsonNew, false, msgPos, msgNegPart);
         })
     }
     btnDlg = document.getElementById('buttoncancel');
-    btnDlg.onclick = async function(event){
-        btnDlg.close();
+    btnDlg.onclick = async (event)=>{
+        dlg.close();
     }
     dlgOverwrite.showModal();
 }
