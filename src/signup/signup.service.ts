@@ -71,7 +71,7 @@ export class SignupService {
                     const salt: string = await this.hashPasswordService.getSalt();
                     let pwEncr: string = '';
                     if (pw !== ''){
-                        pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString();
+                        pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString('base64');
                     }
                     [result] = await conn.execute<mysql.RowDataPacket[]>(
                         'insert into user (user_id, name, password, email, email2, salt) value (?,?,?,?,?,?)', [id, username, pwEncr, email.slice(0, 65), email.slice(65), salt]);

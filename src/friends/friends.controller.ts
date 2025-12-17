@@ -69,7 +69,7 @@ export class FriendsController {
     }
 
     @Put('add') // caution: id here means user_id
-    async addFriends(@User(ParseIntPipe) userSer: number, @Body() body: {id: string}): Promise<{success: boolean, failmessage?: string}>{
+    async putAdd(@User(ParseIntPipe) userSer: number, @Body() body: {id: string}): Promise<{success: boolean, failmessage?: string}>{
         // only undeleted friends, and those who are not friends yet.
         let retVal: {success: boolean, failmessage?: string} = {success: true};
         let friendSer = 0;
@@ -96,7 +96,7 @@ export class FriendsController {
                 return;
             }
             let [result2] = await conn.execute<ResultSetHeader>(
-                `delete from friend_req where user_serial_to=? and user_serial_from=? for update`,
+                `delete from friend_req where user_serial_to=? and user_serial_from=?`,
                 [userSer, friendSer]
             );
             if (result2.affectedRows > 0){
@@ -137,7 +137,7 @@ export class FriendsController {
     }
 
     @Put('consent')
-    async consentFriend(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+    async putConsent(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         // only undeleted friends, and those who are not friends yet.
         let retVal: {success: boolean, failmessage?: string} = {success: true};
         await this.mysqlService.doTransaction('friends controller consent', async (conn, rb)=>{
@@ -156,7 +156,7 @@ export class FriendsController {
                 [body.id, userSer]
             );
             if (result.affectedRows > 0){
-                await this.setttleFriend(conn, userSer, body.id);
+                await this.setttleFriend(conn, userSer, Number(body.id));
                 retVal.success = true;
                 return;
             } else {
@@ -167,14 +167,14 @@ export class FriendsController {
             }
         });
         if (retVal.success){
-            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: body.id, type: 'friend_request_accepted', urlArr: []};
+            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: Number(body.id), type: 'friend_request_accepted', urlArr: []};
             await this.mongoService.getDb().collection('notification').insertOne(doc);
         }
         return retVal;
     }
 
     @Put('reject')
-    async rejectFriend(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+    async putReject(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         let retVal: {success: boolean, failmessage?: string} = {success: true};
         await this.mysqlService.doTransaction('friends controller reject', async (conn, rb)=>{
             let [result] = await conn.execute<ResultSetHeader>(
@@ -183,14 +183,14 @@ export class FriendsController {
             );
         });
         if (retVal.success){
-            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: body.id, type: 'friend_request_rejected', urlArr: []};
+            const doc: NotifColDto = {data: {sender_ser: userSer}, read: false, to: Number(body.id), type: 'friend_request_rejected', urlArr: []};
             await this.mongoService.getDb().collection('notification').insertOne(doc);
         }
         return retVal;
     }
 
     @Get('list') // for fileupload
-    async getFriendList(@User(ParseIntPipe) userSer: number): Promise<FriendListDto>{
+    async getList(@User(ParseIntPipe) userSer: number): Promise<FriendListDto>{
         let retVal = new FriendListDto();
         await this.mysqlService.doQuery('friends controller list', async conn=>{
             let str1 = `select user_serial_from, nickname, name `;
@@ -211,7 +211,8 @@ export class FriendsController {
     }
 
     @Get(':id')
-    async getProfile(@User(ParseIntPipe) userSer: number, @Param('id', ParseIntPipe) userid: number): Promise<ProfileGetDto>{
+    @Render('friends/profile')
+    async getId(@User(ParseIntPipe) userSer: number, @Param('id', ParseIntPipe) userid: number): Promise<ProfileGetDto>{
         let retVal = new ProfileGetDto();
         retVal = {...retVal, ...await this.prefsService.getUserCommon(userSer, 'friends')};
         let str1 = `select date_added, user_id, user_serial, name, nickname from friend_mul inner join user on friend_mul.user_serial_from=user.user_serial `;
@@ -225,7 +226,7 @@ export class FriendsController {
             }
             let itm = result[0];
             retVal.dateAdded = itm.date_added;
-            retVal.dateShared = '헤당 없음';
+            retVal.dateShared = '해당 없음';
             retVal.friendID = itm.user_id;
             retVal.friendImg = '/graphics/profimg?id=' + itm.user_serial;
             retVal.friendName = itm.name

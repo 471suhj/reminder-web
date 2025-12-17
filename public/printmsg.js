@@ -44,9 +44,9 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
         if (process){
             msg = await process(result);
         }
-		if (msgSuccess !== '' || (msg !== '' && msg !== undefined)){
+		if ((msgSuccess !== '' && msgSuccess !== undefined) || (msg !== '' && msg !== undefined)){
             showMessage(msgSuccess + msg);
-        }
+		}
     } catch (error) {
         if (error instanceof Error){
             showMessage(`${msgFail}\n오류: ${error.message}`);

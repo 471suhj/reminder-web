@@ -43,7 +43,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         }
         await doFetch('./add', 'PUT', JSON.stringify({id: friendID}), '', '친구 추가를 실패했습니다.',
         async function(result){
-			let jsonRes = await result.json();
+			let jsnRes = await result.json();
 				if (jsnRes.success){
 					showMessage('친구 추가 요청이 완료되었습니다. 상대방이 승낙할 경우 친구로 추가됩니다.');
 				} else if (jsnRes.failmessage) {

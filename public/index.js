@@ -4,6 +4,7 @@ const divPopup = document.getElementById('popup');
 const txtID = document.getElementById('signin_id');
 const txtPW = document.getElementById('signin_password');
 const lblSignMsg = document.getElementById('signin_message');
+const cmdSignin = document.getElementById('signin');
 const txtEncoder = new TextEncoder();
 const intEncrMaxCnt = 3;
 
@@ -22,12 +23,14 @@ function clearSignup(){
     }
 }
 
-document.getElementById('signup').addEventListener('click', function(){
+document.getElementById('signup').addEventListener('click', ()=>{
     divPopup.style.display = 'block';
 });
 
-document.getElementById('signin_google').addEventListener('click', function(){
-
+txtPW.addEventListener('keydown', (event)=>{
+	if (event.key === 'Enter'){
+		cmdSignin.click();
+	}
 });
 
 async function sendPWReq(jsnReq, strLink, process, processFail){
@@ -35,7 +38,7 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
     Object.assign(jsnReqOld, jsnReq);
     if (tryCnt < intEncrMaxCnt){
         if (strPubKey === null){
-            await doFetch('/auth/encr', 'GET', '', '', '정상적인 서버 통신에 실패했습니다.', async function(result){
+            await doFetch('/auth/encr', 'GET', '', '', '정상적인 서버 통신에 실패했습니다.', async (result)=>{
                 strPubKey = (await result.json()).value;
             });
         }
@@ -61,7 +64,7 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
         const jsnRes = await result.json();
         if (jsnRes.success === true){
             tryCnt = 0; // otherwise a series of sign ups with long intervals would result in nokey state being used
-            process();
+            process(jsnRes);
         } else if (jsnRes.expired === true && tryCnt < intEncrMaxCnt) {
             strPubKey = null;
             tryCnt++;
@@ -77,7 +80,7 @@ async function sendPWReq(jsnReq, strLink, process, processFail){
     
 }
 
-document.getElementById('signin').addEventListener('click', async function(){
+cmdSignin.addEventListener('click', async function(){
     if (txtID.value === '' || txtPW.value === ''){
         lblSignMsg.innerText = '아이디 또는 비밀번호를 입력해 주십시오.'
         return;
@@ -166,6 +169,8 @@ document.getElementById('signup_email_send').addEventListener('click', async fun
         const lblMsgTmp = document.getElementById('signup_email_sent');
         if (jsnRes.success){
             lblMsgTmp.innerText = '인증 번호가 발송되었습니다.';
+			lblSignupEmailStatus.innerText = '발송된 인증 코드를 입력하십시오.';
+            lblSignupEmailStatus.dataset.valid = 'false';
         } else if (typeof jsnRes.message === 'string'){
             lblMsgTmp.innerText = jsnRes.message;
 	} else {
@@ -190,8 +195,13 @@ document.getElementById('signup_email_verify_cmd').addEventListener('click', asy
                 lblSignupEmailStatus.dataset.key = String(jsnRes.key);
                 lblSignupEmailStatus.dataset.veremail = address; // 인증된 주소는 어디인지 
             } else {
-                lblSignupEmailStatus.innerText = '잘못된 코드입니다.';
-                lblSignupEmailStatus.dataset.valid = 'false';
+				if (jsnRes.failmessage){
+					lblSignupEmailStatus.innerText = jsnRes.failmessage;
+					lblSignupEmailStatus.dataset.valid = 'false';
+				} else {
+					lblSignupEmailStatus.innerText = '잘못된 코드입니다.';
+					lblSignupEmailStatus.dataset.valid = 'false';
+				}
             }
         })
 })
@@ -256,14 +266,9 @@ document.getElementById('signup_ok').addEventListener('click', async function(){
         return;
     }
 
-    await sendPWReq({id: txtSignupID.value, password: txtSignupPW2.value, username: txtSignupUsername.value, email: lblSignupEmailStatus.dataset.veremail, emailkey: lblSignupEmailStatus.dataset.key}, '/signup/register', async function(result){
-        const resJson = await result.json();
-        if (resJson.success === true){
-            alert('회원 가입이 정상적으로 완료되었습니다. 회원 가입한 계정으로 로그인해 주시기 바랍니다.');
-            clearSignup();
-        } else {
-            alert('회원 가입에 실패했습니다.\n' + resJson.message);
-        }
+    await sendPWReq({id: txtSignupID.value, password: txtSignupPW2.value, username: txtSignupUsername.value, email: lblSignupEmailStatus.dataset.veremail, emailkey: lblSignupEmailStatus.dataset.key}, '/signup/register', async function(jsnRes){
+        alert('회원 가입이 정상적으로 완료되었습니다. 회원 가입한 계정으로 로그인해 주시기 바랍니다.');
+        clearSignup();
     }, function(msg){
         alert('회원 가입이 실패했습니다.\n' + msg);
     });

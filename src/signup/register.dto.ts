@@ -10,7 +10,6 @@ export class RegisterDto{
 
     @IsNotEmpty()
     @IsString()
-    @Length(7, 30)
     password: string;
 
     @IsNotEmpty()

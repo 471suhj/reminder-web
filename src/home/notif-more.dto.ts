@@ -7,5 +7,6 @@ export class NotifMoreDto {
         text: string,
         linkText: string,
         date: string,
+        link: string,
     }[];
 }

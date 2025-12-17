@@ -18,9 +18,13 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt
     if (jsnRes.failmessage){
         showMessage(jsnRes.failmessage);
     } else if ((jsnRes.failed ?? []).length > 0){
-        showMessage(msgNeg);
+		if (msgNeg){
+			showMessage(msgNeg);
+		}
     } else {
-        showMessage(msgPos);
+		if (msgPos){
+			showMessage(msgPos);
+		}
     }
 }
 

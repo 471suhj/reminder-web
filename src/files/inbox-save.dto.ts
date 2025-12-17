@@ -1,6 +1,6 @@
-import { IsInt } from "class-validator";
+import { IsInt, IsString } from "class-validator";
 
 export class InboxSaveDto {
-    @IsInt()
-    id: number;
+    @IsString()
+    id: string;
 }

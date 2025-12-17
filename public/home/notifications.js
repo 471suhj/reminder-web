@@ -33,7 +33,7 @@ async function fncLoadMore(){
     } else {
         cmdLoadMore.dataset.enabled = 'false';
     }
-	const items = list.children;
+	const items = Array.from(list.children);
 	let idCurLast = 0;
 	if (items.length > 0){
 		idCurLast = items.at(-1).dataset.id;
@@ -49,9 +49,9 @@ async function fncLoadMore(){
                         <div class='listItemDetails' id='listDetail_${linkID}'>상세 보기</div>
                     </div>
                 `);
-			document.getElementById('content' + listITem.id).innerText = listItem.text;
+			document.getElementById('content' + listItem.id).innerText = listItem.text;
             document.getElementById('listDetail_' + String(linkID)).addEventListener('click', function(){
-                loadNotificationDetails(divPopup, listItem, listItem.link);
+                loadNotificationDetails(listItem, listItem.link);
             });
 			const itm = document.getElementById('item' + listItem.id);
 			itm.addEventListener('click', function(event){

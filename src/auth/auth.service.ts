@@ -96,7 +96,7 @@ export class AuthService {
             do{
                 [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from session where token=? for share', [strToken]);
             } while (result.length > 0)
-            console.log(await conn.execute('insert into session (user_serial, token) value (?, ?)', [userSerial, strToken]));
+            await conn.execute('insert into session (user_serial, token) value (?, ?)', [userSerial, strToken]);
         });
         setCookie.setTokenCookie(response, strToken);
     }

@@ -62,7 +62,7 @@ export class HomeController {
                 );
                 const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                 for (let i = 0; i < result.length; i++){
-                    this.getHome_listFile(i, result[i], arrFile);
+                    this.getHome_listFile(i + 1, result[i], arrFile);
                 }
                 retVal.homeList.push({title: '즐겨 찾기', link: '/files/bookmarks', itemList: arrFile});
             }
@@ -74,7 +74,7 @@ export class HomeController {
                     );
                     const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                     for (let i = 0; i < result.length; i++){
-                        this.getHome_listFile(i, result[i], arrFile);
+                        this.getHome_listFile(i + 1, result[i], arrFile);
                     }
                     retVal.homeList.push({title: '최근 파일', link: '/files', itemList: arrFile});
                 }
@@ -87,7 +87,7 @@ export class HomeController {
                 );
                     const arrFile: HomeGetDto['homeList'][number]['itemList'] = [];
                     for (let i = 0; i < result.length; i++){
-                        this.getHome_listFile(i, result[i], arrFile);
+                        this.getHome_listFile(i + 1, result[i], arrFile);
                     }
                 retVal.homeList.push({title: '공유된 파일', link: '/files/shared', itemList: arrFile});
             }
@@ -97,13 +97,15 @@ export class HomeController {
             try{
                 let dbNof = this.mongoService.getDb().collection('notification');
                 let query = {to: userSer};
-                let sort: {[k: string]: 1|-1} = {time: -1};
-                let fields = {id: 1, prevText: 1};
+                let sort: {[k: string]: 1|-1} = {_id: -1};
+                let fields = {data: 1, type: 1};
                 cur = dbNof.find(query).sort(sort).limit(7).project(fields);
                 let arrList: HomeGetDto['homeList'][number]['itemList'] = [];
                 let i = 0;
                 for await (const itm of cur){
-                    arrList.push([i % 2 ? 'A' : 'B', i, itm.prevText, 'notif', '/home/notifications/' + itm.id]);
+                    i++;
+                    const prevText = await this.homeService.getNotifText(userSer, itm.type, itm.data, '', true);
+                    arrList.push([i % 2 ? 'A' : 'B', i, prevText, 'notif', '/home/notifications/' + itm._id.toString('hex')]);
                 }
                 await cur.close();
                 retVal.homeList.push({title: '알림', link: '/home/notifications', itemList: arrList});
@@ -163,7 +165,7 @@ export class HomeController {
         }
         // do the query
         let sort: {[k: string]: 1|-1} = {_id: -1};
-        let fields = {urlArr: 1, read: 1, type: 1};
+        let fields = {urlArr: 1, read: 1, type: 1, data: 1};
         let cur = dbNof.find(query).sort(sort).limit(21).project(fields);
         result = await cur.toArray();
         await cur.close();
@@ -187,6 +189,7 @@ export class HomeController {
                 text: await this.homeService.getNotifText(userSer, itm.type, itm.data, '', true),
                 linkText: this.homeService.getNotifLinkText(itm.urlArr),
                 date: itm._id.getTimestamp().toISOString(),
+                link: '/home/notifications/' + itm._id.toString('hex'),
             });
         }
         retVal.arr = arrLst;
@@ -201,7 +204,7 @@ export class HomeController {
         if (res === null){
             return '해당 알림의 정보를 찾을 수 없었습니다.';
         }
-        return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toISOString());
+        return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toLocaleString());
 
     }
 

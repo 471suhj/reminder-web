@@ -27,8 +27,8 @@ export class HashPasswordService {
         this.#emailivB = this.#emailivA;
         this.#emailkeyB = this.#emailkeyA;
         try{
-            this.#emailkeyA = await this.getByte(4);
-            this.#emailivA = await this.getByte(4);
+            this.#emailkeyA = await this.getByte(16);
+            this.#emailivA = await this.getByte(16);
         } catch (err) {
             this.logger.error('error on updateemailcipher. see below.');
             console.log(err);
@@ -42,8 +42,9 @@ export class HashPasswordService {
         while(this.#emailCipherUpdating){
             await new Promise((resolve) => {setImmediate(resolve)});
         }
-        const emailCipheriv: Cipher = createCipheriv('aes-256-ccm', this.#emailkeyA, this.#emailivA);
-        return String(this.#emailIncr).padStart(3, '0') + Buffer.concat([emailCipheriv.update(addr, 'base64'), emailCipheriv.final()]).toString('base64');
+        const emailCipheriv: Cipher = createCipheriv('aes-128-cbc', this.#emailkeyA, this.#emailivA);
+        // as a result, emails verified too long ago are invalidated
+        return String(this.#emailIncr).padStart(3, '0') + Buffer.concat([emailCipheriv.update(addr, 'utf-8'), emailCipheriv.final()]).toString('base64');
     }
     
     async decryptEmail(addr: string): Promise<string|false>{
@@ -56,14 +57,15 @@ export class HashPasswordService {
             addr = addr.slice(3);
             let emailDecipheriv: Decipher;
             if (incr === this.#emailIncr){
-                emailDecipheriv = createDecipheriv('aes-256-ccm', this.#emailkeyA, this.#emailivA);
+                emailDecipheriv = createDecipheriv('aes-128-cbc', this.#emailkeyA, this.#emailivA);
             } else if ((incr === this.#emailIncr - 1) || (incr === this.#emailIncr + 999)){
-                emailDecipheriv = createDecipheriv('aes-256-ccm', this.#emailkeyB, this.#emailivB);
+                emailDecipheriv = createDecipheriv('aes-128-cbc', this.#emailkeyB, this.#emailivB);
             } else {
                 return false;
             }
-            return Buffer.concat([emailDecipheriv.update(addr, 'base64'), emailDecipheriv.final()]).toString('base64');
-        } catch {
+            return Buffer.concat([emailDecipheriv.update(addr, 'base64'), emailDecipheriv.final()]).toString('utf-8');
+        } catch (err) {
+            console.log(err);
             return false;
         }
 
@@ -87,12 +89,18 @@ export class HashPasswordService {
     }
 
     async getVerifiCode(): Promise<string>{
-        return (await this.getByte(4)).toString('base64');
+        return (await this.getByte(6)).toString('base64');
     }
 
     async comparePW(PW: string, salt: string, compareto: string): Promise<boolean>{
         const pwHash: Buffer = await this.getHash(PW, salt);
-        return timingSafeEqual(pwHash, Buffer.from(compareto));
+        try {
+            const ret = timingSafeEqual(pwHash, Buffer.from(compareto, 'base64'));
+            return ret;
+        } catch (err) {
+            console.log(err);
+            return false;
+        }
     }
     
 }

@@ -21,8 +21,8 @@ function fncPrintCnt(){
     lblItemCnt.textContent = String(numItemCnt) + '개의 항목'
 }
 
-function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
-    const strHtml = function(listItem){
+async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
+    const strHtml = (listItem)=>{
         return `
         <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id} data-id='${listItem.id}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
@@ -65,7 +65,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 }
 
 {
-    let tlbItem = document.getElementById('delete');
+    let tlbItem = document.getElementById('unshare');
     tlbItem.addEventListener('click', function(){
         let arrSelFiles = [];
         for (const listItem of list.children){
@@ -110,16 +110,16 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         divPopup.style.display = 'block';
 		divPopup.innerHTML = `
 			<h1>공유</h1>
-			공유 방식: <input type='radio' checked='true' id='popoptCopy'><label for='popoptCopy'>사본 전달</label>
-			<input type='radio' id='popoptRead'><label for='popoptRead'>읽기 권한 공유</label>
-			<input type='radio' id='popoptEdit'><label for='popoptEdit'>편집 권한 공유</label>
+			공유 방식: <br><input type='radio' name="share" checked='true' id='popoptCopy'><label for='popoptCopy'>사본 전달</label>
+			<input type='radio' name="share" id='popoptRead'><label for='popoptRead'>읽기 권한 공유</label>
+			<input type='radio' name="share" id='popoptEdit'><label for='popoptEdit'>편집 권한 공유</label><br><br>
 			공유할 파일을 선택하십시오.<br>
 			ctrl 키를 누른 상태에서 클릭하면 여러 파일을 동시에 선택할 수 있습니다.<br><br>
 			<div id='poppath'></div>
-			<select size='8' id='poplst'></select>
-			<select multiple='true' id='poplst2'></select>			
+			<select size='8' id='poplst' style='width:49%;height:200px'></select>
+			<select multiple='true' size='8' id='poplst2' style='width:49%;height:200px'></select><br><br><br>
 			공유와 함께 전송할 메시지를 입력하십시오.<br>
-			<textarea id='popMsg'></textarea>
+			<textarea id='popMsg' style='width:100%'></textarea>
 			<br>`;
 		
 		const lstDir = document.getElementById('poplst');
@@ -132,20 +132,19 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 		const cmdOK = fncCreateOKCancel(divPopup);
 		let fncFetchFolder;
 		fncFetchFolder = async function(dirid){
-			lstDir.children.forEach((element)=>{element.remove();});
-			lstFiles.children.forEach((element)=>{element.remove();});
-			let strLink = './list?select=sepall';
+			Array.from(lstDir.children).forEach((element)=>{element.remove();});
+			Array.from(lstFiles.children).forEach((element)=>{element.remove();});
+			let strLink = '/files/list?select=sepall';
 			strLink += dirid ? '&dirid=' + dirid : '';
 			await doFetch(strLink, 'GET',
 				'', '', '파일 목록을 불러올 수 없었습니다.', async function(result){
 				const jsnRes = await result.json();
 				txtPath.innerText = jsnRes.path;
-				for (const listItem of jsnRes.delarr){
+				for (const listItem of jsnRes.arr){
 					const ctlOption = lstDir.appendChild(document.createElement('option'));
 					ctlOption.innerText = `${listItem.name}`;
 					ctlOption.dataset.id = listItem.id;
 					ctlOption.addEventListener('dblclick', async function(event){
-						fncClickOption(event);
 						await fncFetchFolder(event.target.dataset.id);
 					});
 				}
@@ -153,6 +152,7 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 					const ctlOption = lstFiles.appendChild(document.createElement('option'));
 					ctlOption.innerText = `${listItem.name}`;
 					ctlOption.dataset.id = listItem.id;
+					ctlOption.dataset.timestamp = listItem.timestamp;
 				}
 			});
 		}
@@ -164,8 +164,13 @@ function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			}
 			let shareMode = null;
 			if (optCopy.checked){shareMode = 'copy'} else if (optShareRead) {shareMode = 'read'} else {shareMode = 'edit'} 
-			let idCurLast = {id: '0', timestamp: new Date()};
-			const jsonBody = {files: Array.from(lstFiles.selectedOptions).map((val)=>Number(val.dataset.id)), timestamp: lblTitle.dataset.timestamp, sort: sortMode, source: 'profile', from: Number(lblTitle.dataset.id), sort: sortMode, mode: shareMode, last: idCurLast, message: txtMessage.value, friends: [Number(lblTitle.dataset.id)]};
+			let idCurLast = {id: 0, timestamp: new Date()};
+			if (list.children.length !== 1){
+				idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
+				idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
+			}
+			const reqFiles = Array.from(lstFiles.selectedOptions).map((val)=>{return {id: Number(val.dataset.id), timestamp: val.dataset.timestamp}});
+			const jsonBody = {files: reqFiles, timestamp: new Date(), source: 'profile', from: Number(lblTitle.dataset.id), sort: sortMode, mode: shareMode, last: idCurLast, message: txtMessage.value, friends: [Number(lblTitle.dataset.id)]};
 			await doFetch('/files/share', 'PUT', JSON.stringify(jsonBody), '',
 				'공유에 실패했습니다.', async function(result){
 					fncClearPopup(divPopup);

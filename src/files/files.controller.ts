@@ -204,7 +204,7 @@ export class FilesController {
         let closeReturned = false;
         let nullReturned = false;
         
-        const bb = busboy({headers: req.headers, fileHwm: 512, limits: {files: 100}});
+        const bb = busboy({headers: req.headers, fileHwm: 512, limits: {files: 100}, defParamCharset: 'utf8'});
         // important!: make sure that all exceptions are handled internally and not thrown
         bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
             let res: RowDataPacket[] = [];
@@ -218,6 +218,7 @@ export class FilesController {
                             await fs.rm(join(__dirname, `../../filesys/${itm.file_serial}`), {force: true, recursive: true});
                         } catch (err) {}
                     }
+                    
                     await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
                     await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
                         [userSer, dir, info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename]
@@ -321,9 +322,9 @@ export class FilesController {
         let retVal: FileShareResDto;
         await this.mysqlService.doTransaction('files controller put share', async (conn, rb)=>{
             // verify that they are friends
-            let fverbose = body.files.map(val=>[val.id, val.timestamp]);
+            let fverbose: [number, Date][] = body.files.map(val=>[val.id, val.timestamp]);
             let [result] = await conn.query<RowDataPacket[]>(
-                `select user_serial_from from friend_mono where user_serial_to=? and user_serial from in (?) for share`,
+                `select user_serial_from from friend_mono where user_serial_to=? and user_serial_from in (?) for share`,
                 [userSer, body.friends]
             );
             if (result.length < body.friends.length){throw new BadRequestException();}
@@ -332,7 +333,7 @@ export class FilesController {
                 `select file_serial from file where user_serial=? and (file_serial, last_renamed) in (?) for share`, [userSer, fverbose]
             );
             let [result2] = await conn.query<RowDataPacket[]>(
-                `select file_serial from shared_def where user_serial_to=? and (file_serial, last_renamed) in (?) for share`, [userSer, fverbose]
+                `select file_serial from shared_def where user_serial_to=? and file_serial in (?) for share`, [userSer, fverbose.map(val=>val[0])]
             );
             if (result.length + result2.length < body.files.length){
                 rb.rback = true;
@@ -497,7 +498,7 @@ export class FilesController {
     async putInbox(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         let retVal = {success: true};
         await this.mysqlService.doTransaction('files controller put inbox-save', async conn=>{
-            let ret = await this.filesService.restoreFiles(conn, userSer, body.id);
+            let ret = await this.filesService.restoreFiles(conn, userSer, Number(body.id));
             if (ret.arrFail.length > 0){
                 retVal.success = false;
                 return;
@@ -532,7 +533,7 @@ export class FilesController {
             retVal.arr = retVal.arr.concat(result as FileListResDto['arr']);
             if (select === 'sepall'){
                 [result] = await conn.execute<RowDataPacket[]>(
-                    `select file_name as name, file_serial as id from file where user_serial=? and parent_serial=? and type<>'dir' and issys='false'`);
+                    `select file_name as name, file_serial as id, last_renamed as timestamp from file where user_serial=? and parent_serial=? and type<>'dir' and issys='false'`, [userSer, dirid]);
                 retVal.arr2 = result as FileListResDto['arr2'];
             }
         });

@@ -597,7 +597,7 @@ export class FilesService {
                 retVal.loadMore = false;
             }
             retVal.addarr = result2.map(val=>{return {
-                link: '/friends/profile/' + val.user_serial_from,
+                link: '/friends/' + val.user_serial_from,
                 profileimg: '/graphics/profimg?id=' + val.user_serial_from,
                 nickname: val.nickname,
                 name: '',
@@ -616,6 +616,9 @@ export class FilesService {
     private async friendLoad_fillInfo(lst: FilesArrDto['arrFriend']){
         let mapArr = new Map(lst.map(val=>[val.id, val]));
         let arrSerial = lst.map(val=>val.id);
+        if (lst.length <= 0){
+            return;
+        }
         await this.mysqlService.doQuery('files service friendload fillinfo', async (conn)=>{
             let [result] = await conn.query<RowDataPacket[]>(
                 `select user_serial, name, user_id from user where user_serial in (?)`, [arrSerial]
@@ -1503,7 +1506,7 @@ export class FilesService {
         let finishCalled = false;
         let asyncErr: Error|null = null;
         let objDoc = new FiledatColDto();
-        const tmpVar = {buf: '', phase: 'M', idx: -1, fh: null};
+        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null};
         objDoc.serial = fileSer;
         const dirpath = join(__dirname, `../../filesys/${fileSer}`);
         await fs.mkdir(dirpath, {});

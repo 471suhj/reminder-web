@@ -17,7 +17,7 @@ export class HomeService {
         return strLink;
     }
 
-    async getNotifText(userSer: number, mode: NotifType['itm'], data: any, time: string, prev?: boolean): Promise<string>{
+    async getNotifText(userSer: number, mode: NotifType['itm'], data: any, time?: string, prev?: boolean): Promise<string>{
         let retStr = prev ? '' : time + '<br><br>'
         let senderName = '';
         if (typeof data.sender_ser === 'number'){
@@ -30,12 +30,12 @@ export class HomeService {
                     senderName = result[0].nickname;
                 } else {
                     [result] = await conn.execute<RowDataPacket[]>(
-                        `select name from user where user_serial=?`, [data.sender_ser]
+                        `select name, user_id from user where user_serial=?`, [data.sender_ser]
                     );
                     if (result.length <= 0){
                         senderName = '(탈퇴한 사용자)';
                     } else {
-                        senderName = result[0].name;
+                        senderName = `${result[0].name} (${result[0].user_id})`;
                     }
                 }
             });

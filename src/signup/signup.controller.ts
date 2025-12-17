@@ -10,6 +10,7 @@ import { KeyObject } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import { AuthDec } from 'src/auth/auth.decorator';
 import { SignupService } from './signup.service';
+import { EncryptError } from 'src/encrypt/encrypt-error';
 
 @AuthDec('anony-only')
 @Controller('signup')
@@ -24,14 +25,28 @@ export class SignupController {
     private readonly logger = new Logger('signup');
 
     @Post('register')
-    async registerUser(@Body() body: RegisterDto): Promise<{success: boolean, message?: string}>{
-        if (!body.nokey) {
-            body.password = await this.encryptService.decryptPW(body.key as KeyObject, body.password);
+    async registerUser(@Body() body: RegisterDto): Promise<{success: boolean, message?: string, expired?: boolean}>{
+        try {
+            if (!body.nokey) {
+                body.password = await this.encryptService.decryptPW(body.key as KeyObject, body.password);
+            }
+        } catch (err) {
+            if ((err instanceof EncryptError) && (err.encr_type === 'expired')){
+                return {success: false, expired: true};
+            } else {
+                throw err;
+            }
         }
-        if ((await this.hashPasswordService.decryptEmail(body.emailkey)) !== body.email.normalize()){
-            return {success: false, message: '이메일 주소의 인증을 확인하는 것에 실패했습니다.'};
+        const normPW = body.password.normalize();
+        if ((normPW.length > 30) || (normPW.length < 7)){
+            throw new BadRequestException();
         }
-        return await this.signupService.registerUser(body.id, body.password, body.username, body.email);
+        let cat;
+        if ((cat = await this.hashPasswordService.decryptEmail(body.emailkey)) !== body.email.normalize()){
+            console.log(cat);
+            return {success: false, message: '이메일 주소의 인증을 확인하는 것에 실패했습니다.\n만약 이 오류가 처음 발생했다면 다시 이메일 인증번호를 받고 인증을 진행해 보십시오.'};
+        }
+        return await this.signupService.registerUser(body.id, normPW, body.username, body.email);
     }
 
     @Put('checkid')
@@ -73,6 +88,7 @@ export class SignupController {
             await sqlPool.execute(
                 'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
                 [body.email.slice(0,65), body.email.slice(65), strCode, strCode]);
+            this.logger.log(`verification code for ${body.email}: ${strCode}`);
             return {success: true};
         } catch (err) {
             this.logger.error('signup email mysql error. see below');
@@ -82,14 +98,14 @@ export class SignupController {
     }
 
     @Put('verify')
-    async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string}>{
+    async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string, failmessage?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        try {
+        try{
             const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
             ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
             if (result.length <= 0){
-                throw new BadRequestException();
+                return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
             } else {
                 if (result.length > 1){
                     this.logger.error('duplicate in email_verification with email=' + body.email);
@@ -101,9 +117,8 @@ export class SignupController {
                 }
             }
         } catch (err) {
-            this.logger.error('signup email verification mysql error. see below.');
             console.log(err);
-            throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw err;
         }
     }
 
