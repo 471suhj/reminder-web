@@ -83,7 +83,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
         if (!includeBookmark){
             continue;
         }
-        const divBookmark = itmNew.children[childLoc].firstElementChild;
+        let divBookmark = itmNew.children[childLoc].firstElementChild;
         imgBookmark = divBookmark.firstElementChild;
         divBookmark.addEventListener('click', async function(){
             let action = 'PUT';

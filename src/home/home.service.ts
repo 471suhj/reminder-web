@@ -12,7 +12,7 @@ export class HomeService {
     getNotifLinkText(arrLink: [string, string][]): string{
         let strLink = '';
         for (const itm of arrLink){
-            strLink += `<a src="${itm[1]}">${itm[0]}</a>&nbsp;&nbsp;`;
+            strLink += `<a href="${itm[1]}">${itm[0]}</a>&nbsp;&nbsp;`;
         }
         return strLink;
     }
@@ -22,41 +22,43 @@ export class HomeService {
         let senderName = '';
         if (typeof data.sender_ser === 'number'){
             await this.mysqlService.doQuery('home service getText', async conn=>{
-                let [result] = await conn.execute<RowDataPacket[]>(
+                let [result_mono] = await conn.execute<RowDataPacket[]>(
                     `select nickname from friend_mono where user_serial_from=? and user_serial_to=?`,
                     [data.sender_ser, userSer]
                 );
-                if (result.length > 0 && result[0].nickname !== ''){
-                    senderName = result[0].nickname;
+                let [result_info] = await conn.execute<RowDataPacket[]>(
+                    `select name, user_id from user where user_serial=?`, [data.sender_ser]
+                );
+                if (result_mono.length > 0 && result_mono[0].nickname !== ''){
+                    senderName = result_mono[0].nickname + ` (${result_info[0].user_id})`;
                 } else {
-                    [result] = await conn.execute<RowDataPacket[]>(
-                        `select name, user_id from user where user_serial=?`, [data.sender_ser]
-                    );
-                    if (result.length <= 0){
+                    if (result_info.length <= 0){
                         senderName = '(탈퇴한 사용자)';
                     } else {
-                        senderName = `${result[0].name} (${result[0].user_id})`;
+                        senderName = `${result_info[0].name} (${result_info[0].user_id})`;
                     }
                 }
             });
         }
+        senderName = escape(senderName);
         switch (mode){
             case 'file_shared_hard':
                 // need escaping
-                let tmpStr = `${senderName}이(가) ${data.file_name} 파일의 `;
-                tmpStr += `${data.mode === 'edit' ? '편집' : '읽기'} 권한을 공유했습니다. '공유된 파일' 폴더에서 해당 파일을 찾을 수 있습니다.`
-                retStr += escape(tmpStr);
+                retStr = escape(`${senderName}이(가) ${data.file_name} 파일의 `);
+                retStr += `${data.mode === 'edit' ? '편집' : '읽기'} 권한을 공유했습니다. '공유된 파일' 폴더에서 해당 파일을 찾을 수 있습니다.`
                 if (prev) {break;}
+                retStr += `다음은 ${senderName}이(가) 보낸 메시지입니다:<br>` + escape(data.message) + '<br>';
                 retStr += `<br><br><a href="/files/shared">폴더 열기</a>&nbsp;&nbsp;&nbsp;`;
                 retStr += `<a href="/edit?id=${data.fileid}" target="_blank">파일 열기</a>`;
                 break;
             case 'file_shared_inbox':
                 retStr += escape(`${senderName}이(가) ${data.file_name} 파일의 사본을 공유했습니다. `);
                 if (prev) {break;}
+                retStr += `다음은 ${senderName}이(가) 보낸 메시지입니다:<br>` + escape(data.message) + '<br>';
                 retStr += '<br>';
                 retStr += data.saved ? '파일이 받은 파일함에 저장되었습니다.' : '파일을 저장하려면 <span class="putlink" data-link="/files/inbox-save"';
                 retStr += data.saved ? '' : `data-prop="id" data-val="${data.file_ser}" data-msgpos="저장이 완료되었습니다." data-msgneg="저장에 실패했습니다.">여기</span>를 누르십시오.`;
-                retStr += data.saved ? '<br><br><a href="/files/inbox">받은 파일함 즐겨 찾기</a>' : '';
+                retStr += data.saved ? '<br><br><a href="/files/inbox">받은 파일함</a>' : '';
                 break;
             case 'friend_request_accepted':
                 retStr += escape(`${senderName}이(가) 친구로 추가되었습니다.`);

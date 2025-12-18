@@ -387,9 +387,13 @@ export class FilesService {
         retVal.loadMore = true;
         try{
         await this.dataSource.transaction('SERIALIZABLE', async manager=>{
-            let whereObj = {
+            let whereObj1 = {
                 user_serial_to: userSer,
-                user_serial_from: friend
+                user_serial_from: friend,
+            };
+            let whereObj2 = {
+                user_serial_to: friend,
+                user_serial_from: userSer,
             };
             let wherearr: FindOptionsWhere<Eshared_def>[] = [];
             let result: Efile[];
@@ -412,8 +416,10 @@ export class FilesService {
                     throw new Error('rollback_');
                 }
                 let lenTmp = crit.length;
-                for (let i = 0; i < lenTmp; i++){
-                    wherearr.push({...whereObj});
+                let lenTmp_dbl = lenTmp * 2;
+                for (let k = 0; k < lenTmp_dbl; k++){
+                    let i = k % lenTmp;
+                    wherearr.push({...((i === k) ? whereObj1 : whereObj2)});
                     let j = 0;
                     wherearr[i].file = {};
                     for (; j < lenTmp - 1 - i; j++){
@@ -422,7 +428,7 @@ export class FilesService {
                     wherearr[i].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
                 }
             } else {
-                wherearr = [whereObj];
+                wherearr = [whereObj1, whereObj2];
             }
             let orderObj = {file: {}};
             for (const itm of crit){
@@ -430,7 +436,7 @@ export class FilesService {
             }
             let result2 = await manager.find(Eshared_def, {
                 relations: {
-                    file: true,
+                    file: {shares: true},
                     friend_mono: true
                 },
                 where: wherearr,
@@ -450,8 +456,9 @@ export class FilesService {
                 text: val.file_name,
                 bookmarked: val.bookmarked === 'true',
                 shared: val.file.shares.map(val=>val.user_serial_to).join(','),
+                dateShared: val.date_shared,
                 date: (val.file.last_modified as Date).toISOString(),
-                ownerName: val.friend_mono.nickname,
+                ownerName: String(val.friend_mono.user_serial_from),
                 ownerImg: '/graphics/profimg?id=' + val.user_serial_from,
                 timestamp: val.file.last_renamed.toISOString()
             };});
@@ -518,10 +525,10 @@ export class FilesService {
                 id: val.file_serial,
                 isFolder: val.type === 'dir',
                 text: val.file_name,
-                date: (val.last_modified as Date).toISOString(),
-                timestamp: val.last_renamed.toISOString(),
+                date: val.last_modified,
+                timestamp: val.last_renamed,
                 origPath: val.parent_path,
-                dateDeleted: val.last_renamed.toISOString(),
+                dateDeleted: val.last_renamed,
             };});
         });
         } catch (err) {
@@ -708,18 +715,21 @@ export class FilesService {
         }
     }
 
-    async addSharedNames(lst: FilesArrDto['arr']){
+    async addSharedNames(lst: FilesArrDto['arr'], conn?: Connection, lock?: boolean){
         if (lst.length <= 0){
             return;
         }
-        let str1 = `select file_serial, shared_def.user_serial_to as id `;
-        str1 += `from shared_def where file_serial in (?)`;
+        let str1 = `select file_serial, user_serial_to as id `;
+        str1 += `from shared_def where file_serial in (?) `;
         let result: RowDataPacket[] = [];
-        await this.mysqlService.doQuery('files service addSharedNames', async (conn)=>{
-            [result] = await conn.query<RowDataPacket[]>(
-                str1, [lst.map(val=>val.id)]
-            );
-        });
+        if (conn === undefined){
+            conn = await this.mysqlService.getSQL();
+        } else if (lock) {
+            str1 += 'for share';
+        }
+        [result] = await conn.query<RowDataPacket[]>(
+            str1, [lst.map(val=>val.id)]
+        );
         let mapFile = new Map(lst.map(val=>[val.id, val]));
         for (const itm of result){
             let obj = mapFile.get(itm.file_serial);
@@ -727,7 +737,7 @@ export class FilesService {
             obj.shared += (itm.id + ',');
         }
         for (const itm of lst){
-            itm.shared!.slice(0, -1);
+            itm.shared = itm.shared!.slice(0, -1);
         }
     }
     
@@ -1032,7 +1042,11 @@ export class FilesService {
             arrDocs = arrDocs.concat(arrRet);
         }
         for (const itm of arrAdded){
-            await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
+            try{
+                await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
+            } catch (err) {
+                console.log(err);
+            }
         }
         if (arrDocs.length > 0){
             await coll.insertMany(arrDocs);
@@ -1160,39 +1174,44 @@ export class FilesService {
         // note: users can share file that are read/edit shared from others.
         // the validity of sender's access is checked beforehand, and shouldn't be checked here
         // clean 'mark' columns
-        await conn.query(`update recycle set mark='false' where mark='true' and user_serial in (?)`, [[1, ...friends_]]);
-        await conn.execute(`update file set mark='false' where user_serial=? and mark='true'`, [userSer]);
+        await conn.query(`update recycle set mark='false' where mark='true' and user_serial in (?)`, [friends_]);
+        await conn.execute(`update file set mark='false' where mark='true' and user_serial=?`, [userSer]);
         // insert into file to get file_serials
         let cte = `(select 1 union all select num+1 from cte where num<?) `;
         let str1 = `with recursive cte (num) as `;
         str1 += cte;
         let subt = '(user_serial, parent_serial, type, file_name, mark)';
-        str1 += `insert into file ${subt} select ?, 1, 'dir', concat(? ,num), 'true' from cte `;
+        str1 = `insert into file ${subt} ${str1} select ?, 1, 'dir', concat(? ,num), 'true' from cte `;
         await conn.execute(str1, [files_.length * friends_.length, userSer, userSer + '-']);
         // retrieve the created file_serials
         let [result] = await conn.execute<RowDataPacket[]>(
-            `select file_serial from file where user_serial=? and parent_serial=1 and mark='true'`);
-        // put the files into 'recycle' table
-        subt = '(user_serial, parent_serial, parent_path, type, file_name, file_serial, last_modified, del_type, mark, copy_origin)';
-        str1 = `with recursive cte (num) as ${cte} `;
-        str1 += `insert into recycle ${subt} `;
-        str1 += `select 1, 1, 'files/inbox', 'file', tfile.fname, tser.file_serial, tfile.last_modified, 'recursive', 'true', tfile.file_serial `;
-        str1 += `from (select file_serial, file_name, last_modified, row_number() over() as rownum from file cross join cte `;
-        str1 += `where file_serial in (?) for share) as tfile inner join `;
-        str1 += `(select file_serial, row_number() over() as rownum from file `;
-        str1 += `where user_serial=? and parent_serial=1 and mark='true') as tser using (rownum) `;
-        await conn.query(
-            str1, [friends_.length, userSer, files_.map(val=>val.id), userSer]
+            `select file_serial from file where user_serial=? and parent_serial=1 and mark='true'`, [userSer]
         );
-        // update the recycle table with proper user_serials, but without parent directory set as it isn't really used
-        str1 = `with recursive cte (num) as ${cte} `;
-        str1 += `update (select user_serial, mark, row_number() over() as rownum `;
-        str1 += `from recycle where user_serial=1 and mark='true' order by file_name for update) as trec cross join `;
-        str1 += `(select user_serial_to, nickname, num, row_number() over() as rownum `;
-        str1 += `from shared_def cross join cte `;
-        str1 += `where user_serial_from=? and user_serial_to in (?) order by num for share) as tser using (rownum) `;
-        str1 += `set trec.user_serial=tser.user_serial_to, trec.file_name=left(concat(tser.nickname,' - ',trec.file_name),40) `;
-        await conn.query(str1, [files_.length, userSer, friends_]);
+        const fileCnt = files_.length;
+        const friendCnt = friends_.length;
+        if (result.length !== fileCnt * friendCnt){
+            throw new InternalServerErrorException();
+        }
+        const arrSerial: [number, number, number][] = result.map(val=>[val.file_serial, -1, -1]);
+        for (let i = 0; i < arrSerial.length; i++){
+            arrSerial[i][1] = files_[i % fileCnt].id;
+            arrSerial[i][2] = friends_[Math.floor(i/fileCnt)];
+        }
+        // place in temp_share
+        await conn.query(`create temporary table temp_share (file_serial bigint unsigned, copy_origin bigint unsigned, user_serial int unsigned)`);
+        await conn.query(`insert into temp_share (file_serial, copy_origin, user_serial) values ?`, [arrSerial]);
+        // insert into recycle
+        const recy_cols = 'user_serial, parent_serial, parent_path, type, file_name, file_serial, last_modified, del_type, mark, copy_origin';
+        str1 = `insert into recycle (${recy_cols}) `;
+        str1 += `select temp_share.user_serial, 1, 'files/inbox', file.type, file.file_name, temp_share.file_serial, file.last_modified, 'recursive', 'true', temp_share.copy_origin `;
+        str1 += `from temp_share inner join file on temp_share.copy_origin=file.file_serial `;
+        await conn.execute(str1);
+        // set parent_serial
+        str1 = `update recycle inner join (select file_serial, user_serial from file where file_name='inbox' and issys='true') as inbox using (user_serial) `;
+        str1 += `set recycle.parent_serial=inbox.file_serial where recycle.mark='true'`; // leave mark to true, for use when restoring
+        await conn.execute(str1);
+        // drop temptable
+        await conn.execute(`drop temporary table temp_share`);
         // delete the created files in 'file' table
         await conn.execute(`delete from file where user_serial=? and parent_serial=1 and mark='true'`, [userSer]);
         // note that mark in recycle is left as true for future use here.
@@ -1207,43 +1226,60 @@ export class FilesService {
             // intentionally not 'for share', for efficiency
             `select user_serial from user where user_serial in (?) and auto_receive_files='true' `, [friends_]
         );
-        let str1 = `select user_serial, file_serial, file_name from recycle where user_serial in (?) and mark='true' for share`;
-        let [result2] = await conn.query<RowDataPacket[]>(
-            str1, [files_.map(val=>val.id)]
-        );
-        const arrNof: NotifColDto[] = [];
-        for (const itm of result2){
-            const data: ShareCopyNotifDto = {sender_ser: userSer, file_name: itm.file_name, file_ser: itm.file_serial};
-            arrNof.push({data: data, read: false, to: itm.user_serial, type: 'file_shared_inbox', urlArr: []});
+        if (result.length <= 0){
+            return [];
         }
-        await this.mongoService.getDb().collection('notification').insertMany(arrNof);
         
-        let arrFail: FileIdentResDto[] = [];
-        str1 = `select file_serial, last_renamed from recycle `;
-        str1 += `where user_serial=? and parent_serial=1 and mark='true' for update`; // mark shouldn't be used by restore mechanism
+        let arrRet: [number, string, number][] = [];
+        let str1 = `select file_serial, last_renamed from recycle `;
+        str1 += `where user_serial=? and mark='true' for update`; // mark shouldn't be used by restore mechanism
         for (let i = 0; i < result.length; i++){
             let [resFile] = await conn.execute<RowDataPacket[]>(
                 str1, [result[i].user_serial]
             );
             let res = await this.restoreFiles(conn, result[i].user_serial, resFile.map(val=>{return {id: val.file_serial, timestamp: val.last_renamed};}));
-            arrFail = arrFail.concat(res.arrFail.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};}));
+            [resFile] = await conn.query<RowDataPacket[]>(`select file_serial, file_name, user_serial from file where file_serial in (?)`, [res.arr.map(val=>val.id)]);
+            arrRet = arrRet.concat(resFile.map(val=>[val.file_serial, val.file_name, val.user_serial]));
         }
-        await conn.query(`update recycle set mark='false' where mark='true' and user_serial in (?)`, [friends_]);
 
-        return arrFail;
+        return arrRet;
     }
 
-    async shareCopy(conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], friends_: readonly number[]): Promise<FileShareResDto>{
+    private async shareCopy_notify(
+        conn: PoolConnection, userSer: number, savedfiles_: readonly [number, string, number][], friends_: readonly number[], message: string
+    ){
+        const arrNof: NotifColDto[] = [];
+        let [result] = await conn.query<RowDataPacket[]>(
+            `select file_name, file_serial, user_serial from recycle where user_serial in (?) and mark='true'`, [friends_]
+        );
+        for (const itm of result){
+            const data: ShareCopyNotifDto = {
+                sender_ser: userSer, file_name: itm.file_name, file_ser: itm.file_serial,
+                saved: false, message: message};
+            arrNof.push({data: data, read: false, to: itm.user_serial, type: 'file_shared_inbox', urlArr: []});
+        }
+        for (const itm of savedfiles_){
+            const data: ShareCopyNotifDto = {
+                sender_ser: userSer, file_name: itm[1], file_ser: itm[0],
+                saved: true, message: message};
+            arrNof.push({data: data, read: false, to: itm[2], type: 'file_shared_inbox', urlArr: []});
+        }
+        await this.mongoService.getDb().collection('notification').insertMany(arrNof);
+    }
+
+    async shareCopy(
+        conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], friends_: readonly number[], message: string
+    ): Promise<FileShareResDto>{
         if (friends_.length <= 0){
-            return {addarr: [], failed: []};
+            return {addarr: [], failed: [], delarr: []};
         }
         // for sharecopy, only files that user owns can be shared, as shared_def depends on friend_mono
         let retVal = new FileShareResDto();
         retVal.addarr = []; // always empty as the result shouldn't really be visible to sender in copy mode
-        retVal.failed = [];
-        if (files_.length * friends_.length > 800){
+        retVal.failed = []; // always empty. if some fail, then server failure will be sent instead
+        if (files_.length * friends_.length > 200){
             retVal.failed = files_.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};});
-            retVal.failreason = '복사 방식으로는 (전송 파일 개수)x(전송 인원)이 800을 초과할 수 없습니다.';
+            retVal.failreason = '복사 방식으로는 (전송 파일 개수)x(전송 인원)이 200을 초과할 수 없습니다.';
             return retVal;
         }
         // move to recycle
@@ -1252,35 +1288,40 @@ export class FilesService {
         await this.shareCopy_createFile(conn, userSer, files_, friends_);
         // then restore if the receiver turned restore on.
         let [result] = await conn.query<RowDataPacket[]>(
-            `select file_serial, copy_origin from recycle where user_serial in (?) for share`, [friends_]
+            `select file_serial, copy_origin from recycle where user_serial in (?) and mark='true' for share`, [friends_]
         );
         await this.copyMongo(result.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
-        retVal.failed = await this.shareCopy_restore(conn, userSer, files_, friends_);
+        const savedfiles = await this.shareCopy_restore(conn, userSer, files_, friends_);
+        await this.shareCopy_notify(conn, userSer, savedfiles, friends_, message);
         return retVal;
     }
 
-    async shareReadEdit(conn: PoolConnection, userSer: number, files_: readonly number[], friends_: readonly number[], edit: boolean): Promise<FileShareResDto>{
+    async shareReadEdit(
+        conn: PoolConnection, userSer: number, files_: readonly number[], friends_: readonly number[], edit: boolean, message: string
+    ): Promise<FileShareResDto>{
         if ((friends_.length <= 0) || (files_.length <= 0)){
-            return {addarr: [], failed: []};
+            return {addarr: [], failed: [], delarr: []};
         }
         let retVal = new FileShareResDto();
-        retVal.addarr = [];
-        retVal.failed = [];
+        let [result] = await conn.query<RowDataPacket[]>(
+            `select file_serial from shared_def where user_serial_from=? and file_serial in (?)`, [userSer, files_]
+        );
+        let dupFiles = result.map(val=>val.file_serial);
         let shareType: 'edit'|'read' = edit ? 'edit' : 'read';
         // check for already shared files first
-        await conn.execute(`update shard_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
+        await conn.execute(`update shared_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
         let subt = '(user_serial_to, user_serial_from, file_serial, file_name, share_type, mark)';
         let str1 = `insert into shared_def ${subt} select fm.user_serial_to, fm.user_serial_from, file.file_serial, file.file_name, ?, 'true' `;
         str1 += `from friend_mono as fm cross join file `;
-        str1 += `where friend_mono.user_serial_from=? and friend_mono.user_serial_to in (?) and file.user_serial=? and file.file_serial in (?) `;
-        str1 += `on duplicate key update share_type=?` // marked true only for new inserts
+        str1 += `where fm.user_serial_from=? and fm.user_serial_to in (?) and file.user_serial=? and file.file_serial in (?) `;
+        str1 += `on duplicate key update share_type=if(share_type='read',?,'edit'), mark=${shareType==='read'?"'false'":"if(share_type='read','true','false')"}` // marked true only for new inserts
         await conn.query(
             str1, [shareType, userSer, friends_, userSer, files_, shareType]
         );
-        str1 = `select nickname, type, file_name, file.bookmarked as bookmarked, last_modified, file_serial, last_renamed, user_serial_to `;
+        str1 = `select type, file.file_name, date_shared, file.bookmarked as bookmarked, last_modified, file_serial, last_renamed, user_serial_to `;
         str1 += `from shared_def inner join file using (file_serial) `;
-        str1 += `where user_serial_from=? and mark='true' for update `
-        let [result] = await conn.execute<RowDataPacket[]>(str1, [userSer]);
+        str1 += `where user_serial_from=? and shared_def.mark='true' for update `;
+        [result] = await conn.execute<RowDataPacket[]>(str1, [userSer]);
         retVal.addarr = result.map(val=>{
             return {
                 link: val.type==='dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`,
@@ -1289,21 +1330,32 @@ export class FilesService {
                 text: val.file_name,
                 bookmarked: val.bookmarked==='true',
                 shared: '', // temporary. added with this.addSharedNames
-                date: val.last_modified.toISOString(),
+                date: val.last_modified,
+                dateShared: val.date_shared,
+                ownerName: String(userSer),
                 ownerImg: '/graphics/profimg',
-                timestamp: val.last_renamed.toISOString()
+                timestamp: val.last_renamed
             }
         });
+        for (const itm of retVal.addarr){
+            if (dupFiles.includes(itm.id)){
+                retVal.delarr.push({id: itm.id, timestamp: itm.timestamp});
+            }
+        }
         let arrNof: NotifColDto[] = [];
         for (const itm of result){
-            const obj: ShareHardNotifDto = {file_name: itm.file_name, fileid: itm.file_serial, mode: shareType, sender_ser: userSer};
+            const obj: ShareHardNotifDto = {
+                file_name: itm.file_name, fileid: itm.file_serial, mode: shareType, sender_ser: userSer, message: message
+            };
             arrNof.push({data: obj, read: false, to: itm.user_serial_to, type: 'file_shared_hard',
                 urlArr: [['폴더 열기', '/files/shared'], ['파일 열기', '/edit?id=' + itm.file_serial]]});
         }
-        await conn.execute(`update shard_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
-        await this.addSharedNames(retVal.addarr);
+        await conn.execute(`update shared_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
+        await this.addSharedNames(retVal.addarr, conn, true);
         await this.replaceNames(userSer, retVal.addarr);
-        await this.mongoService.getDb().collection('notification').insertMany(arrNof);
+        if (arrNof.length > 0){
+            await this.mongoService.getDb().collection('notification').insertMany(arrNof);
+        }
         return retVal;
     }
     
@@ -1333,16 +1385,19 @@ export class FilesService {
         return retVal;
     }
 
-    async addShare(conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], friends_: readonly number[], mode: "copy" | "read" | "edit"): Promise<FileShareResDto>{
+    async addShare(
+        conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], friends_: readonly number[],
+        mode: "copy" | "read" | "edit", message: string
+    ): Promise<FileShareResDto>{
         if (files_.length <= 0){
-            return {addarr: [], failed: []};
+            return {addarr: [], failed: [], delarr: []};
         }
         let retVal = new FileShareResDto();
         retVal.addarr = [];
         retVal.failed = [];
         let filearr = files_.map(val=>val.id);
         if (mode === 'copy'){
-            retVal = await this.shareCopy(conn, userSer, files_, friends_);
+            retVal = await this.shareCopy(conn, userSer, files_, friends_, message);
         } else {
             let [result] = await conn.query<RowDataPacket[]>(
                 `select file_serial from file where user_serial=? and file_serial in (?)`, [userSer, filearr]
@@ -1352,7 +1407,7 @@ export class FilesService {
                 retVal.failreason = '사본 공유 이외의 공유는 소유한 파일에 대해서만 가능합니다.';
                 return retVal;
             }
-            retVal = await this.shareReadEdit(conn, userSer, filearr, friends_, mode === 'edit');
+            retVal = await this.shareReadEdit(conn, userSer, filearr, friends_, mode === 'edit', message);
         }
         return retVal;
     }
@@ -1395,7 +1450,7 @@ export class FilesService {
                 mapFiles.delete(result[i].file_serial);
                 retVal.delarr.push({id: result[i].file_serial, timestamp: result[i].last_renamed});
             }
-            retVal.failed = Array.from(mapFiles, val=>{return{id: val[0], timestamp: val[1].toISOString()};});
+            retVal.failed = Array.from(mapFiles, val=>{return{id: val[0], timestamp: val[1]};});
         }
         return retVal;
     }
@@ -1806,8 +1861,8 @@ export class FilesService {
                 source = `from file where user_serial=? and parent_serial=? `;
                 arrParam = [userSer, parent!, filearr];
             } else if (mode === 'profile'){
-                source = `from (select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
-                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?) as shared_def`;
+                source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
+                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
                 source += `inner join file using (file_serial)`;
                 arrParam = [userSer, friend!, friend!, userSer, filearr]
             } else {throw new BadRequestException();}

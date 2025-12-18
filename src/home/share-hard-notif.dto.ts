@@ -3,4 +3,5 @@ export class ShareHardNotifDto {
     file_name: string;
     mode: 'edit'|'read';
     fileid: number;
+    message: string;
 }

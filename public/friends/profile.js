@@ -24,18 +24,18 @@ function fncPrintCnt(){
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = (listItem)=>{
         return `
-        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id} data-id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.timestamp}${listItem.id}' data-id='${listItem.id}' data-timestamp='${listItem.timestamp}'>
             <input class='listItemChkbox listItemCol' type='checkbox'><!-
-            ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='30' height='30' style='display:none'></div><!-
+            ><div class='listOwnerImg listItemCol'><img class='listItemCol ownerImg' src='${listItem.ownerImg}' width='25' height='25'></div><!-
             ><div class='listOwner listItemCol'>${listItem.ownerName}</div><!-
             ><div class='listItemText listItemCol'>${listItem.text}  <div class='itemBookmark listItemCol' data-bookmarked='${listItem.bookmarked}'><img src='/graphics/toolbars/bookmark.png' width='15' height='15'></div></div><!-
-            ><div class='listProfile listItemCol'>${new Date(listItem.shared).toLocaleString()}</div><!-
+            ><div class='listProfile listItemCol'>${listItem.shared}</div><!-
             ><div class='listDateShared listItemCol'>${new Date(listItem.dateShared).toLocaleString()}</div><!-
             ><div class='listDate listItemCol'>${new Date(listItem.date).toLocaleString()}</div>
         </div>`;
     }
 	let objCnt = {numItemCnt};
-    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, false, 2, objCnt, fncPrintCnt);
+    await fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, true, 3, objCnt, fncPrintCnt);
 	numItemCnt = objCnt.numItemCnt;
 }
 
@@ -70,7 +70,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         let arrSelFiles = [];
         for (const listItem of list.children){
             if (listItem.firstElementChild.checked){
-                arrSelFiles.push(Number(listItem.dataset.id));
+                arrSelFiles.push({id: Number(listItem.dataset.id), timestamp: listItem.dataset.timestamp});
             }
         }
         if (!arrSelFiles.length){
@@ -80,15 +80,17 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if (!confirm('공유를 취소하시겠습니까?')){
             return;
         }
-		let idCurLast = {id: '0', timestamp: new Date()};
+		let idCurLast = {id: 0, timestamp: new Date()};
 		if (list.children.length !== 1){
-			idCurLast.id = list.children[list.children.length - 2].dataset.id;
+			idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 			idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 		}
         divPopup.style.display = 'block';
-        divPopup.appendChild('h1').innerText = '파일 공유 취소';
-        divPopup.appendChild('p').innerText = '전송할 메시지를 입력하십시오.';
+        divPopup.appendChild(document.createElement('h1')).innerText = '파일 공유 취소';
+        divPopup.appendChild(document.createElement('p')).innerText = '전송할 메시지를 입력하십시오.';
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
+        divPopup.appendChild(document.createElement('br'));
+        divPopup.appendChild(document.createElement('br'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async function(){
             const txtBody = JSON.stringify({action: 'unshare', from: Number(lblTitle.dataset.id), last: idCurLast, files: arrSelFiles, friend: Number(lblTitle.dataset.id), sort: sortMode, message: txtMsg.value});
@@ -163,7 +165,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 				return;
 			}
 			let shareMode = null;
-			if (optCopy.checked){shareMode = 'copy'} else if (optShareRead) {shareMode = 'read'} else {shareMode = 'edit'} 
+			if (optCopy.checked){shareMode = 'copy'} else if (optShareRead.checked) {shareMode = 'read'} else {shareMode = 'edit'} 
 			let idCurLast = {id: 0, timestamp: new Date()};
 			if (list.children.length !== 1){
 				idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);

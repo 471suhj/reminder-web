@@ -46,7 +46,7 @@ async function fncLoadMore(){
                     <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-unread='${listItem.unread}'>
                         <input  type='checkbox'><label class='listItemChk'for='${listItem.id}'>  ${new Date(listItem.date).toLocaleString()}</label>
                         <div class='listItemText'><br><span id='content${listItem.id}'></span><br>${listItem.linkText}</div><br>
-                        <div class='listItemDetails' id='listDetail_${linkID}'>상세 보기</div>
+                        <span class='listItemDetails' id='listDetail_${linkID}'>상세 보기</span>
                     </div>
                 `);
 			document.getElementById('content' + listItem.id).innerText = listItem.text;
@@ -109,7 +109,8 @@ async function fncInitLoad(){
             '', '삭제에 오류가 발생했습니다.', async function(result){
                 const jsnRes = await result.json();
 				let objCnt = {numItemCnt};
-                await fncRemoveItems(jsnRes, fncPrintCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
+				jsnRes.delarr = jsnRes.delarr.map(val=>{return {id: val}});
+                await fncRemoveItems(jsnRes, printItemCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
 				numItemCnt = objCnt.numItemCnt;
             });
         }

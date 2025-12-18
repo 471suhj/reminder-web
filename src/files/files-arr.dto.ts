@@ -10,7 +10,8 @@ export class FilesArrDto {
         bookmarked?: boolean;
         shared?: string;
         date: string|Date;
-        dateDeleted?: string;
+        dateShared?: string|Date;
+        dateDeleted?: string|Date;
         origPath?: string;
         ownerImg?: string;
         ownerName?: string;

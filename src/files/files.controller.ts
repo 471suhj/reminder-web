@@ -321,7 +321,7 @@ export class FilesController {
     @Put('share')
     async putShare(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
         if (body.friends.length <= 0){
-            return {addarr: [], failed: []};
+            return {addarr: [], failed: [], delarr: []};
         }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from, body.timestamp);
@@ -349,7 +349,7 @@ export class FilesController {
                 retVal.failreason = '현재 이름이 바뀌었거나 사용자가 접근할 수 없는 파일을 공유하고자 하였습니다. 파일 목록을 새로 고침한 후 다시 시도해 주시기 바랍니다.';
                 return;
             }
-            retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode);
+            retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode, body.message);
         });
         if (body.sort !== undefined){
             retVal!.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
@@ -513,6 +513,9 @@ export class FilesController {
                 return;
             }
         });
+        await this.mongoService.getDb().collection('notification').updateOne(
+            {to: userSer, type: 'file_shared_inbox', 'data.file_ser': Number(body.id)}, {$set: {'data.saved': true}}
+        );
         return retVal;
     }
 

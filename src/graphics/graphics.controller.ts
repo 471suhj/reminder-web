@@ -14,6 +14,9 @@ export class GraphicsController {
     @Get('profimg')
     async getProfImg(@User() userSer: number, @Query('id', new ParseIntPipe({optional: true})) id?: number, @Query('cus') cus?: string){
         
+        if (id === userSer){
+            id = undefined;
+        }
         if (id) {
             await this.mysqlService.doQuery('graphics controller getprofimg', async conn=>{
                 let [result] = await conn.execute<RowDataPacket[]>(
