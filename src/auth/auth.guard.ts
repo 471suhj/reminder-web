@@ -16,13 +16,7 @@ export class AuthGuard implements CanActivate {
   async inspectToken(token: string): Promise<false|number>{
     const pool: mysql.Pool = await this.mysqlService.getSQL();
     let result: mysql.RowDataPacket[];
-    try {
-      [result] = await pool.execute<mysql.RowDataPacket[]>('select user_serial from session where token=?', [token]);
-    } catch (err) {
-      this.logger.error('mysql error auth guard. see below.');
-      console.log(err);
-      throw new InternalServerErrorException();
-    }
+    [result] = await pool.execute<mysql.RowDataPacket[]>('select user_serial from session where token=?', [token]);
     if (result.length <= 0){
       return false;
     }

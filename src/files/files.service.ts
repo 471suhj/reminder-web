@@ -44,18 +44,12 @@ export class FilesService {
         if (!SysdirType.arr.includes(type)){
             throw new InternalServerErrorException();
         }
-        try {
-            let [result] = await pool.execute<RowDataPacket[]>(
-                `select file_serial from file where user_serial=? and issys='true' and file_name='${type}'`, [userSer]);
-            if (result.length <= 0){
-                throw new Error('files service mysql: root folder cannot be found userid=' + userSer);
-            }
-            return Number(result[0].file_serial);
-        } catch (err) {
-            this.logger.error('files service mysql error. see below.');
-            console.log(err);
-            throw new InternalServerErrorException();
+        let [result] = await pool.execute<RowDataPacket[]>(
+            `select file_serial from file where user_serial=? and issys='true' and file_name='${type}'`, [userSer]);
+        if (result.length <= 0){
+            throw new Error('files service mysql: root folder cannot be found userid=' + userSer);
         }
+        return Number(result[0].file_serial);
     }
 
     async makePath(conn: PoolConnection, userSer: number, path: string){
@@ -134,20 +128,14 @@ export class FilesService {
     async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetDto>{
         let retObj: FilesGetDto = new FilesGetDto();
         // includes user verification
-        try{
-            const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
-            retObj.countItem = 'false';
-            retObj.path = path;
-            retObj.uplink = '/files?dirid=' + String(parentId);
-            retObj.dirName = issys ? SysdirType.translate(dirName) : dirName;
-            retObj.dirPath = pathHtml;
-            retObj.dirId = dirid;
-            retObj.timestamp = lastRenamed.toISOString();
-        } catch (err) {
-            this.logger.error('renderFilesPage. see below.');
-            console.log(err);
-            throw new InternalServerErrorException();
-        }
+        const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
+        retObj.countItem = 'false';
+        retObj.path = path;
+        retObj.uplink = '/files?dirid=' + String(parentId);
+        retObj.dirName = issys ? SysdirType.translate(dirName) : dirName;
+        retObj.dirPath = pathHtml;
+        retObj.dirId = dirid;
+        retObj.timestamp = lastRenamed.toISOString();
         retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, 'files'))};
         return retObj;
     }
@@ -1550,14 +1538,10 @@ export class FilesService {
                     await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
                 }
             } catch (err) {
-                try{
-                    this.logger.error('uploadMongo stream error. see below.');
-                    console.log(err);
-                    asyncErr = err;
-                    stream.destroy();
-                } catch (err) {
-                    return;
-                }
+                this.logger.error('uploadMongo stream error. see below.');
+                console.log(err);
+                asyncErr = err;
+                stream.destroy();
             } finally {
                 nullReturned = true;
             }

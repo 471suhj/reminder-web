@@ -74,15 +74,7 @@ export class MysqlService {
 
     async doQuery(servicename: string, process: (connection: Pool)=>Promise<void>): Promise<void>{
         const conn: Pool = await this.getSQL();
-        try{
-            await process(conn);
-        } catch (err) {
-            this.writeError(servicename, err);
-            if (err instanceof HttpException){
-                throw err;
-            }
-            throw new InternalServerErrorException();
-        }
+        await process(conn);
     }
 
 }

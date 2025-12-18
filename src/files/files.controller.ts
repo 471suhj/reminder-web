@@ -345,14 +345,9 @@ export class FilesController {
             }
             retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode);
         });
-        try{
-            if (body.sort !== undefined){
-                retVal!.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
-            }
-        } catch (err) {
-            this.logger.error(err);
-            throw new InternalServerErrorException();
-        } 
+        if (body.sort !== undefined){
+            retVal!.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
+        }
         return retVal!;
     }
 
@@ -485,12 +480,7 @@ export class FilesController {
         });
         // do not use here
         await this.filesService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
-        try{
-            retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
-        } catch (err) {
-            this.logger.error(err);
-            throw new InternalServerErrorException();
-        }
+        retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
         return retVal;
     }
 

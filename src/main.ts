@@ -7,6 +7,11 @@ import cookieParser from 'cookie-parser';
 import { headerMiddleware } from './header/header.middleware';
 
 async function bootstrap() {
+
+  process.on('unhandledRejection', (reason, promise)=>{
+    console.log('unhandledRejection: ', reason);
+  });
+
   const httpsOptions = {
     pfx: readFileSync('test_cert.pfx'),
     passphrase: process.env.PFX_PASS, // passed from pfx_pass.env as written in package.json

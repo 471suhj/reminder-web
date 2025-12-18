@@ -15,18 +15,10 @@ export class PrefsService {
         const retVal: UserCommonDto = new UserCommonDto();
         const pool: Pool = await this.mysqlService.getSQL();
         let result;
-        try {
-            [result] = await pool.execute<RowDataPacket[]>(
-                'select name, side_bookmarks, side_shared from user where user_serial=?', [userSer]);
-            if (result.length <= 0){
-                this.logger.error('the user cannot be found: serial=' + userSer);
-                throw new InternalServerErrorException();
-            }
-        } catch (err) {
-            if (!(err instanceof InternalServerErrorException)){
-                this.logger.error('mysql error at prefs service getusercommon.');
-                console.log(err);
-            }
+        [result] = await pool.execute<RowDataPacket[]>(
+            'select name, side_bookmarks, side_shared from user where user_serial=?', [userSer]);
+        if (result.length <= 0){
+            this.logger.error('the user cannot be found: serial=' + userSer);
             throw new InternalServerErrorException();
         }
         retVal.username = String(result[0].name);

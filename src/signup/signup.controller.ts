@@ -57,21 +57,15 @@ export class SignupController {
         if (body.id.slice(0, 7) === 'google-'){
             return {valid: false, alreadyExists: true};
         }
-        try{
-            const [result1] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_id from user where user_id=?', [body.id]);
-            const [result2] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_id from old_id where user_id=?', [body.id]);
-            if (result1.length > 0 || result2.length > 0){
-                if  (result1.length >= 2 || result2.length >= 2){
-                    this.logger.error('duplicate values in mysql user_id with id=' + body.id);
-                }
-                return {valid: false, alreadyExists: true};
-            } else {
-                return {valid: true};
+        const [result1] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_id from user where user_id=?', [body.id]);
+        const [result2] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_id from old_id where user_id=?', [body.id]);
+        if (result1.length > 0 || result2.length > 0){
+            if  (result1.length >= 2 || result2.length >= 2){
+                this.logger.error('duplicate values in mysql user_id with id=' + body.id);
             }
-        } catch (err) {
-            this.logger.error('signup checkid mysql error. see below');
-            console.log(err);
-            throw new HttpException('Internal Server Error', HttpStatus.INTERNAL_SERVER_ERROR);
+            return {valid: false, alreadyExists: true};
+        } else {
+            return {valid: true};
         }
     }
 
@@ -79,46 +73,35 @@ export class SignupController {
     async emailCode(@Body() body: EmailDto): Promise<{success: boolean, message?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        try {
-            // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
-            // if (result.length > 0){
-            //     return {success: false, message: "이미 사용중인 이메일입니다."};
-            // }
-            const strCode: string = await this.hashPasswordService.getVerifiCode();
-            await sqlPool.execute(
-                'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
-                [body.email.slice(0,65), body.email.slice(65), strCode, strCode]);
-            this.logger.log(`verification code for ${body.email}: ${strCode}`);
-            return {success: true};
-        } catch (err) {
-            this.logger.error('signup email mysql error. see below');
-            console.log(err);
-            throw new InternalServerErrorException();
-        }
+        // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
+        // if (result.length > 0){
+        //     return {success: false, message: "이미 사용중인 이메일입니다."};
+        // }
+        const strCode: string = await this.hashPasswordService.getVerifiCode();
+        await sqlPool.execute(
+            'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
+            [body.email.slice(0,65), body.email.slice(65), strCode, strCode]);
+        this.logger.log(`verification code for ${body.email}: ${strCode}`);
+        return {success: true};
     }
 
     @Put('verify')
     async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string, failmessage?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        try{
-            const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
-            ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
-            if (result.length <= 0){
-                return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
-            } else {
-                if (result.length > 1){
-                    this.logger.error('duplicate in email_verification with email=' + body.email);
-                }
-                if (result[0]['code'] === body.code){
-                    return {success: true, key: await this.hashPasswordService.encryptEmail(body.email)};
-                } else {
-                    return {success: false};
-                }
+        const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
+        ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
+        if (result.length <= 0){
+            return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
+        } else {
+            if (result.length > 1){
+                this.logger.error('duplicate in email_verification with email=' + body.email);
             }
-        } catch (err) {
-            console.log(err);
-            throw err;
+            if (result[0]['code'] === body.code){
+                return {success: true, key: await this.hashPasswordService.encryptEmail(body.email)};
+            } else {
+                return {success: false};
+            }
         }
     }
 

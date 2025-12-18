@@ -166,25 +166,13 @@ export class AuthController {
 
     @Get('google')
     async googleReq(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void>{
-        try{
-            
-            const scopes = ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'];
-            const state = randomBytes(32).toString('hex');
-            const pool: mysql.Pool = await this.mysqlService.getSQL();
-            try{
-                await pool.execute('insert into google_consent (token) value (?) on duplicate key update token=?', [state, state]);
-            } catch (err) {
-                this.mysqlService.writeError('auth google', err);
-                throw new InternalServerErrorException();
-            }
-    
-            const authorizationUrl = this.oauth2Client.generateAuthUrl({access_type: 'offline',
-                scope: scopes, include_granted_scopes: true, state: state});
-            response.redirect(authorizationUrl);
-        } catch (err) {
-            this.logger.error('error at auth google. see below.');
-            console.log(err);
-            throw new InternalServerErrorException();
-        }
+        const scopes = ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'];
+        const state = randomBytes(32).toString('hex');
+        const pool: mysql.Pool = await this.mysqlService.getSQL();
+        await pool.execute('insert into google_consent (token) value (?) on duplicate key update token=?', [state, state]);
+
+        const authorizationUrl = this.oauth2Client.generateAuthUrl({access_type: 'offline',
+            scope: scopes, include_granted_scopes: true, state: state});
+        response.redirect(authorizationUrl);
     }
 }
