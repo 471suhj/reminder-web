@@ -50,14 +50,14 @@ async function fncLoadMore(){
                     </div>
                 `);
 			document.getElementById('content' + listItem.id).innerText = listItem.text;
-            document.getElementById('listDetail_' + String(linkID)).addEventListener('click', function(){
+            document.getElementById('listDetail_' + String(linkID)).addEventListener('click', ()=>{
                 loadNotificationDetails(listItem, listItem.link);
             });
 			const itm = document.getElementById('item' + listItem.id);
-			itm.addEventListener('click', function(event){
+			itm.addEventListener('click', (event)=>{
 				const listChkbox = itm.firstElementChild;
-				if (event.target !== listChkbox){
-					itm.checked = !itm.checked;
+				if ((event.target !== listChkbox) && (!event.target.classList.contains('listItemDetails'))){
+					listChkbox.checked = !listChkbox.checked;
 				}    
 			});
             linkID++;

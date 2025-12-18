@@ -96,7 +96,7 @@ export class HomeController {
             let cur: FindCursor;
             try{
                 let dbNof = this.mongoService.getDb().collection('notification');
-                let query = {to: userSer};
+                let query = {to: userSer, read: false};
                 let sort: {[k: string]: 1|-1} = {_id: -1};
                 let fields = {data: 1, type: 1};
                 cur = dbNof.find(query).sort(sort).limit(7).project(fields);
@@ -128,6 +128,7 @@ export class HomeController {
         retVal.itemCnt = await dbNof.countDocuments({to: userSer});
         retVal = {...retVal, ...(await this.prefsService.getUserCommon(userSer, 'home'))};
         retVal.countItem = 'true';
+        retVal.notificationCnt = 0;
         return retVal; 
     }
 
@@ -171,7 +172,7 @@ export class HomeController {
         await cur.close();
         // mark as read
         if (result.length > 0){
-            query.time = {$lte: result[0]._id}; // as a way to achieve repeatable read
+            query._id = {$lte: result[0]._id}; // as a way to achieve repeatable read
             query.read = false;
             let update = {$set: {read: true}};
             await dbNof.updateMany(query, update);
@@ -199,11 +200,13 @@ export class HomeController {
 
     @Get('notifications/:id')
     async getNotifDetails(@User() userSer: number, @Param('id') id: string): Promise<string>{
-        let res = await this.mongoService.getDb().collection('notification')
-            .findOne({to: userSer, _id: new ObjectId(id)}, {projection: {type: 1, data: 1}});
+        const coll = this.mongoService.getDb().collection('notification');
+        const filt = {to: userSer, _id: new ObjectId(id)};
+        let res = await coll.findOne(filt, {projection: {type: 1, data: 1}});
         if (res === null){
             return '해당 알림의 정보를 찾을 수 없었습니다.';
         }
+        coll.updateOne(filt, {$set: {read: true}});
         return await this.homeService.getNotifText(userSer, res.type, res.data, res._id.getTimestamp().toLocaleString());
 
     }

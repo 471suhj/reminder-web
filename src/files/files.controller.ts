@@ -102,6 +102,9 @@ export class FilesController {
 
     @Delete('recycle')
     async delRecycle(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        if (body.files.length <= 0){
+            return {delarr: [], failed: []};
+        }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         if (body.action !== 'permdel'){throw new BadRequestException();}
@@ -228,7 +231,7 @@ export class FilesController {
                         [userSer, dir]
                     );
                 });
-                await this.filesService.uploadMongo(res[0].file_serial, fstream);
+                await this.filesService.uploadMongo(res[0].file_serial, fstream, userSer);
                 // one transaction
                 let {failed} = await this.putMove(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
                     from: dir, to: root, last: {id: -1, timestamp: new Date()}, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
@@ -317,6 +320,9 @@ export class FilesController {
     // addarr is prepared with the assumption that the window is profile.
     @Put('share')
     async putShare(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
+        if (body.friends.length <= 0){
+            return {addarr: [], failed: []};
+        }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from, body.timestamp);
         let retVal: FileShareResDto;
@@ -387,16 +393,23 @@ export class FilesController {
             // check the validity of files and get the (type,name)s.
             let {retArr: arrSafe, arrFail, resName} = await this.filesService.moveFiles_validateFiles(conn, userSer, body.from, body.files.map(val=>[val.id, val.timestamp]));            
             
-            // get the list of files with the same name in the destination
-            let [resDup] = await conn.query<RowDataPacket[]>(
-                {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
-                [userSer, body.to, resName]
-            );
+            let resDup: RowDataPacket[];
+            if (resName.length > 0){
+                // get the list of files with the same name in the destination
+                [resDup] = await conn.query<RowDataPacket[]>(
+                    {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
+                    [userSer, body.to, resName]
+                );
+            } else {
+                resDup = [];
+            }
             if (resDup.length > 0){
                 [resDup] = await conn.query<RowDataPacket[]>(
                     `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
                     [userSer, body.from, resDup]
                 );
+            } else {
+                resDup = [];
             }
             // requset overwrite mode if needed
             if (!body.overwrite){
@@ -413,10 +426,14 @@ export class FilesController {
             // delete items to overwrite
             if (body.overwrite === 'buttonoverwrite'){
                 // get original items to overwrite
-                [result] = await conn.query<RowDataPacket[]>(
-                    `select file_serial, last_renamed from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
-                    [userSer, body.to, resName]
-                );
+                if (resName.length > 0){
+                    [result] = await conn.query<RowDataPacket[]>(
+                        `select file_serial, last_renamed from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
+                        [userSer, body.to, resName]
+                    );
+                } else {
+                    result = [];
+                }
                 // actually delete the items to overwrite
                 const { delarr, failed, failmessage } = await this.filesService.deleteFiles(conn, userSer, result.map((val)=>{return {id: val.file_serial, timestamp: val.last_renamed}}), body.to, 'force');
                 if (failmessage){this.logger.error('file copy error: failed to delete some: ' + failmessage);}
