@@ -43,4 +43,8 @@ export class FileMoveDto {
     @Type(()=>FileIdentReqDto)
     @IsObject()
     last: FileIdentReqDto;
+
+    @IsOptional()
+    @IsBoolean()
+    includeShared?: boolean;
 }

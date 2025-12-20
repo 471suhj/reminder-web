@@ -45,6 +45,11 @@ export async function doFetch(link, method, data, msgSuccess, msgFail, process, 
             msg = await process(result);
         }
 		if ((msgSuccess !== '' && msgSuccess !== undefined) || (msg !== '' && msg !== undefined)){
+			if (msg === undefined){
+				msg = '';
+			} else if (msgSuccess === undefined){
+				msgSuccess = '';
+			}
             showMessage(msgSuccess + msg);
 		}
     } catch (error) {

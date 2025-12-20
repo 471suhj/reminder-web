@@ -28,6 +28,11 @@
     padding: 10px;
     background-color: white;
 }
+.listContent{
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: pre;
+}
 .listContentA{
     width: 100%;
     padding: 5px;

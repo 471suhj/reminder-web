@@ -112,6 +112,7 @@ async function fncInitLoad(){
 				jsnRes.delarr = jsnRes.delarr.map(val=>{return {id: val}});
                 await fncRemoveItems(jsnRes, printItemCnt, '삭제에 실패한 항목이 있습니다.', '삭제가 완료되었습니다.', objCnt);
 				numItemCnt = objCnt.numItemCnt;
+				printItemCnt(false);
             });
         }
     });

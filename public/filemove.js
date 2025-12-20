@@ -14,7 +14,7 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt
             continue;
         }
     }
-    fncPrintCnt();
+    // fncPrintCnt(false); must be called after this function returns
     if (jsnRes.failmessage){
         showMessage(jsnRes.failmessage);
     } else if ((jsnRes.failed ?? []).length > 0){
@@ -92,7 +92,7 @@ export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strH
             }
 			const reqBody = {action: 'bookmark', sort: sortMode, files: [{id: Number(itmNew.dataset.id),
 			timestamp: new Date(itmNew.dataset.timestamp)}], last: {id: 0, timestamp: '2000-01-01T00:00:00.000Z'}};
-            await doFetch('./bookmark', action, JSON.stringify(reqBody),
+            await doFetch('/files/bookmark', action, JSON.stringify(reqBody),
             '', '처리에 실패했습니다.', async function(result){
                 const jsnRes = await result.json();
                 if (jsnRes.failed.length > 0){
@@ -159,7 +159,7 @@ export function fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBo
     dlgOverwrite.showModal();
 }
 
-export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list, dlgOverwrite, fncInsertFile){
+export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup, list, dlgOverwrite, fncInsertFile, issys){
     divPopup.style.display = 'block';
 	const lblTitle = document.getElementById('title');
     let arrSelFiles = [];
@@ -212,26 +212,24 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 					await fncFetchFolder(event.target.dataset.id);
 				});
 			}
+			if (issys === true){
+				lstDir.children[0].click();
+			}
 		});
 	}
 	await fncFetchFolder(lblTitle.dataset.id);
 	cmdOK.addEventListener('click', async ()=>{
-		let jsonBody = {action: mode, last: idCurLast, sort: sortMode, files: arrSelFiles, from: Number(lblTitle.dataset.id), timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
+		let jsonBody = {action: mode, last: idCurLast, ignoreTimestamp: true, sort: sortMode, files: arrSelFiles, from: Number(lblTitle.dataset.id), timestamp: new Date(lblTitle.dataset.timestamp), to: Number(lblSelDir.dataset.dir)};
+		if (issys === true){
+			jsonBody.includeShared = true;
+		}
 		let fncFetch;
 		fncFetch = async function(){
 			await doFetch('./move', 'PUT', JSON.stringify(jsonBody), '',
 				msgNegAll, async function(result){
 					fncClearPopup(divPopup);
 					const jsnRes = await result.json();
-					if (jsnRes.expired){
-						if (confirm('현재 창이 표시된 이후 폴더의 위치나 이름이 바뀌었습니다.\n'
-						+ '"계속"할 경우 표시된 폴더가 아닌 새로 바뀐 위치의 폴더에서 복사/이동 작업이 진행됩니다.\n'
-						+ '현재 폴더가 작업하려는 폴더가 맞는지 확실하지 않다면 작업을 "취소"하고 새로고침(Ctrl+R)하십시오. "계속"하시겠습니까?')){
-							jsonBody.ignoreTimestamp = true;
-							fncFetch();
-						}
-						return;
-					} else if (jsnRes.alreadyExists){
+					if (jsnRes.alreadyExists){
 						fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT', fncInsertFile);
 						return;
 					} else if (jsnRes.failmessage) {

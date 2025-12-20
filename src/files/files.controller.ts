@@ -299,7 +299,7 @@ export class FilesController {
                     retVal = await this.filesService.removeBookmark(conn, userSer, body.files);
                     return;
                 case 'unshare':
-                    retVal = await this.filesService.removeShare(conn, userSer, body.files);
+                    retVal = await this.filesService.removeShare(conn, userSer, body.files, body.message ?? '', body.from);
                     return;
             }
         });
@@ -325,7 +325,26 @@ export class FilesController {
         }
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from, body.timestamp);
-        let retVal: FileShareResDto;
+        const pool = await this.mysqlService.getSQL();
+        let [dirResult] = await pool.query<RowDataPacket[]>(
+            `select file_serial from file where file_serial in (?) and type='dir'`,
+            [body.files.map(val=>val.id)]
+        );
+        let retVal = new FileShareResDto();
+        const arrPreFail: FileShareResDto['failed'] = [];
+        const mapFile = new Map(body.files.map(val=>[val.id, val.timestamp]));
+        if (dirResult.length > 0){
+            retVal.failreason = '폴더는 공유할 수 없습니다.\n';
+            retVal.failed = arrPreFail;
+        }
+        for (const itm of dirResult){
+            arrPreFail.push({id: itm.file_serial, timestamp: mapFile.get(itm.file_serial) ?? ''});
+            mapFile.delete(itm.file_serial);
+        }
+        body.files = Array.from(mapFile, val=>{return {id: val[0], timestamp: val[1]}});
+        if (body.files.length <= 0){
+            return retVal;
+        }
         await this.mysqlService.doTransaction('files controller put share', async (conn, rb)=>{
             // verify that they are friends
             let fverbose: [number, Date][] = body.files.map(val=>[val.id, val.timestamp]);
@@ -343,18 +362,17 @@ export class FilesController {
             );
             if (result.length + result2.length < body.files.length){
                 rb.rback = true;
-                retVal = new FileShareResDto();
-                retVal.addarr = [];
-                retVal.failed = body.files.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};});
-                retVal.failreason = '현재 이름이 바뀌었거나 사용자가 접근할 수 없는 파일을 공유하고자 하였습니다. 파일 목록을 새로 고침한 후 다시 시도해 주시기 바랍니다.';
+                retVal.failed = retVal.failed.concat(body.files.map(val=>{return {id: val.id, timestamp: val.timestamp.toISOString()};}));
+                retVal.failreason = retVal.failreason ?? '';
+                retVal.failreason += '현재 이름이 바뀌었거나 사용자가 접근할 수 없는 파일을 공유하고자 하였습니다. 파일 목록을 새로 고침한 후 다시 시도해 주시기 바랍니다.\n';
                 return;
             }
             retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode, body.message);
         });
         if (body.sort !== undefined){
-            retVal!.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
+            retVal.addarr = retVal.addarr.concat(await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]));
         }
-        return retVal!;
+        return retVal;
     }
 
     // copy and move from files

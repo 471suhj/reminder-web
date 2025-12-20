@@ -33,7 +33,7 @@ export async function fncShare(divPopup, list){
 	}
 	let idCurLast = {id: '0', timestamp: new Date()};
 	if (list.children.length !== 1){
-		idCurLast.id = list.children[list.children.length - 2].dataset.id;
+		idCurLast.id = Number(list.children[list.children.length - 2].dataset.id);
 		idCurLast.timestamp = list.children[list.children.length - 2].dataset.timestamp;
 	}
 	divPopup.innerHTML = `
@@ -55,7 +55,7 @@ export async function fncShare(divPopup, list){
 		const strSearch = event.target.value.toLowerCase();
 		let itmSearch = null;
 		for (const listItem of lstFriends.children){
-			if (listItem.dataset.userid.toLowerCase() >= strSearch){
+			if (listItem.dataset.nickname.toLowerCase() >= strSearch){
 				itmSearch = listItem;
 				break;
 			} 
@@ -72,9 +72,10 @@ export async function fncShare(divPopup, list){
 	await doFetch('/friends/list', 'GET', '', '', '친구 목록을 불러올 수 없었습니다.', async function(result){
 		const jsnRes = await result.json();
 		for (const listItem of jsnRes.arr){
-			const ctlOption = lstDir.appendChild(document.createElement('option'));
+			const ctlOption = lstFriends.appendChild(document.createElement('option'));
 			ctlOption.innerText = `${listItem.nickname} (${listItem.username})`;
 			ctlOption.dataset.id = listItem.id;
+			ctlOption.dataset.nickname = listItem.nickname;
 		}				
 	}, ()=>fncClearPopup(divPopup));
 	cmdOK.addEventListener('click', async function(event){

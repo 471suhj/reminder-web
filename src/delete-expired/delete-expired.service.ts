@@ -1,13 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { MysqlService } from 'src/mysql/mysql.service';
-import mysql from 'mysql2/promise';
+import mysql, { RowDataPacket } from 'mysql2/promise';
 import { MongoService } from 'src/mongo/mongo.service';
 import { ObjectId } from 'mongodb';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class DeleteExpiredService {
-    constructor(private readonly mysqlService: MysqlService, private readonly mongoService: MongoService){}
+    constructor(
+        private readonly mysqlService: MysqlService,
+        private readonly mongoService: MongoService,
+        private readonly filesService: FilesService
+    ){}
 
     private readonly logger = new Logger(DeleteExpiredService.name);
 
@@ -18,7 +23,10 @@ export class DeleteExpiredService {
         try{
             await pool.execute('delete from session where timestampdiff(day, last_updated, current_timestamp) >= 7');
             await pool.execute('delete from old_id where timestampdiff(month, last_updated, current_timestamp) >= 6');
-            await pool.execute('delete from user where timestampdiff(month, last_updated, current_timestamp) >= 3');
+            let [result] = await pool.execute<RowDataPacket[]>(`select user_serial from user where user_deleted='true' and timestampdiff(month, last_updated, current_timestamp) >= 1`);
+            for (const itm of result){
+                await this.filesService.delUser(itm.user_serial);
+            }
             await this.mongoService.getDb().collection('notification')
                 .deleteMany({_id: {$lt: ObjectId.createFromTime(Math.floor((new Date()).getTime()/1000) - 100 * 24 * 3600)}});
         } catch (err) {

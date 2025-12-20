@@ -89,7 +89,11 @@ cmdSignin.addEventListener('click', async function(){
         showProgressMessage('로그인 중입니다.');
         window.location.href = '/home';
     }, function(msg){
-        lblSignMsg.innerText = msg;
+		if (msg === undefined || msg === ''){
+			lblSignMsg = '로그인에 실패했습니다.';
+		} else {
+			lblSignMsg.innerText = msg;
+		}
     });
 });
 

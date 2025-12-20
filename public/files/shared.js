@@ -60,16 +60,18 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('download');
-    tlbItem.addEventListener('click', ()=>{
-        open('./download', '_blank', 'popup=true');
-    });
+	if (tlbItem !== null){
+		tlbItem.addEventListener('click', ()=>{
+			open('./download', '_blank', 'popup=true');
+		});
+	}
 }
 
 {
     let tlbItem = document.getElementById('share');
-    tlbItem.addEventListener('click', async ()=>{
+	tlbItem.addEventListener('click', async ()=>{
 		await fncShare(divPopup, list);
-    });
+	});
 }
 
 {
@@ -96,8 +98,10 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             return;
         }
         divPopup.style.display = 'block';
-        divPopup.appendChild('p').innerText = '전송할 메시지를 입력하십시오.';
+        divPopup.appendChild(document.createElement('p')).innerText = '전송할 메시지를 입력하십시오. 메시지를 입력하지 않으면 알림은 전송되지 않습니다.';
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
+		divPopup.appendChild(document.createElement('br'));
+		divPopup.appendChild(document.createElement('br'));
         const cmdOK = fncCreateOKCancel(divPopup);
         cmdOK.addEventListener('click', async ()=>{
 		let idCurLast = {id: 0, timestamp: new Date()};
@@ -121,7 +125,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 {
     let tlbItem = document.getElementById('copy');
     tlbItem.addEventListener('click', async ()=>{
-        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 않은 파일이 있습니다.', divPopup, list, dlgOverwrite, fncInsertFile);
+        await fncCopyMove('copy', '복사를 완료했습니다.', '복사를 실패했습니다.', '복사되지 않은 파일이 있습니다.', divPopup, list, dlgOverwrite, fncInsertFile, true);
     });
 }
 

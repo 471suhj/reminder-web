@@ -89,12 +89,13 @@ export class AuthController {
         if (userSerial && !alreadyFalse){
             await this.authService.getToken(userSerial, response);
             resLogin.success = true;
-        } else {
+        } else { // alreadyFalse or no userSer
             resLogin.success = false;
+            resLogin.message = '아이디 또는 비밀 번호가 일치하지 않습니다.';
         }
         
         if (alreadyFalse){
-            resLogin.success = false;
+            resLogin.success = false; // just for safety
         }
 
         return resLogin;

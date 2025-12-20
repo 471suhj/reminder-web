@@ -60,9 +60,11 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 
 {
     let tlbItem = document.getElementById('download');
-    tlbItem.addEventListener('click', ()=>{
-        open('./download', '_blank', 'popup=true');
-    });
+	if (tlbItem !== null){
+		tlbItem.addEventListener('click', ()=>{
+			open('./download', '_blank', 'popup=true');
+		});
+	}
 }
 
 {

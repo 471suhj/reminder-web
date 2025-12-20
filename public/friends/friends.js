@@ -19,7 +19,7 @@ function fncPrintCnt(){
 async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
     const strHtml = (listItem)=>{
         return `
-        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}'>
+        <div class='listItem grayLink' id='item${listItem.id}' data-id='${listItem.id}' data-name='${listItem.name}'>
             <input class='listItemChkbox' type='checkbox'>
             <div class='listBlock'>
                 <img src='${listItem.profileimg}' width='25' height='25'><!-
@@ -77,7 +77,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
             '닉네임 변경이 완료되었습니다.', '닉네임 변경에 실패했습니다.', async function(result){
 				const jsnRes = await result.json();
 				if (jsnRes.success){
-					divSelected.children[1].children[1].innerText = newName;
+					divSelected.children[1].children[1].innerText = newName.trim() === '' ? divSelected.dataset.name : newName;
 				} else if (jsnRes.failmessage) {
 					showMessage(jsnRes.failmessage);
 				} else {

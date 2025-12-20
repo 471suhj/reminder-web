@@ -31,10 +31,10 @@
             <div class="main">
                 <div class="toolbar">
                     <div class="toolItem grayLink" id="up"><img src="/graphics/toolbars/up.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!-
+                    ><div class="toolItem grayLink" id="refresh"><img src="/graphics/toolbars/refresh.png" width="20" height="20"></div>|<!--
                     ><div class="toolItem grayLink" id="download"><img src="/graphics/toolbars/download.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="share"><img src="/graphics/toolbars/share.png" width="20" height="20"></div>|<!-
-                    ><div class="toolItem grayLink" id="copy"><img src="/graphics/toolbars/copy.png" width="20" height="20"></div>|<!-
+                    --><div class="toolItem grayLink" id="share" style="display:none"><img src="/graphics/toolbars/share.png" width="20" height="20"></div><!-
+                    ><div class="toolItem grayLink" id="copy" style="display:none"><img src="/graphics/toolbars/copy.png" width="20" height="20"></div><!-
                     ><div class="toolItem grayLink" id="delete"><img src="/graphics/toolbars/unshare.png" width="20" height="20"></div>
                 </div>
                 <p id="itemCount" data-countitem="{{countItem}}" data-itemcnt="0"></p>
@@ -56,7 +56,7 @@
         <dialog id="overwriteDlg">
             <p>이미 같은 이름의 파일이 있습니다.</p>
             <button id="buttonoverwrite">덮어쓰기</button>
-            <button id="buttonrrename" autofocus>"이름-2"로 저장</button>
+            <button id="buttonrename" autofocus>"이름-2"로 저장</button>
             <button id="buttonskip">건너뛰기</button>
             <button id="buttoncancel">취소</button>
         </dialog>

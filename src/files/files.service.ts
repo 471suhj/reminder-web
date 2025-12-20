@@ -25,11 +25,11 @@ import { ShareHardNotifDto } from 'src/home/share-hard-notif.dto';
 import { NotifColDto } from 'src/mongo/notif-col.dto';
 import { ShareCopyNotifDto } from 'src/home/share-copy-notif.dto';
 import { FiledatColDto } from 'src/mongo/filedat-col.dto';
-import { Document } from 'mongodb';
+import { Document, OptionalId } from 'mongodb';
 import { Readable } from 'node:stream';
 import fs, { FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
-import { finished } from 'node:stream/promises';
+import { UnshareNotifDto } from 'src/home/unshare-notif.dto';
 
 @Injectable()
 export class FilesService {
@@ -125,40 +125,6 @@ export class FilesService {
         return {path, pathHtml, parentId, dirName, lastRenamed, arrParentId, issys};
     }
 
-    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetDto>{
-        let retObj: FilesGetDto = new FilesGetDto();
-        // includes user verification
-        const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
-        retObj.countItem = 'false';
-        retObj.path = path;
-        retObj.uplink = '/files?dirid=' + String(parentId);
-        retObj.dirName = issys ? SysdirType.translate(dirName) : dirName;
-        retObj.dirPath = pathHtml;
-        retObj.dirId = dirid;
-        retObj.timestamp = lastRenamed.toISOString();
-        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, 'files'))};
-        return retObj;
-    }
-
-    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetDto>{
-        if (!SysdirType.arr.includes(dirType)){
-            throw new BadRequestException();
-        }
-        let retObj: FilesGetDto = new FilesGetDto();
-        const dirid = await this.getUserRoot(userSer, dirType);
-
-        retObj.countItem = 'false';
-        retObj.path = 'files/' + dirType;
-        retObj.uplink = '/files';
-        retObj.dirName = SysdirType.translate(dirType);
-        retObj.dirPath = `<a class="addrLink" href="/files">files</a>/<a class="addrLink" href="/files/${dirType}">${dirType}</a>`;
-        retObj.dirId = dirid;
-        retObj.timestamp = new Date().toISOString();
-        let sideName =  (dirType === 'recycle' || dirType === 'inbox' || dirType === 'upload_tmp') ? 'files' : dirType;
-        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))}; // overwritten
-        return retObj;
-    }
-
     // if mode is not sepcified, check both dir and files
     async checkTimestamp(conn: Connection, userSer: number, fileSer: number, time: Date, mode?: 'dir'|'file'){
         let str1 = `select file_serial from file where user_serial=? and file_serial=? and last_renamed=? `
@@ -207,6 +173,261 @@ export class FilesService {
                 if (mode === 'recycle'){return ['last_renamed', 'file_name'];} else {break;} // thrown for maintainability
         }
         throw new BadRequestException();
+    }
+
+    async copyMongo(arrAdded: {id: number, origin: number}[]){
+        let limit = Math.ceil(arrAdded.length / 80);
+        const mapOrig = new Map(arrAdded.map(val=>[val.origin, val.id]));
+        const arrOrig = Array.from(mapOrig.keys());
+        const coll = await this.mongoService.getDb().collection('file_data');
+        let arrDocs: Document[] = [];
+        for (let i = 0; i < limit; i++){
+            const cur = coll.find({serial: {$in: arrOrig.slice(80 * i, 80 * (i + 1))}}).project({_id: 0});
+            const arrRet = await cur.toArray();
+            cur.close();
+            for (let j = 0; j < arrRet.length; j++){
+                arrRet[i].serial = mapOrig.get(arrRet[i].serial);
+            }
+            arrDocs = arrDocs.concat(arrRet);
+        }
+        for (const itm of arrAdded){
+            try{
+                await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
+            } catch (err) {
+                console.log(err);
+            }
+        }
+        if (arrDocs.length > 0){
+            await coll.insertMany(arrDocs);
+        }
+    }
+
+    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle}, pth: string){
+        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
+        let newbuf = '';
+        let commit = async ()=>{
+            if (newbuf === ''){ // A: end phase. note that two consequent '' may arrive.
+                switch (tmpVar.phase){
+                    case '':
+                        break;
+                    case 'M':
+                        break;
+                    case 'P':
+                        let pairVal = tmpVar.buf.split('=');
+                        if (pairVal.length > 0){
+                            if (!availProp.includes(pairVal[0])){
+                                throw new BadRequestException();
+                            }
+                            doc.metadata[pairVal.shift()!] = pairVal.join('=');
+                        }
+                        break;
+                    case 'N':
+                        if (tmpVar.fh === null){
+                            throw new InternalServerErrorException();
+                        }
+                        await tmpVar.fh.appendFile(tmpVar.buf);
+                        await tmpVar.fh.close();
+                        tmpVar.fh = null;
+                        // push tmpVar.buf, then close the fs.
+                        break;
+                    default: 
+                        throw new BadRequestException();
+                }
+                tmpVar.phase = '';
+                tmpVar.buf = '';
+                return;
+            }
+            if (tmpVar.phase === ''){ // B: start a new phase (no pushing to the buf. step B includes step C.)
+                tmpVar.phase = newbuf.slice(0, 1);
+                newbuf = newbuf.slice(1);
+                tmpVar.buf = '';
+                switch (tmpVar.phase){
+                    case 'N':
+                        tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
+                        doc.arrlen = tmpVar.idx + 1;
+                        break;
+                }
+            }
+            // C: continue the phase
+            switch (tmpVar.phase){
+                case 'M':
+                    tmpVar.buf = '';
+                    break;
+                case 'P':
+                    tmpVar.buf += newbuf;
+                    if (tmpVar.buf.length > 100){
+                        throw new BadRequestException();
+                    }
+                    break;
+                case 'N':
+                    if (tmpVar.fh === null){
+                        throw new InternalServerErrorException();
+                    }
+                    await tmpVar.fh.appendFile(tmpVar.buf + newbuf);
+                    tmpVar.buf = '';
+                    break;
+                default: 
+                    throw new BadRequestException();
+            }
+        }
+        if (arr.length <= 0){ // empty array is passed only after all the contents are read
+            newbuf = '';
+            commit();
+            return;
+        }
+        for (let i = 0; i < arr.length; i++){
+            let str = arr[i];
+            // newbuf: fill the new content
+            // buf: store previous value if needed
+            // after each 'complete' value, send '' to mark an end
+            // consider 4 cases: ['...', '...&N...'], ['...', '...&A...'], ['...', '&A...'], ['...', '&N...']
+            // the other 2 cases are prevented in advance: ['...&', 'A...'], ['...&', 'N...']
+            if (str.slice(0, 1) === 'A'){
+                tmpVar.buf += '&';
+                tmpVar.buf += str.slice(1);
+            } else if (str === ''){ // to deal with: ['...', '&A...']
+                continue;
+            } else { // delete ''
+                if (i !== 0){
+                    newbuf = '';
+                    await commit();
+                }
+                newbuf = str;
+                await commit();
+            }
+        }
+    }
+
+    async uploadMongo(fileSer: number, stream: Readable, userSer: number){
+        const availVer = ['0.2', '0.3'];
+        let buf = '';
+        let nullReturned = false;
+        let finishCalled = false;
+        let asyncErr: Error|null = null;
+        let objDoc = new FiledatColDto();
+        objDoc.serial = fileSer;
+        objDoc.user_serial = userSer;
+        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null};
+        const dirpath = join(__dirname, `../../filesys/${fileSer}`);
+        await fs.mkdir(dirpath, {});
+
+        let inspected = false;
+        // make sure that no errors are thrown
+        stream.on('readable', async ()=>{
+            if (asyncErr !== null){stream.destroy(); return;}
+            try{
+                nullReturned = false;
+                let chunk: Buffer;
+                while ((chunk = stream.read()) !== null){
+                    // buf: at first, store all data to validate 'AAMPGRMB'
+                    // after validation, mostly empty, used to prevent sending arrays ending in ''
+                    buf += chunk.toString();
+                    let arrTmp = buf.split('&');
+                    buf = arrTmp.at(-1) ?? '';
+                    if (!inspected){ // if uninspected either inspect or continue;
+                        if (arrTmp.length > 1 || arrTmp[0].length > 17){ // pre-check
+                            if (arrTmp[0].slice(1, 17) !== 'AAMPGRMBFileVer='){
+                                throw new BadRequestException();
+                            }
+                        }
+                        if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
+                            if (availVer.includes(arrTmp[0].slice(17))){ // inspected
+                                objDoc.type = 'rmb' + arrTmp[0].slice(17) as typeof objDoc.type;
+                                inspected = true; // flow to the next stage
+                                arrTmp.shift();
+                            } else {
+                                throw new BadRequestException();
+                            }
+                        } else { // length still 1 and uninspected --> continue;
+                            return;
+                        }
+                    }
+                    buf = '';
+                    if (arrTmp.at(-1) === ''){
+                        arrTmp.pop();
+                        buf = '&';
+                    }
+                    await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
+                }
+            } catch (err) {
+                this.logger.error('uploadMongo stream error. see below.');
+                console.log(err);
+                asyncErr = err;
+                stream.destroy();
+            } finally {
+                nullReturned = true;
+            }
+        });
+        // end and close are run before data event finishes
+        stream.on('end', ()=>{
+        });
+        stream.on('close', ()=>{
+            finishCalled = true;
+        });
+        stream.on('error', (err)=>{
+            this.logger.error('uploadMongo stream error. see below.');
+            console.log(err);
+            stream.destroy();
+        });
+        try{
+            while((!finishCalled) || (!nullReturned)){
+                await new Promise(resolve=>setImmediate(resolve));
+            }
+            if (asyncErr !== null){
+                stream.destroy();
+                throw asyncErr;
+            }
+            await this.processFileStream(objDoc, [], tmpVar, dirpath);
+            if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
+                objDoc.type = 'rmb0.3';
+            }
+            await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
+        } catch (err) {
+            try{
+                await fs.rm(dirpath, {force: true, recursive: true});
+            } catch (err) {
+                console.log(err);
+            }
+            if (err instanceof BadRequestException){
+                throw err;
+            } else {
+                throw new InternalServerErrorException();
+            }
+        }
+    }
+
+    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetDto>{
+        let retObj: FilesGetDto = new FilesGetDto();
+        // includes user verification
+        const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
+        retObj.countItem = 'false';
+        retObj.path = path;
+        retObj.uplink = '/files?dirid=' + String(parentId);
+        retObj.dirName = issys ? SysdirType.translate(dirName) : dirName;
+        retObj.dirPath = pathHtml;
+        retObj.dirId = dirid;
+        retObj.timestamp = lastRenamed.toISOString();
+        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, 'files'))};
+        return retObj;
+    }
+
+    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetDto>{
+        if (!SysdirType.arr.includes(dirType)){
+            throw new BadRequestException();
+        }
+        let retObj: FilesGetDto = new FilesGetDto();
+        const dirid = await this.getUserRoot(userSer, dirType);
+
+        retObj.countItem = 'false';
+        retObj.path = 'files/' + dirType;
+        retObj.uplink = '/files';
+        retObj.dirName = SysdirType.translate(dirType);
+        retObj.dirPath = `<a class="addrLink" href="/files">files</a>/<a class="addrLink" href="/files/${dirType}">${dirType}</a>`;
+        retObj.dirId = dirid;
+        retObj.timestamp = new Date().toISOString();
+        let sideName =  (dirType === 'recycle' || dirType === 'inbox' || dirType === 'upload_tmp') ? 'files' : dirType;
+        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))}; // overwritten
+        return retObj;
     }
 
     async loadFileMore(userSer: number, dir: number, dirDate: Date, lastFile: number, lastTime: Date, sort: SortModeDto){
@@ -366,9 +587,9 @@ export class FilesService {
                 isFolder: val.type === 'dir',
                 text: val.file_name,
                 bookmarked: true,
-                shared: val.shares.map(val=>val.user_serial_to).join(', '),
+                shared: val.shares.map(val=>val.user_serial_to).join(','),
                 date: (val.last_modified as Date).toISOString(),
-                ownerImg: '/graphics/profimg',
+                ownerImg: '/graphics/profimg?id=' + val.user_serial,
                 ownerName: String(val.user_serial),
                 timestamp: val.last_renamed.toISOString()
             };});
@@ -604,11 +825,11 @@ export class FilesService {
         } catch (err) {
             if (err.message !== 'rollback') {throw err;}
         }
-        await this.friendLoad_fillInfo(retVal.addarr);
+        await this.loadFriendMore_fillInfo(retVal.addarr);
         return retVal;
     }
 
-    private async friendLoad_fillInfo(lst: FilesArrDto['arrFriend']){
+    private async loadFriendMore_fillInfo(lst: FilesArrDto['arrFriend']){
         let mapArr = new Map(lst.map(val=>[val.id, val]));
         let arrSerial = lst.map(val=>val.id);
         if (lst.length <= 0){
@@ -678,6 +899,47 @@ export class FilesService {
         lst = lst.concat(ret.addarr.map(val=>val.id));
     }
 
+    async resolveBefore<T extends {id: number, before?: FileIdentResDto}>(
+        conn: Connection, userSer: number, sort: SortModeDto, files_: readonly T[],
+        mode: 'files'|'profile', parent?: number, friend?: number
+    ){
+        if (files_.length <= 0){
+            return files_.slice();
+        }
+        let mapRes = new Map<number, FileIdentResDto>();
+        let files = files_.slice();
+        let filearr = files.map(val=>val.id);
+            if (mode === 'files' && parent === undefined){throw new BadRequestException();}
+            if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
+            let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
+            orderby += `${this.translateColumnBase(sort.criteria, 'files').join(' ' + (sort.incr ? 'asc' : 'desc') + ', ')} ${sort.incr ? 'asc' : 'desc'}`;
+            let source: string;
+            let arrParam: Array<number|string|Date|number[]>;
+            if (mode === 'files'){
+                source = `from file where user_serial=? and parent_serial=? `;
+                arrParam = [userSer, parent!, filearr];
+            } else if (mode === 'profile'){
+                source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
+                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
+                source += `inner join file using (file_serial)`;
+                arrParam = [userSer, friend!, friend!, userSer, filearr]
+            } else {throw new BadRequestException();}
+            let str1 = `select lead(file_serial, 1, -1) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
+            str1 += source;
+            str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
+            str1 += 'for share'; // ignored for autocommits
+            let [result] = await conn.query<RowDataPacket[]>(
+                str1, arrParam
+            );
+            for (let i = 0; i < result.length; i++){
+                mapRes.set(result[i].file_serial, {id: Number(result[i].pserial), timestamp: result[i].ptime});
+            }
+        for (let i = 0; i < files.length; i++){
+            files[i].before = mapRes.get(files[i].id);
+        }
+        return files;
+    }
+
     async replaceNames(userSer: number, lst: FilesArrDto['arr']){
         let arrnames = new Set([-1]);
         for (const val of lst.map(val=>val.shared)){
@@ -705,6 +967,7 @@ export class FilesService {
             );
         });
         let mapnames = new Map<number, string>(result.map(val=>[val.user_serial, val.nickname === '' ? val.name : val.nickname]));
+        mapnames.set(userSer, '나');
         for (let i = 0; i < lst.length; i++){
             if (lst[i].shared !== undefined){
                 lst[i].shared = lst[i].shared!.split(',').map(val=>mapnames.get(Number(val))).join(', ');
@@ -715,7 +978,7 @@ export class FilesService {
         }
     }
 
-    async addSharedNames(lst: FilesArrDto['arr'], conn?: Connection, lock?: boolean){
+    async resolveSharedNames(lst: FilesArrDto['arr'], conn?: Connection, lock?: boolean){
         if (lst.length <= 0){
             return;
         }
@@ -733,7 +996,7 @@ export class FilesService {
         let mapFile = new Map(lst.map(val=>[val.id, val]));
         for (const itm of result){
             let obj = mapFile.get(itm.file_serial);
-            if (obj === undefined){this.logger.error('addSharedNames: object not found for '+itm.file_serial);continue;}
+            if (obj === undefined){this.logger.error('resolveSharedNames: object not found for '+itm.file_serial);continue;}
             obj.shared += (itm.id + ',');
         }
         for (const itm of lst){
@@ -1026,33 +1289,6 @@ export class FilesService {
         } while (result.affectedRows > 0);
     }
 
-    async copyMongo(arrAdded: {id: number, origin: number}[]){
-        let limit = Math.ceil(arrAdded.length / 80);
-        const mapOrig = new Map(arrAdded.map(val=>[val.origin, val.id]));
-        const arrOrig = Array.from(mapOrig.keys());
-        const coll = await this.mongoService.getDb().collection('file_data');
-        let arrDocs: Document[] = [];
-        for (let i = 0; i < limit; i++){
-            const cur = coll.find({serial: {$in: arrOrig.slice(80 * i, 80 * (i + 1))}}).project({_id: 0});
-            const arrRet = await cur.toArray();
-            cur.close();
-            for (let j = 0; j < arrRet.length; j++){
-                arrRet[i].serial = mapOrig.get(arrRet[i].serial);
-            }
-            arrDocs = arrDocs.concat(arrRet);
-        }
-        for (const itm of arrAdded){
-            try{
-                await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
-            } catch (err) {
-                console.log(err);
-            }
-        }
-        if (arrDocs.length > 0){
-            await coll.insertMany(arrDocs);
-        }
-    }
-
     // important!
     // mark shouldn't be used by restore mechanism. it is used by sharecopy.
     private async restoreFiles_checkPath(conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]){
@@ -1329,7 +1565,7 @@ export class FilesService {
                 isFolder: val.type==='dir',
                 text: val.file_name,
                 bookmarked: val.bookmarked==='true',
-                shared: '', // temporary. added with this.addSharedNames
+                shared: '', // temporary. added with this.resolveSharedNames
                 date: val.last_modified,
                 dateShared: val.date_shared,
                 ownerName: String(userSer),
@@ -1351,7 +1587,7 @@ export class FilesService {
                 urlArr: [['폴더 열기', '/files/shared'], ['파일 열기', '/edit?id=' + itm.file_serial]]});
         }
         await conn.execute(`update shared_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
-        await this.addSharedNames(retVal.addarr, conn, true);
+        await this.resolveSharedNames(retVal.addarr, conn, true);
         await this.replaceNames(userSer, retVal.addarr);
         if (arrNof.length > 0){
             await this.mongoService.getDb().collection('notification').insertMany(arrNof);
@@ -1361,26 +1597,50 @@ export class FilesService {
     
     // called from the receiver (with only the file numbers)
     // or the sender (with a single file number and multiple friends)
-    async removeShare(conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], friends_?: readonly number[]): Promise<FileDelResDto>{
-        if ((files_.length <= 0) || ((friends_ !== undefined) && (friends_.length <= 0))){
+    async removeShare(conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[], message: string, friend?: number): Promise<FileDelResDto>{
+        if (files_.length <= 0){
             return {delarr: [], failed: []};
         }
         let retVal = new FileDelResDto();
-        retVal.failed = [];
-        retVal.delarr = [];
         let filearr = files_.map(val=>val.id);
-        if (friends_ === undefined){ // from the receiver
+        let friendarr = friend ? [friend] : [];
+        if (friend === undefined){ // from the receiver, called from shared page
+            const [resFriend] = await conn.query<RowDataPacket[]>(
+                `select user_serial_from from shared_def where user_serial_to=? and file_serial in (?) for update`,
+                [userSer, filearr]
+            );
+            if (resFriend.length > 0){
+                friendarr = resFriend.map(val=>val.user_serial_from);
+            }
             await conn.query(
                 `delete from shared_def where user_serial_to=? and file_serial in (?) `,
                 [userSer, filearr]
             );
-            retVal.delarr = files_.map(val=>{return {id: val.id, timestamp: val.timestamp};});
-        } else { // from the sender
+        } else { // from profiels page, either from sender or receiver
             if (files_.length !== 1){throw new BadRequestException();}
             await conn.query(
-                `delete from shared_def where user_serial_from=? and user_serial_to in (?) and file_serial=?`,
-                [userSer, friends_, files_[0].id]
+                `delete from shared_def where ((user_serial_from=? and user_serial_to=?) or (user_serial_from=? and user_serial_to=?)) and file_serial=?`,
+                [userSer, friend, friend, userSer, files_[0].id]
             );
+        }
+        retVal.delarr = files_.map(val=>{return {id: val.id, timestamp: val.timestamp};});
+        if (typeof message === 'string' && message.trim().length > 0 && friendarr.length > 0){
+            const [fileNames] = await conn.query<RowDataPacket[]>(
+                `select file_serial, file_name from file where user_serial=? and file_serial in (?)`, // nonlocking
+                [userSer, filearr]
+            );
+            const mapFileNames = new Map(fileNames.map(val=>[val.file_serial, val.file_name]));
+            const docs: NotifColDto[] = [];
+            for (const itm of friendarr){
+                for (const fileInfo of files_){
+                    const dat: UnshareNotifDto = {
+                        file_name: mapFileNames.get(fileInfo.id) ?? '(알 수 없음)', file_ser: fileInfo.id, message: message, sender_ser: userSer
+                    };
+                    const doc: NotifColDto = {data: dat, read: false, to: itm, type: 'file_unshared', urlArr: []};
+                    docs.push(doc);
+                }
+            }
+            await this.mongoService.getDb().collection('notification').insertMany(docs);
         }
         return retVal;
     }
@@ -1492,200 +1752,6 @@ export class FilesService {
             retVal.failed = Array.from(mapFiles, val=>{return{id: val[0], timestamp: val[1].toISOString()};});
         }
         return retVal;
-    }
-
-    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle}, pth: string){
-        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
-        let newbuf = '';
-        let commit = async ()=>{
-            if (newbuf === ''){ // A: end phase. note that two consequent '' may arrive.
-                switch (tmpVar.phase){
-                    case '':
-                        break;
-                    case 'M':
-                        break;
-                    case 'P':
-                        let pairVal = tmpVar.buf.split('=');
-                        if (pairVal.length > 0){
-                            if (!availProp.includes(pairVal[0])){
-                                throw new BadRequestException();
-                            }
-                            doc.metadata[pairVal.shift()!] = pairVal.join('=');
-                        }
-                        break;
-                    case 'N':
-                        if (tmpVar.fh === null){
-                            throw new InternalServerErrorException();
-                        }
-                        await tmpVar.fh.appendFile(tmpVar.buf);
-                        await tmpVar.fh.close();
-                        tmpVar.fh = null;
-                        // push tmpVar.buf, then close the fs.
-                        break;
-                    default: 
-                        throw new BadRequestException();
-                }
-                tmpVar.phase = '';
-                tmpVar.buf = '';
-                return;
-            }
-            if (tmpVar.phase === ''){ // B: start a new phase (no pushing to the buf. step B includes step C.)
-                tmpVar.phase = newbuf.slice(0, 1);
-                newbuf = newbuf.slice(1);
-                tmpVar.buf = '';
-                switch (tmpVar.phase){
-                    case 'N':
-                        tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
-                        doc.arrlen = tmpVar.idx + 1;
-                        break;
-                }
-            }
-            // C: continue the phase
-            switch (tmpVar.phase){
-                case 'M':
-                    tmpVar.buf = '';
-                    break;
-                case 'P':
-                    tmpVar.buf += newbuf;
-                    if (tmpVar.buf.length > 100){
-                        throw new BadRequestException();
-                    }
-                    break;
-                case 'N':
-                    if (tmpVar.fh === null){
-                        throw new InternalServerErrorException();
-                    }
-                    await tmpVar.fh.appendFile(tmpVar.buf + newbuf);
-                    tmpVar.buf = '';
-                    break;
-                default: 
-                    throw new BadRequestException();
-            }
-        }
-        if (arr.length <= 0){ // empty array is passed only after all the contents are read
-            newbuf = '';
-            commit();
-            return;
-        }
-        for (let i = 0; i < arr.length; i++){
-            let str = arr[i];
-            // newbuf: fill the new content
-            // buf: store previous value if needed
-            // after each 'complete' value, send '' to mark an end
-            // consider 4 cases: ['...', '...&N...'], ['...', '...&A...'], ['...', '&A...'], ['...', '&N...']
-            // the other 2 cases are prevented in advance: ['...&', 'A...'], ['...&', 'N...']
-            if (str.slice(0, 1) === 'A'){
-                tmpVar.buf += '&';
-                tmpVar.buf += str.slice(1);
-            } else if (str === ''){ // to deal with: ['...', '&A...']
-                continue;
-            } else { // delete ''
-                if (i !== 0){
-                    newbuf = '';
-                    await commit();
-                }
-                newbuf = str;
-                await commit();
-            }
-        }
-    }
-
-    async uploadMongo(fileSer: number, stream: Readable, userSer: number){
-        const availVer = ['0.2', '0.3'];
-        let buf = '';
-        let nullReturned = false;
-        let finishCalled = false;
-        let asyncErr: Error|null = null;
-        let objDoc = new FiledatColDto();
-        objDoc.serial = fileSer;
-        objDoc.user_serial = userSer;
-        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null};
-        const dirpath = join(__dirname, `../../filesys/${fileSer}`);
-        await fs.mkdir(dirpath, {});
-
-        let inspected = false;
-        // make sure that no errors are thrown
-        stream.on('readable', async ()=>{
-            if (asyncErr !== null){stream.destroy(); return;}
-            try{
-                nullReturned = false;
-                let chunk: Buffer;
-                while ((chunk = stream.read()) !== null){
-                    // buf: at first, store all data to validate 'AAMPGRMB'
-                    // after validation, mostly empty, used to prevent sending arrays ending in ''
-                    buf += chunk.toString();
-                    let arrTmp = buf.split('&');
-                    buf = arrTmp.at(-1) ?? '';
-                    if (!inspected){ // if uninspected either inspect or continue;
-                        if (arrTmp.length > 1 || arrTmp[0].length > 17){ // pre-check
-                            if (arrTmp[0].slice(1, 17) !== 'AAMPGRMBFileVer='){
-                                throw new BadRequestException();
-                            }
-                        }
-                        if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
-                            if (availVer.includes(arrTmp[0].slice(17))){ // inspected
-                                objDoc.type = 'rmb' + arrTmp[0].slice(17) as typeof objDoc.type;
-                                inspected = true; // flow to the next stage
-                                arrTmp.shift();
-                            } else {
-                                throw new BadRequestException();
-                            }
-                        } else { // length still 1 and uninspected --> continue;
-                            return;
-                        }
-                    }
-                    buf = '';
-                    if (arrTmp.at(-1) === ''){
-                        arrTmp.pop();
-                        buf = '&';
-                    }
-                    await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
-                }
-            } catch (err) {
-                this.logger.error('uploadMongo stream error. see below.');
-                console.log(err);
-                asyncErr = err;
-                stream.destroy();
-            } finally {
-                nullReturned = true;
-            }
-        });
-        // end and close are run before data event finishes
-        stream.on('end', ()=>{
-        });
-        stream.on('close', ()=>{
-            finishCalled = true;
-        });
-        stream.on('error', (err)=>{
-            this.logger.error('uploadMongo stream error. see below.');
-            console.log(err);
-            stream.destroy();
-        });
-        try{
-            while((!finishCalled) || (!nullReturned)){
-                await new Promise(resolve=>setImmediate(resolve));
-            }
-            if (asyncErr !== null){
-                stream.destroy();
-                throw asyncErr;
-            }
-            await this.processFileStream(objDoc, [], tmpVar, dirpath);
-            if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
-                objDoc.type = 'rmb0.3';
-            }
-            await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
-        } catch (err) {
-            try{
-                await fs.rm(dirpath, {force: true, recursive: true});
-            } catch (err) {
-                console.log(err);
-            }
-            if (err instanceof BadRequestException){
-                throw err;
-            } else {
-                throw new InternalServerErrorException();
-            }
-        }
     }
 
     async createFile(conn: PoolConnection, userSer: number, parent: number, name: string, sort: SortModeDto){
@@ -1841,47 +1907,6 @@ export class FilesService {
         return retVal;
     }
 
-    async resolveBefore<T extends {id: number, before?: FileIdentResDto}>(
-        conn: Connection, userSer: number, sort: SortModeDto, files_: readonly T[],
-        mode: 'files'|'profile', parent?: number, friend?: number
-    ){
-        if (files_.length <= 0){
-            return files_.slice();
-        }
-        let mapRes = new Map<number, FileIdentResDto>();
-        let files = files_.slice();
-        let filearr = files.map(val=>val.id);
-            if (mode === 'files' && parent === undefined){throw new BadRequestException();}
-            if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
-            let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
-            orderby += `${this.translateColumnBase(sort.criteria, 'files').join(' ' + (sort.incr ? 'asc' : 'desc') + ', ')} ${sort.incr ? 'asc' : 'desc'}`;
-            let source: string;
-            let arrParam: Array<number|string|Date|number[]>;
-            if (mode === 'files'){
-                source = `from file where user_serial=? and parent_serial=? `;
-                arrParam = [userSer, parent!, filearr];
-            } else if (mode === 'profile'){
-                source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
-                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
-                source += `inner join file using (file_serial)`;
-                arrParam = [userSer, friend!, friend!, userSer, filearr]
-            } else {throw new BadRequestException();}
-            let str1 = `select lead(file_serial, 1, -1) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
-            str1 += source;
-            str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
-            str1 += 'for share'; // ignored for autocommits
-            let [result] = await conn.query<RowDataPacket[]>(
-                str1, arrParam
-            );
-            for (let i = 0; i < result.length; i++){
-                mapRes.set(result[i].file_serial, {id: Number(result[i].pserial), timestamp: result[i].ptime});
-            }
-        for (let i = 0; i < files.length; i++){
-            files[i].before = mapRes.get(files[i].id);
-        }
-        return files;
-    }
-
     async signupCreateDir(conn: PoolConnection, user_serial: number){
         await conn.execute<RowDataPacket[]>(
             `insert into file (user_serial, parent_serial, type, issys, file_name)
@@ -1931,46 +1956,52 @@ export class FilesService {
         await this.deleteFriends(conn, userSer, result.map(val=>val.user_serial_to));
     }
 
-    async delUser(conn: PoolConnection, userSer: number){
-        // re-remove all friends
-        await this.clearFriends(conn, userSer);
-        // re-remove all sessions
-        await this.clearSessions(conn, userSer);
-        // remove notifications
-        await this.mongoService.getDb().collection('notification').deleteMany({to: userSer});
-        // remove physical files
-        const fileCol = this.mongoService.getDb().collection('file_data');
-        const fileList = await fileCol.find({user_serial: userSer});
-        try{
-            for await (const itm of fileList){
-                try{
-                    await fs.rm(join(__dirname, `../../filesys/${itm.serial}`), {force: true, recursive: true});
-                } catch (err) {
-                    console.log(err);
+    async delUser(userSer: number){
+        await this.mysqlService.doTransaction('delUser', async conn=>{
+            // re-remove all friends
+            await this.clearFriends(conn, userSer);
+            // re-remove all sessions
+            await this.clearSessions(conn, userSer);
+            // remove notifications
+            await this.mongoService.getDb().collection('notification').deleteMany({to: userSer});
+            // remove physical files
+            const fileCol = this.mongoService.getDb().collection('file_data');
+            const fileList = await fileCol.find({user_serial: userSer});
+            try{
+                for await (const itm of fileList){
+                    try{
+                        await fs.rm(join(__dirname, `../../filesys/${itm.serial}`), {force: true, recursive: true});
+                    } catch (err) {
+                        console.log(err);
+                    }
                 }
+            } catch (err) {
+                throw err;
+            } finally {
+                await fileList.close();
             }
-        } catch (err) {
-            throw err;
-        } finally {
-            await fileList.close();
-        }
-        // remove file data
-        await fileCol.deleteMany({user_serial: userSer});
-        // remove all files
-        const root = await this.getUserRoot(userSer, 'files');
-        await conn.execute(
-            `update file set parent_serial=if(parent_serial=1,1,?), file_name=file_serial where user_serial=?`,
-            [root]
-        );
-        await conn.execute(`delete from file where user_serial=?`, [userSer]);
-        // remove all recycles
-        await conn.execute(`delete from recycle where user_serial=?`, [userSer]);
-        // add to old_id
-        await conn.execute(`insert into old_id (user_id, user_serial) select (user_id, user_serial) from user where user_serial=?`, [userSer]);
-        // remove google
-        await conn.execute(`delete from user_google where user_serial=?`, [userSer]);
-        // remove user
-        await conn.execute(`delete from user where user_serial=?`, [userSer]);
+            // remove file data
+            await fileCol.deleteMany({user_serial: userSer});
+            // remove all files
+            const root = await this.getUserRoot(userSer, 'files');
+            await conn.execute(
+                `update file set parent_serial=if(parent_serial=1,1,?), file_name=file_serial where user_serial=?`,
+                [root, userSer]
+            );
+            await conn.execute(`delete from file where user_serial=? and parent_serial<>1`, [userSer]);
+            await conn.execute(`delete from file where user_serial=?`, [userSer]);
+            // remove all recycles
+            await conn.execute(`delete from recycle where user_serial=?`, [userSer]);
+            // add to old_id
+            await conn.execute(`insert into old_id (user_id, user_serial) select user_id, user_serial from user where user_serial=?`, [userSer]);
+            // remove google
+            await conn.execute(`delete from user_google where user_serial=?`, [userSer]);
+            // remove user
+            let [result] = await conn.execute<ResultSetHeader>(`delete from user where user_serial=?`, [userSer]);
+            if (result.affectedRows <= 0){
+                throw new InternalServerErrorException();
+            }
+        });
     }
 
     async preDelUser(conn: PoolConnection, userSer: number){
@@ -1978,5 +2009,9 @@ export class FilesService {
         await this.clearFriends(conn, userSer);
         // remove all sessions
         await this.clearSessions(conn, userSer);
+        let [result] = await conn.execute<ResultSetHeader>(`update user set user_deleted='true' where user_serial=?`, [userSer]);
+        if (result.affectedRows <= 0){
+            throw new InternalServerErrorException();
+        }
     }
 }

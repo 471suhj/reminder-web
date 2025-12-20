@@ -172,6 +172,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			txtRename.dataset.origName = txtRename.value;
 			txtRename.dataset.timestamp = divSelected.dataset.timestamp;
             txtRename.style.display = 'inline';
+			txtRename.select();
             txtRename.focus();
         }
     });

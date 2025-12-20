@@ -87,7 +87,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 		}
         divPopup.style.display = 'block';
         divPopup.appendChild(document.createElement('h1')).innerText = '파일 공유 취소';
-        divPopup.appendChild(document.createElement('p')).innerText = '전송할 메시지를 입력하십시오.';
+        divPopup.appendChild(document.createElement('p')).innerText = '전송할 메시지를 입력하십시오. 메시지를 입력하지 않으면 알림은 전송되지 않습니다.';
         const txtMsg = divPopup.appendChild(document.createElement('textarea'));
         divPopup.appendChild(document.createElement('br'));
         divPopup.appendChild(document.createElement('br'));

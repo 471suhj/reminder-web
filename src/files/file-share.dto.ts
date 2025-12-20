@@ -42,5 +42,5 @@ export class FileShareDto {
 
     @IsDate()
     @Type(()=>Date)
-    timestamp: Date;
+    timestamp?: Date;
 }
