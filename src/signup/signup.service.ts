@@ -73,10 +73,10 @@ export class SignupService {
                     if (pw !== ''){
                         pwEncr = (await this.hashPasswordService.getHash(pw, salt)).toString('base64');
                     }
-                    [result] = await conn.execute<mysql.RowDataPacket[]>(
+                    await conn.execute(
                         'insert into user (user_id, name, password, email, email2, salt) value (?,?,?,?,?,?)', [id, username, pwEncr, email.slice(0, 65), email.slice(65), salt]);
                 }
-                if (mode === 'google'){
+                if (mode === 'google' && updateinfo){
                     [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user_google where google_id=? for share', [googleObj.id]);                
                 } else {
                     [result] = await conn.execute<mysql.RowDataPacket[]>('select user_serial from user where user_id=? for share', [id]);
