@@ -27,6 +27,7 @@ cmdIndex.down = document.getElementById('moveItemDown');
 
 let intAgeCnt = 0; //(mod 10)
 const rngLoc = document.createRange();
+await getInitData(lblStatus, lstItems, txtMain, txtBack);
 
 function toPx(val){
     return String(val) + 'px';
@@ -96,7 +97,7 @@ function fncChangeReadonly(propVal){ // bool input
 async function getInitData(){
     let retry = true;
     while (retry){
-        await doFetch(`/edit/inter?id=${lblStatus.title.dataset.fileid}`, 'GET', '', '', '', async function(result){
+        await doFetch(`/edit/inter?id=${lblStatus.title.dataset.fileid}`, 'GET', '', '', '', async (result)=>{
             const jsnRes = await result.json();
 
             lblStatus.shared.innerText = jsnRes.sharedAccounts ? jsnRes.sharedAccounts : '공유중이지 않음';
@@ -111,22 +112,22 @@ async function getInitData(){
                 const itmIndex = lstItems.appendChild(document.createElement('option'));
                 itmIndex.dataset.index = i;
                 itmIndex.innerText = String(i);
-                if (jsnRes.itmUsers[i - 1]){
+                if (jsnRes.itmUsers[i - 1] !== ''){
                     itmIndex.innerText += ` (${jsnRes.itmUsers[i - 1]})`;
                 }
             }
-            lstItems.children[jsnRes.itmCur].selected = true;
+            lstItems.children[jsnRes.itmCur - 1].selected = true;
             txtMain.innerText = jsnRes.txtCur;
             txtBack.innerText = jsnRes.txtCur;
 
             fncSetCaret(jsnRes.curLoc);
 
             retry = false;
-
-            return '';
-        }, function(){
-            alert('로드에 실패했습니다. '확인'을 누르면 다시 로드됩니다.');
-        })
+        }, ()=>{
+            alert("로드에 실패했습니다.");
+			retry = false;
+			// retry = true;
+        });
     }
 }
 
@@ -134,39 +135,48 @@ function fncDelItem(){
 
 }
 
-document.addEventListener('visibilitychange', function(){
+alert("이 웹사이트의 '파일 열람/편집' 기능은 완성되지 않았습니다. 기능이 최적화되어 있지 않고 대부분의 기능이 작동하지 않으니 참고하시기 바랍니다.");
+fncChangeReadonly(true);
+{
+	let i = 0;
+	for (const itm of lstItems.children){
+		i++;
+		const reqInfo = {loc: i};
+		itm.addEventListener('click', async (event)=>{
+			await doFetch(`/edit/inter?id=${lblStatus.title.dataset.fileid}&loc=${reqInfo.loc}`,
+			'GET', '', '', '불러오기에 실패했습니다.', async (result)=>{
+				const jsnRes = await result.json();
+
+				lstItems.children[jsnRes.itmCur - 1].selected = true;
+				txtMain.innerText = jsnRes.txtCur;
+				txtBack.innerText = jsnRes.txtCur;
+			});
+		});
+	}
+}
+
+document.addEventListener('visibilitychange', ()=>{
     showMessage('make the feature to save');
 })
 
-await getInitData(lblStatus, lstItems, txtMain, txtBack);
 
-cmdShare.addEventListener('click', function(event){
+cmdShare.addEventListener('click', (event)=>{
     mnuShare.style.left = String(event.clientX)+'px';
     mnuShare.style.top = String(event.clientY)+'px';
     mnuShare.style.display = 'block';
     mnuShare.focus();
 });
 
-mnuShare.addEventListener('blur', function(){
+mnuShare.addEventListener('blur', ()=>{
     fncCloseMnuShare();
 })
 
-cmdIndex.delete.addEventListener('click', function() {
-    fncDelItem();
+cmdIndex.delete.addEventListener('click', ()=>{
+    //fncDelItem();
 });
 
-cmdIndex.duplicatedelete.addEventListener();
 
-
-cmdIndex.adddelete.addEventListener();
-
-
-cmdIndex.updelete.addEventListener();
-
-
-cmdIndex.downdelete.addEventListener();
-
-document.addEventListener('keydown', function(event){
+document.addEventListener('keydown', (event)=>{
     if (event.key === 'Control'){
         lstItems.multiple = true;
     } else {
@@ -174,7 +184,7 @@ document.addEventListener('keydown', function(event){
     }
 });
 
-document.addEventListener('keyup', function(event){
+document.addEventListener('keyup', (event)=>{
     if (event.key === 'Control'){
         lstItems.multiple = true;
     } else {
@@ -184,7 +194,9 @@ document.addEventListener('keyup', function(event){
 
 for (const prop in mnuShareItems){
     const mnuItem = mnuShareItems[prop];
-    mnuItem.addEventListener('click', function(){
+    mnuItem.addEventListener('click', ()=>{
+		showMessage('구현되지 않은 기능입니다.');
+		return;
         fncCloseMnuShare();
         divPopup.style.display = 'block';
 

@@ -51,6 +51,8 @@ export class AuthGuard implements CanActivate {
         } else {
           return true;
         }
+      } else if (authVal === 'all'){
+        return true;
       } else {
         if (user){
           request['user'] = user;

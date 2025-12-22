@@ -84,24 +84,24 @@ export class FilesController {
     
     @Get('bookmarks')
     @Render('files/bookmarks')
-    async getBookmarks(@User(ParseIntPipe) userSer: number): Promise<FilesGetDto> {
+    async getBookmarks(@User() userSer: number): Promise<FilesGetDto> {
         return await this.filesService.renderSharedPage(userSer, 'bookmarks');
     }
 
     @Get('shared')
     @Render('files/shared')
-    async getShared(@User(ParseIntPipe) userSer: number): Promise<FilesGetDto>{
+    async getShared(@User() userSer: number): Promise<FilesGetDto>{
         return await this.filesService.renderSharedPage(userSer, 'shared');
     }
 
     @Get('recycle')
     @Render('files/recycle')
-    async getRecycle(@User(ParseIntPipe) userSer: number): Promise<FilesGetDto>{
+    async getRecycle(@User() userSer: number): Promise<FilesGetDto>{
         return await this.filesService.renderSharedPage(userSer, 'recycle');
     }
 
     @Delete('recycle')
-    async delRecycle(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async delRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.files.length <= 0){
             return {delarr: [], failed: []};
         }
@@ -148,7 +148,7 @@ export class FilesController {
     }
 
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
-    async putRecycle(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async putRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         let arr: FileIdentReqDto[], arrFail: FileIdentReqDto[], clash_toolong: boolean, namechange: boolean;
@@ -167,7 +167,7 @@ export class FilesController {
 
     // rename, create directory, create files from files
     @Put('manage') // 'before's in filesarrdto are not ignored.
-    async putManage(@User(ParseIntPipe) userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
+    async putManage(@User() userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
         let retVal: FileMoveResDto;
         if (body.action === 'createDir'){
@@ -307,7 +307,7 @@ export class FilesController {
     }
 
     @Put('bookmark')
-    async putBookmark(@User(ParseIntPipe) userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+    async putBookmark(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'bookmark'){throw new BadRequestException();}
         let retVal: FileDelResDto;
         await this.mysqlService.doTransaction('files controller put bookmark', async (conn)=>{
@@ -319,7 +319,7 @@ export class FilesController {
     // sharing from files or profile
     // addarr is prepared with the assumption that the window is profile.
     @Put('share')
-    async putShare(@User(ParseIntPipe) userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
+    async putShare(@User() userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
         if (body.friends.length <= 0){
             return {addarr: [], failed: [], delarr: []};
         }
@@ -377,7 +377,7 @@ export class FilesController {
 
     // copy and move from files
     @Put('move') // copy_origin eventually marks only copied 'files'
-    async putMove(@User(ParseIntPipe) userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
+    async putMove(@User() userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'files', body.from, body.timestamp);
         let retVal = new FileMoveResDto();
@@ -520,7 +520,7 @@ export class FilesController {
     }
 
     @Put('inbox-save')
-    async putInbox(@User(ParseIntPipe) userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
+    async putInbox(@User() userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         let retVal = {success: true};
         await this.mysqlService.doTransaction('files controller put inbox-save', async conn=>{
             let ret = await this.filesService.restoreFiles(conn, userSer, Number(body.id));
@@ -540,7 +540,7 @@ export class FilesController {
     // get list for dialogs
     @Get('list')
     async getList(
-        @User(ParseIntPipe) userSer: number,
+        @User() userSer: number,
         @Query('select') select: 'folders'|'sepall',
         @Query('dirid', new ParseIntPipe({optional: true})) dirid?: number
     ): Promise<FileListResDto>{

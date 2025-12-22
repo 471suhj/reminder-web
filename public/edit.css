@@ -94,7 +94,7 @@
     border-color: gray;
     width: calc(100%);
     height: calc(100%);
-    font-family: "Gulim" sans-serif;
+    font-family: "Gulim", sans-serif;
     font-size: xx-large;
 }
 #shareMenu{

@@ -244,7 +244,7 @@ export class FilesService {
                 switch (tmpVar.phase){
                     case 'N':
                         tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
-                        doc.arrlen = tmpVar.idx + 1;
+                        doc.arrlen = tmpVar.idx;
                         break;
                 }
             }
@@ -637,7 +637,7 @@ export class FilesService {
                     throw new Error('rollback_');
                 }
                 let lenTmp = crit.length;
-                let lenTmp_dbl = lenTmp * 2;
+                let lenTmp_dbl = friend ? lenTmp * 2 : lenTmp;
                 for (let k = 0; k < lenTmp_dbl; k++){
                     let i = k % lenTmp;
                     wherearr.push({...((i === k) ? whereObj1 : whereObj2)});
@@ -649,7 +649,7 @@ export class FilesService {
                     wherearr[i].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
                 }
             } else {
-                wherearr = [whereObj1, whereObj2];
+                wherearr = friend ? [whereObj1, whereObj2] : [whereObj1];
             }
             let orderObj = {file: {}};
             for (const itm of crit){
@@ -671,7 +671,7 @@ export class FilesService {
                 retVal.loadMore = false;
             }
             retVal.addarr = result2.map(val=>{return {
-                link: `/files?dirid=${val.file_serial}`,
+                link: `/edit?id=${val.file_serial}`,
                 id: val.file_serial,
                 isFolder: val.file.type === 'dir',
                 text: val.file_name,
