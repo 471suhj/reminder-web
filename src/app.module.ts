@@ -15,6 +15,7 @@ import { FriendsModule } from './friends/friends.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CheckIntegrityModule } from './check-integrity/check-integrity.module';
 import { GraphicsModule } from './graphics/graphics.module';
+import { AwsModule } from './aws/aws.module';
 
 @Module({
   imports: [AuthModule, MysqlModule, 
@@ -31,6 +32,7 @@ import { GraphicsModule } from './graphics/graphics.module';
     }),
     CheckIntegrityModule,
     GraphicsModule,
+    AwsModule,
 
   ],
   controllers: [AppController],

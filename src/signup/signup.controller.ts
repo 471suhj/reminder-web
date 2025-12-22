@@ -11,15 +11,18 @@ import mysql from 'mysql2/promise';
 import { AuthDec } from 'src/auth/auth.decorator';
 import { SignupService } from './signup.service';
 import { EncryptError } from 'src/encrypt/encrypt-error';
+import { AwsService } from 'src/aws/aws.service';
+import { ListTenantsCommand, ListTenantsCommandInput, SendEmailCommand } from '@aws-sdk/client-sesv2';
 
 @AuthDec('anony-only')
 @Controller('signup')
 export class SignupController {
     constructor(
-        private hashPasswordService: HashPasswordService, 
-        private encryptService: EncryptService,
-        private mysqlService: MysqlService,
-        private signupService: SignupService,
+        private readonly hashPasswordService: HashPasswordService, 
+        private readonly encryptService: EncryptService,
+        private readonly mysqlService: MysqlService,
+        private readonly signupService: SignupService,
+        private readonly awsService: AwsService,
     ){}
 
     private readonly logger = new Logger('signup');
@@ -80,8 +83,31 @@ export class SignupController {
         const strCode: string = await this.hashPasswordService.getVerifiCode();
         await sqlPool.execute(
             'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
-            [body.email.slice(0,65), body.email.slice(65), strCode, strCode]);
-        this.logger.log(`verification code for ${body.email}: ${strCode}`);
+            [body.email.slice(0,65), body.email.slice(65), strCode, strCode]
+        );
+        const emailParams = {
+            Content: {
+                Simple: {
+                    Body: {
+                        Text: {
+                            Data: `ComphyCat Reminder Online의 인증 번호는\n${strCode}\n입니다.`,
+                            Charset: 'UTF-8'
+                        }
+                    },
+                    Subject: {
+                        Data: 'ComphyCat Reminder Online 인증 번호',
+                        Charset: 'UTF-8'
+                    }
+                }
+            },
+            Destination: {
+                ToAddresses: [body.email]
+            },
+            FromEmailAddress: 'noreply@comphycat.uk'
+        };
+        const emailCmd = new SendEmailCommand(emailParams);
+        await this.awsService.client.send(emailCmd);
+        //this.logger.log(`verification code for ${body.email}: ${strCode}`);
         return {success: true};
     }
 
