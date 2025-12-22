@@ -12,14 +12,7 @@ async function bootstrap() {
     console.log('unhandledRejection: ', reason);
   });
 
-  const httpsOptions = {
-    pfx: readFileSync('test_cert.pfx'),
-    passphrase: process.env.PFX_PASS, // passed from pfx_pass.env as written in package.json
-  };
-
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    httpsOptions,
-  });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.useStaticAssets(path.join(__dirname, '..', 'public'));
   app.setBaseViewsDir(path.join(__dirname, '..', 'views'));
