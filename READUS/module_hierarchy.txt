@@ -1,10 +1,9 @@
 mysql/mongo
 graphics/hash-password/encrypt
 signup
-auth/prefs
+auth/prefs(refs files module)
 home
 files
 friends
-
-
 check-integrity/delete-expired
+app

@@ -1,12 +1,11 @@
-create database reminder_web;
 use reminder_web;
 
 create table user (
 	user_serial int unsigned not null auto_increment primary key,
 	user_id char(25) not null unique key,
 	name char(25) not null,
-	password char(30) not null,
-	salt varchar(22) not null,
+	password char(44) not null,
+	salt varchar(24) not null,
 	email varchar(65) not null,
 	email2 varchar(255) not null default '',
 	auto_receive_files ENUM('false', 'true') not null default 'true',
@@ -18,7 +17,7 @@ create table user (
 	home_files ENUM('false', 'true') not null default 'true',
 	home_shared ENUM('false', 'true') not null default 'true',
 	user_deleted ENUM('false', 'true') not null default 'false',
-	last_updated timestamp not null default current_timestamp on update current_timestamp
+	last_updated timestamp not null default current_timestamp on update current_timestamp,
 	use_image ENUM('false', 'true') not null default 'false'
 );
 
@@ -126,7 +125,7 @@ create view friend_mul (user_serial_to, user_serial_from, date_added, nickname) 
 create table session (
 	token char(32) not null primary key,
 	user_serial int unsigned not null,
-	last_updated timestamp not null,
+	last_updated timestamp not null default current_timestamp on update current_timestamp,
 	foreign key (user_serial) references user (user_serial),
 	key (last_updated)
 );
@@ -143,7 +142,7 @@ create table user_google (
 );
 
 create table google_consent (
-	token char(43) not null primary key,
+	token char(64) not null primary key,
 	last_updated timestamp not null default current_timestamp on update current_timestamp,
 	key (last_updated)
 );
@@ -151,7 +150,7 @@ create table google_consent (
 create table email_verification (
 	email varchar(65) not null,
 	email2 varchar(255) not null default '',
-	code char(6) not null,
+	code char(8) not null,
 	last_updated timestamp not null default current_timestamp on update current_timestamp,
 	primary key (email, email2),
 	key (last_updated)
@@ -161,6 +160,7 @@ create table friend_req (
 	user_serial_to int unsigned not null,
 	user_serial_from int unsigned not null,
 	last_updated timestamp not null default current_timestamp on update current_timestamp,
+	rejected enum('false', 'true') not null default 'false',
 	primary key (user_serial_to, user_serial_from),
 	foreign key (user_serial_to) references user (user_serial),
 	foreign key (user_serial_from) references user (user_serial)

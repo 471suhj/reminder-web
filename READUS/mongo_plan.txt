@@ -12,11 +12,20 @@ type - file_shared_hard
 	file_name: string
 	mode: 'edit'|'read'
 	fileid: number
+	message: string
 
 type - file_shared_inbox
 	sender_ser: number
 	file_name: string
 	file_ser: number
+	saved: boolean
+	message: string
+
+type - file_unshared
+	sender_ser: number
+	file_name: string
+	file_ser: number
+	message: string
 
 type - friend_request_accepted
 	sender_ser: number
@@ -30,6 +39,7 @@ type - friend_request_rejected
 
 collection - file_data
 	serial: number
+	user_serial: number
 	type: 'rmb0.2'|'rmb0.3'
+	arrlen: number
 	metadata: {Interval?: number, FontSize?: number, RemStart?: number, RemEnd?: number}
-	arr: string[]
