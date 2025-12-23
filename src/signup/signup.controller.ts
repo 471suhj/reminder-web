@@ -85,28 +85,28 @@ export class SignupController {
             'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
             [body.email.slice(0,65), body.email.slice(65), strCode, strCode]
         );
-        const emailParams = {
-            Content: {
-                Simple: {
-                    Body: {
-                        Text: {
-                            Data: `ComphyCat Reminder Online의 인증 번호는\n${strCode}\n입니다.`,
-                            Charset: 'UTF-8'
-                        }
-                    },
-                    Subject: {
-                        Data: 'ComphyCat Reminder Online 인증 번호',
-                        Charset: 'UTF-8'
-                    }
-                }
-            },
-            Destination: {
-                ToAddresses: [body.email]
-            },
-            FromEmailAddress: 'noreply@comphycat.uk'
-        };
-        const emailCmd = new SendEmailCommand(emailParams);
-        await this.awsService.client.send(emailCmd);
+        // const emailParams = {
+        //     Content: {
+        //         Simple: {
+        //             Body: {
+        //                 Text: {
+        //                     Data: `ComphyCat Reminder Online의 인증 번호는\n${strCode}\n입니다.`,
+        //                     Charset: 'UTF-8'
+        //                 }
+        //             },
+        //             Subject: {
+        //                 Data: 'ComphyCat Reminder Online 인증 번호',
+        //                 Charset: 'UTF-8'
+        //             }
+        //         }
+        //     },
+        //     Destination: {
+        //         ToAddresses: [body.email]
+        //     },
+        //     FromEmailAddress: 'noreply@comphycat.uk'
+        // };
+        // const emailCmd = new SendEmailCommand(emailParams);
+        // await this.awsService.client.send(emailCmd);
         //this.logger.log(`verification code for ${body.email}: ${strCode}`);
         return {success: true};
     }
@@ -115,20 +115,20 @@ export class SignupController {
     async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string, failmessage?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
-        ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
-        if (result.length <= 0){
-            return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
-        } else {
-            if (result.length > 1){
-                this.logger.error('duplicate in email_verification with email=' + body.email);
-            }
-            if (result[0]['code'] === body.code){
+        // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
+        // ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
+        // if (result.length <= 0){
+        //     return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
+        // } else {
+        //     if (result.length > 1){
+        //         this.logger.error('duplicate in email_verification with email=' + body.email);
+        //     }
+        //     if (result[0]['code'] === body.code){
                 return {success: true, key: await this.hashPasswordService.encryptEmail(body.email)};
-            } else {
-                return {success: false};
-            }
-        }
+        //     } else {
+        //         return {success: false};
+        //     }
+        // }
     }
 
 
