@@ -2,14 +2,14 @@
     flex-wrap: wrap-reverse;
     display: flex;
     width: 100%;
+    overflow: scroll;
 }
-.body{
+#body{
     padding: 15px;
     left: 0px;
     right: 0px;
     flex: 7 1 min-content;
     background-color: beige;
-    font-size: 30px;
     word-break: keep-all;
 }
 #signpane {
