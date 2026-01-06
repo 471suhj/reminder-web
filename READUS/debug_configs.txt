@@ -1,0 +1,6 @@
+pfx_pass.env
+	DOMAIN=http://localhost:3000
+
+mysqld writes statements to the query log in the order that it receives them, rather than in the order the queries are actually executed.
+set persist log_output=FILE;
+set persist general_log=ON;

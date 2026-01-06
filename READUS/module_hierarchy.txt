@@ -1,4 +1,4 @@
-mysql/mongo
+mysql/mongo/aws
 graphics/hash-password/encrypt
 signup
 auth/prefs(refs files module)

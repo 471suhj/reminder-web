@@ -1,0 +1,178 @@
+reminder_web> db.notification.find({to: 10}, {urlArr: 1, read: 1, type: 1, data: 1}).sort({_id: -1}).limit(21).explain('executionStats');
+{
+  explainVersion: '1',
+  queryPlanner: {
+    namespace: 'reminder_web.notification',
+    parsedQuery: { to: { '$eq': 10 } },
+    indexFilterSet: false,
+    queryHash: '10F8AB82',
+    planCacheShapeHash: '10F8AB82',
+    planCacheKey: 'E9441A76',
+    optimizationTimeMillis: 4,
+    maxIndexedOrSolutionsReached: false,
+    maxIndexedAndSolutionsReached: false,
+    maxScansToExplodeReached: false,
+    prunedSimilarIndexes: false,
+    winningPlan: {
+      isCached: false,
+      stage: 'LIMIT',
+      limitAmount: 21,
+      inputStage: {
+        stage: 'PROJECTION_SIMPLE',
+        transformBy: { urlArr: 1, read: 1, type: 1, data: 1 },
+        inputStage: {
+          stage: 'FETCH',
+          inputStage: {
+            stage: 'IXSCAN',
+            keyPattern: { to: 1, _id: 1 },
+            indexName: 'to_1__id_1',
+            isMultiKey: false,
+            multiKeyPaths: { to: [], _id: [] },
+            isUnique: false,
+            isSparse: false,
+            isPartial: false,
+            indexVersion: 2,
+            direction: 'backward',
+            indexBounds: { to: [ '[10, 10]' ], _id: [ '[MaxKey, MinKey]' ] }
+          }
+        }
+      }
+    },
+    rejectedPlans: [
+      {
+        isCached: false,
+        stage: 'PROJECTION_SIMPLE',
+        transformBy: { urlArr: 1, read: 1, type: 1, data: 1 },
+        inputStage: {
+          stage: 'FETCH',
+          inputStage: {
+            stage: 'SORT',
+            sortPattern: { _id: -1 },
+            memLimit: 104857600,
+            limitAmount: 21,
+            type: 'default',
+            inputStage: {
+              stage: 'IXSCAN',
+              keyPattern: { to: 1, read: 1, _id: 1 },
+              indexName: 'to_1_read_1__id_1',
+              isMultiKey: false,
+              multiKeyPaths: { to: [], read: [], _id: [] },
+              isUnique: false,
+              isSparse: false,
+              isPartial: false,
+              indexVersion: 2,
+              direction: 'forward',
+              indexBounds: {
+                to: [ '[10, 10]' ],
+                read: [ '[MinKey, MaxKey]' ],
+                _id: [ '[MinKey, MaxKey]' ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  executionStats: {
+    executionSuccess: true,
+    nReturned: 7,
+    executionTimeMillis: 4,
+    totalKeysExamined: 7,
+    totalDocsExamined: 7,
+    executionStages: {
+      isCached: false,
+      stage: 'LIMIT',
+      nReturned: 7,
+      executionTimeMillisEstimate: 0,
+      works: 9,
+      advanced: 7,
+      needTime: 0,
+      needYield: 0,
+      saveState: 0,
+      restoreState: 0,
+      isEOF: 1,
+      limitAmount: 21,
+      inputStage: {
+        stage: 'PROJECTION_SIMPLE',
+        nReturned: 7,
+        executionTimeMillisEstimate: 0,
+        works: 9,
+        advanced: 7,
+        needTime: 0,
+        needYield: 0,
+        saveState: 0,
+        restoreState: 0,
+        isEOF: 1,
+        transformBy: { urlArr: 1, read: 1, type: 1, data: 1 },
+        inputStage: {
+          stage: 'FETCH',
+          nReturned: 7,
+          executionTimeMillisEstimate: 0,
+          works: 9,
+          advanced: 7,
+          needTime: 0,
+          needYield: 0,
+          saveState: 0,
+          restoreState: 0,
+          isEOF: 1,
+          docsExamined: 7,
+          alreadyHasObj: 0,
+          inputStage: {
+            stage: 'IXSCAN',
+            nReturned: 7,
+            executionTimeMillisEstimate: 0,
+            works: 8,
+            advanced: 7,
+            needTime: 0,
+            needYield: 0,
+            saveState: 0,
+            restoreState: 0,
+            isEOF: 1,
+            keyPattern: { to: 1, _id: 1 },
+            indexName: 'to_1__id_1',
+            isMultiKey: false,
+            multiKeyPaths: { to: [], _id: [] },
+            isUnique: false,
+            isSparse: false,
+            isPartial: false,
+            indexVersion: 2,
+            direction: 'backward',
+            indexBounds: { to: [ '[10, 10]' ], _id: [ '[MaxKey, MinKey]' ] },
+            keysExamined: 7,
+            seeks: 1,
+            dupsTested: 0,
+            dupsDropped: 0
+          }
+        }
+      }
+    }
+  },
+  queryShapeHash: 'BB85A8EC2AD2F01C093FF0E5367C197B91303D1C55166A343B7B721BA5326348',
+  command: {
+    find: 'notification',
+    filter: { to: 10 },
+    sort: { _id: -1 },
+    projection: { urlArr: 1, read: 1, type: 1, data: 1 },
+    limit: 21,
+    '$db': 'reminder_web'
+  },
+  serverInfo: {
+    host: 'SFPW11-23',
+    port: 27017,
+    version: '8.2.3',
+    gitVersion: '36f41c9c30a2f13f834d033ba03c3463c891fb01'
+  },
+  serverParameters: {
+    internalQueryFacetBufferSizeBytes: 104857600,
+    internalQueryFacetMaxOutputDocSizeBytes: 104857600,
+    internalLookupStageIntermediateDocumentMaxSizeBytes: 104857600,
+    internalDocumentSourceGroupMaxMemoryBytes: 104857600,
+    internalQueryMaxBlockingSortMemoryUsageBytes: 104857600,
+    internalQueryProhibitBlockingMergeOnMongoS: 0,
+    internalQueryMaxAddToSetBytes: 104857600,
+    internalDocumentSourceSetWindowFieldsMaxMemoryBytes: 104857600,
+    internalQueryFrameworkControl: 'trySbeRestricted',
+    internalQueryPlannerIgnoreIndexWithCollationForRegex: 1
+  },
+  ok: 1
+}

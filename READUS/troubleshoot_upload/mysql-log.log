@@ -1,0 +1,61 @@
+2026-01-04T11:27:24.816130Z	   11 Query	start transaction
+2026-01-04T11:27:24.816464Z	   10 Query	start transaction
+2026-01-04T11:27:24.817020Z	   11 Execute	select file_serial from file where user_serial=20 and parent_serial=360 for update
+2026-01-04T11:27:24.817893Z	   11 Execute	delete from file where user_serial=20 and parent_serial=360
+2026-01-04T11:27:24.818115Z	   10 Execute	select file_serial from file where user_serial=20 and parent_serial=360 for update
+// this could not proceed. as a result, two 10s are sent consequently.
+2026-01-04T11:27:24.818214Z	   11 Execute	insert into file (user_serial, parent_serial, type, file_name) value (20, 360, 'file', 'abc - Copy')
+2026-01-04T11:27:24.818453Z	   10 Execute	delete from file where user_serial=20 and parent_serial=360
+2026-01-04T11:27:24.818793Z	   10 Execute	insert into file (user_serial, parent_serial, type, file_name) value (20, 360, 'file', 'abc')
+2026-01-04T11:27:24.819745Z	   10 Query	rollback // remember. it is deadlock. 11 couln't have proceeded without this rollback either.
+2026-01-04T11:27:24.825536Z	   11 Execute	select file_serial, last_renamed from file where user_serial=20 and parent_serial=360
+2026-01-04T11:27:24.826313Z	   11 Query	commit
+
+
+
+
+2026-01-04T11:27:24.829310Z	   12 Query	start transaction
+2026-01-04T11:27:24.830392Z	   12 Execute	select file_serial from file where user_serial=20 and parent_serial=360 for update
+2026-01-04T11:27:24.833171Z	   12 Execute	delete from file where user_serial=20 and parent_serial=360
+2026-01-04T11:27:24.833850Z	   12 Execute	insert into file (user_serial, parent_serial, type, file_name) value (20, 360, 'file', '웹')
+2026-01-04T11:27:24.834441Z	   12 Execute	select file_serial, last_renamed from file where user_serial=20 and parent_serial=360
+2026-01-04T11:27:24.834867Z	   12 Query	commit
+
+
+
+
+
+2026-01-04T11:27:24.838876Z	   11 Query	start transaction
+2026-01-04T11:27:24.839391Z	   11 Execute	select file_serial from file where user_serial=20 and file_serial=359 and type='dir' and (file_name='files' or issys='false') for share
+2026-01-04T11:27:24.839758Z	   11 Execute	select parent_serial, file_name, last_renamed, issys from file where user_serial=20 and file_serial=359 for share
+2026-01-04T11:27:24.840209Z	   11 Query	select file_serial, last_renamed, type, file_name from file where user_serial=20 and parent_serial=360 and (file_serial, last_renamed) in ((366, '2026-01-04 20:27:24.000')) for update
+2026-01-04T11:27:24.851505Z	   11 Execute	update file set copy_origin=0 where user_serial=20 and copy_origin<>0
+2026-01-04T11:27:24.853762Z	   11 Execute	insert into file (user_serial, parent_serial, type, file_name, last_modified, copy_origin) select f1.user_serial, f2.file_serial, f1.type, f1.file_name, f1.last_modified, f1.file_serial from file as f1 inner join file as f2 on f1.parent_serial=f2.copy_origin where f1.user_serial=20 and f2.type='dir'
+2026-01-04T11:27:24.854412Z	   11 Execute	update file set copy_origin=0 where user_serial=20 and type='dir' and copy_origin<>0
+2026-01-04T11:27:24.854975Z	   11 Execute	select file_serial, copy_origin from file where user_serial=20 and copy_origin<>0 for share
+2026-01-04T11:27:24.855559Z	   11 Query	commit
+
+
+
+
+
+
+2026-01-04T11:27:24.862903Z	   11 Query	start transaction
+2026-01-04T11:27:24.863196Z	   11 Execute	select file_serial from file where user_serial=20 and file_serial=359 and type='dir' and (file_name='files' or issys='false') for share
+2026-01-04T11:27:24.863629Z	   11 Execute	select parent_serial, file_name, last_renamed, issys from file where user_serial=20 and file_serial=359 for share
+2026-01-04T11:27:24.863996Z	   11 Query	select file_serial, last_renamed, type, file_name from file where user_serial=20 and parent_serial=360 and (file_serial, last_renamed) in ((368, '2026-01-04 20:27:24.000')) for update
+2026-01-04T11:27:24.864459Z	   11 Query	select type, file_name from file where user_serial=20 and parent_serial=359 and (type, file_name) in (('file', '웹')) for update
+2026-01-04T11:27:24.864970Z	   11 Execute	update file set copy_origin=0 where user_serial=20 and copy_origin<>0
+2026-01-04T11:27:24.865485Z	   11 Query	update file set parent_serial=359, last_renamed=current_timestamp where user_serial=20 and file_serial in (368)
+2026-01-04T11:27:24.866208Z	   11 Execute	insert into file (user_serial, parent_serial, type, file_name, last_modified, copy_origin) select f1.user_serial, f2.file_serial, f1.type, f1.file_name, f1.last_modified, f1.file_serial from file as f1 inner join file as f2 on f1.parent_serial=f2.copy_origin where f1.user_serial=20 and f2.type='dir'
+2026-01-04T11:27:24.866681Z	   11 Execute	update file set copy_origin=0 where user_serial=20 and type='dir' and copy_origin<>0
+2026-01-04T11:27:24.866904Z	   11 Execute	select file_serial, copy_origin from file where user_serial=20 and copy_origin<>0 for share
+2026-01-04T11:27:24.867162Z	   11 Query	commit
+
+
+
+
+
+2026-01-04T11:27:24.869103Z	   11 Query	start transaction
+2026-01-04T11:27:24.869312Z	   11 Execute	select * from file where file_serial=368
+2026-01-04T11:27:24.869664Z	   11 Query	commit

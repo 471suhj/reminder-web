@@ -8,17 +8,17 @@ create table user (
 	salt varchar(24) not null,
 	email varchar(65) not null,
 	email2 varchar(255) not null default '',
-	auto_receive_files ENUM('false', 'true') not null default 'true',
-	save_recent ENUM('false', 'true') not null default 'true',
-	side_bookmarks ENUM('false', 'true') not null default 'true',
-	side_shared ENUM('false', 'true') not null default 'true',
-	home_bookmarks ENUM('false', 'true') not null default 'true',
-	home_notifs ENUM('false', 'true') not null default 'true',
-	home_files ENUM('false', 'true') not null default 'true',
-	home_shared ENUM('false', 'true') not null default 'true',
-	user_deleted ENUM('false', 'true') not null default 'false',
+	auto_receive_files enum('false', 'true') not null default 'true',
+	save_recent enum('false', 'true') not null default 'true',
+	side_bookmarks enum('false', 'true') not null default 'true',
+	side_shared enum('false', 'true') not null default 'true',
+	home_bookmarks enum('false', 'true') not null default 'true',
+	home_notifs enum('false', 'true') not null default 'true',
+	home_files enum('false', 'true') not null default 'true',
+	home_shared enum('false', 'true') not null default 'true',
+	user_deleted enum('false', 'true') not null default 'false',
 	last_updated timestamp not null default current_timestamp on update current_timestamp,
-	use_image ENUM('false', 'true') not null default 'false'
+	use_image enum('false', 'true') not null default 'false'
 );
 
 create table old_id (
@@ -53,17 +53,17 @@ create table friend (
 // important: do not add any new columns before 'file_name'. files.service.ts moveFiles_rename depends on the order
 create table file (
 	user_serial int unsigned not null,
-	bookmarked ENUM('false', 'true') not null default 'false',
+	bookmarked enum('false', 'true') not null default 'false',
 	parent_serial bigint unsigned not null,
-	type ENUM('dir', 'file', 'movedir', 'movefile') not null default 'dir',
-	issys ENUM('false', 'true') not null default 'false',
+	type enum('dir', 'file', 'movedir', 'movefile') not null default 'dir',
+	issys enum('false', 'true') not null default 'false',
 	file_name char(40) not null,
 	file_serial bigint unsigned not null auto_increment unique key,
 	last_renamed timestamp not null default current_timestamp,
 	last_modified timestamp not null default current_timestamp,
 	last_opened timestamp not null default '2000-01-01 00:00:00',
-	to_delete ENUM('direct', 'recursive', 'na') not null default 'na',
-	mark ENUM('false', 'true') not null default 'false',
+	to_delete enum('direct', 'recursive', 'na') not null default 'na',
+	mark enum('false', 'true') not null default 'false',
 	copy_origin bigint unsigned not null default 0,
 	key (user_serial, mark),
 	primary key (user_serial, parent_serial, type, file_name),
@@ -82,15 +82,15 @@ create table recycle (
 	user_serial int unsigned not null,
 	parent_serial bigint unsigned not null,
 	parent_path varchar(255) not null,
-	type ENUM('dir', 'file') not null default 'dir',
+	type enum('dir', 'file') not null default 'dir',
 	file_name varchar(40) not null,
 	file_serial bigint unsigned not null unique key,
 	last_renamed timestamp not null default current_timestamp,
 	last_modified timestamp not null,
-	del_type ENUM('direct', 'recursive') not null,
-	to_restore ENUM('false', 'true') not null default 'false',
-	to_delete ENUM('false', 'true') not null default 'false',
-	mark ENUM('false', 'true') not null default 'false',
+	del_type enum('direct', 'recursive') not null,
+	to_restore enum('false', 'true') not null default 'false',
+	to_delete enum('false', 'true') not null default 'false',
+	mark enum('false', 'true') not null default 'false',
 	copy_origin bigint unsigned not null default 0,
 	key (user_serial, mark),
 	primary key (user_serial, type, file_name, file_serial),
@@ -103,10 +103,10 @@ create table shared_def (
 	file_serial bigint unsigned not null,
 	file_name char(40) not null,
 	date_shared timestamp not null default current_timestamp,
-	share_type ENUM('read', 'edit') not null,
-	bookmarked ENUM('false', 'true') not null default 'false',
+	share_type enum('read', 'edit') not null,
+	bookmarked enum('false', 'true') not null default 'false',
 	last_opened timestamp not null default '2000-01-01 00:00:00',
-	mark ENUM('false', 'true') not null default 'false',
+	mark enum('false', 'true') not null default 'false',
 	primary key (user_serial_to, user_serial_from, file_serial),
 	foreign key (user_serial_to, user_serial_from) references friend_mono (user_serial_to, user_serial_from),
 	foreign key (file_serial) references file (file_serial)
@@ -137,7 +137,7 @@ create table user_google (
 	google_id varchar(255) not null,
 	email varchar(65) not null,
 	email2 varchar(255) not null,
-	email_verified ENUM('false', 'true') not null,
+	email_verified enum('false', 'true') not null,
 	foreign key (user_serial) references user (user_serial)
 );
 
@@ -164,4 +164,10 @@ create table friend_req (
 	primary key (user_serial_to, user_serial_from),
 	foreign key (user_serial_to) references user (user_serial),
 	foreign key (user_serial_from) references user (user_serial)
+);
+
+create table email_blocked (
+	email varchar(65) not null,
+	email2 varchar(255) not null default '',
+	primary key (email, email2)
 );

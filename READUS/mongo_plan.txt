@@ -43,3 +43,10 @@ collection - file_data
 	type: 'rmb0.2'|'rmb0.3'
 	arrlen: number
 	metadata: {Interval?: number, FontSize?: number, RemStart?: number, RemEnd?: number}
+
+use reminder_web;
+
+db.notification.createIndex({to: 1, read: 1, _id: 1});
+db.notification.createIndex({to: 1, _id: 1});
+
+db.file_data.createIndex({serial: 1}, {unique: true});
