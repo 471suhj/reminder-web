@@ -44,11 +44,13 @@ export async function fncLoadMore(fncInsertFile, fncPrintCnt, dirid, dirmode){
         if (jsnRes.loadMore === false) {
             lblLoadMore.style.display = 'none';
             //document.body.appendChild(lblLoadMore);
-        }
+        } else {
+			lblLoadMore.style.display = 'block';
+		}
         return;
     });
-    lblLoadMore.childNodes[2].textContent = '추가 로드'
-    lblLoadMore.dataset.isbutton = 'true'
+    lblLoadMore.childNodes[2].textContent = '추가 로드';
+    lblLoadMore.dataset.isbutton = 'true';
 }
 
 export function fncAutoloadSetup(fncInsertFile, fncPrintCnt, dirid, dirmode){

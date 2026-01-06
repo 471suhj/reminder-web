@@ -7,7 +7,7 @@ import { HomeGetDto } from './home-get.dto';
 import { NotifGetDto } from './notif-get.dto';
 import { NotifMoreDto } from './notif-more.dto';
 import { RowDataPacket } from 'mysql2';
-import { Document, FindCursor, ObjectId } from 'mongodb';
+import { Document, FindCursor, ObjectId, Sort } from 'mongodb';
 import { HomeService } from './home.service';
 import { NotifDelDto } from './notif-del.dto';
 import { FileDelResDto } from 'src/files/file-del-res.dto';
@@ -128,7 +128,6 @@ export class HomeController {
         retVal.itemCnt = await dbNof.countDocuments({to: userSer});
         retVal = {...retVal, ...(await this.prefsService.getUserCommon(userSer, 'home'))};
         retVal.countItem = 'true';
-        retVal.notificationCnt = 0;
         return retVal; 
     }
 
@@ -165,7 +164,7 @@ export class HomeController {
             retVal.unreadCnt = await dbNof.countDocuments({to: userSer, read: false});
         }
         // do the query
-        let sort: {[k: string]: 1|-1} = {_id: -1};
+        let sort: Sort = {_id: -1};
         let fields = {urlArr: 1, read: 1, type: 1, data: 1};
         let cur = dbNof.find(query).sort(sort).limit(21).project(fields);
         result = await cur.toArray();

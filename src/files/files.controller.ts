@@ -205,31 +205,50 @@ export class FilesController {
         const root = await this.filesService.getUserRoot(userSer, 'files');
         const subt = '(user_serial, parent_serial, type, file_name)';
         let closeReturned = false;
-        let nullReturned = false;
+        let streamDone = true;
         
         const bb = busboy({headers: req.headers, fileHwm: 512, limits: {files: 100}, defParamCharset: 'utf8'});
         // important!: make sure that all exceptions are handled internally and not thrown
         bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
             let res: RowDataPacket[] = [];
             try{
+                while (!streamDone) {
+                    await new Promise(resolve=>setImmediate(resolve));
+                }
+                streamDone = false;
                 await this.mysqlService.doTransaction('files controller post manage1', async conn=>{
-                    [res] = await conn.execute<RowDataPacket[]>(
-                        `select file_serial from file where user_serial=? and parent_serial=? for update`, [userSer, dir]
-                    );
-                    for (const itm of res){
-                        try{
-                            await fs.rm(join(__dirname, `../../filesys/${itm.file_serial}`), {force: true, recursive: true});
-                        } catch (err) {}
+                    let retry = true, times = 0;
+                    let filename = info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename;
+                    while (retry){
+                        try {
+                            retry = false;
+                            [res] = await conn.execute<RowDataPacket[]>(
+                                `select file_serial from file where user_serial=? and parent_serial=? for update`, [userSer, dir]
+                            );
+                            for (const itm of res){
+                                try{
+                                    await fs.rm(join(__dirname, `../../filesys/${itm.file_serial}`), {force: true, recursive: true});
+                                } catch (err) {}
+                            }
+                            await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
+                            await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
+                                [userSer, dir, filename]
+                            );
+                        } catch (err) {
+                            times++;
+                            if (times < 4){
+                                retry = true;
+                                await new Promise(resolve=>setTimeout(resolve, 1000));
+                            } else {
+                                throw err;
+                            }
+                        }
                     }
-                    
-                    await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, dir]);
-                    await conn.execute(`insert into file ${subt} value (?, ?, 'file', ?)`,
-                        [userSer, dir, info.filename.length > 4 ? info.filename.slice(0, -4) : info.filename]
-                    );
                     [res] = await conn.execute<RowDataPacket[]>(
-                        `select file_serial, last_renamed from file where user_serial=? and parent_serial=?`,
-                        [userSer, dir]
+                        `select file_serial, last_renamed from file where user_serial=? and parent_serial=? and type='file' and file_name=? for share`,
+                        [userSer, dir, filename]
                     );
+                    
                 });
                 await this.filesService.uploadMongo(res[0].file_serial, fstream, userSer);
                 // one transaction
@@ -249,18 +268,19 @@ export class FilesController {
                     }
                 });
             } catch (err) {
+                console.log(err);
                 retVal.failed.push([0, info.filename]);
-                fstream.destroy();
+                fstream.resume();
                 return;
             } finally {
-                nullReturned = true;
+                streamDone = true;
             }
         });
         bb.on('close', ()=>{
             closeReturned = true;
         });
         await pipeline(req, bb);
-        while ((!closeReturned) || (!nullReturned)){
+        while ((!closeReturned) || (!streamDone)){
             await new Promise(resolve=>setImmediate(resolve));
         }
         return retVal;

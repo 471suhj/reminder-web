@@ -101,13 +101,13 @@ export class PrefsController {
         let retVal = new SuccDto();
         retVal.success = true;
         try{
-            let nullReturned = false;
+            let streamDone = false;
             const bb = busboy({headers: req.headers, limits: {files: 1}});
             let asyncErr: Error|null = null;
             // error must not occur!
             bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
                 try{
-                    nullReturned = false;
+                    streamDone = false;
                     const writeStream = createWriteStream(join(__dirname, `../../userfiles/profimg/${userSer}.png`));
                     const fResized = sharp().resize(120, 120, {fit: 'contain', background: {r: 0, g: 0, b: 0, alpha: 0}}).toFormat('png');
                     await pipeline(fstream, fResized, writeStream);
@@ -115,11 +115,11 @@ export class PrefsController {
                     asyncErr = err;
                     return;
                 } finally {
-                    nullReturned = true;
+                    streamDone = true;
                 }
             });
             await pipeline(req, bb);
-            while (!nullReturned){
+            while (!streamDone){
                 await new Promise(resolve=>setImmediate(resolve));
             }
             if (asyncErr !== null){

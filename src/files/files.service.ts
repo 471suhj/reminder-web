@@ -301,7 +301,7 @@ export class FilesService {
     async uploadMongo(fileSer: number, stream: Readable, userSer: number){
         const availVer = ['0.2', '0.3'];
         let buf = '';
-        let nullReturned = false;
+        let streamDone = false;
         let finishCalled = false;
         let asyncErr: Error|null = null;
         let objDoc = new FiledatColDto();
@@ -314,9 +314,9 @@ export class FilesService {
         let inspected = false;
         // make sure that no errors are thrown
         stream.on('readable', async ()=>{
-            if (asyncErr !== null){stream.destroy(); return;}
+            if (asyncErr !== null){stream.resume(); return;} // so that readable will not be called unneccessarily
             try{
-                nullReturned = false;
+                streamDone = false;
                 let chunk: Buffer;
                 while ((chunk = stream.read()) !== null){
                     // buf: at first, store all data to validate 'AAMPGRMB'
@@ -353,9 +353,9 @@ export class FilesService {
                 this.logger.error('uploadMongo stream error. see below.');
                 console.log(err);
                 asyncErr = err;
-                stream.destroy();
+                stream.resume();
             } finally {
-                nullReturned = true;
+                streamDone = true;
             }
         });
         // end and close are run before data event finishes
@@ -367,14 +367,14 @@ export class FilesService {
         stream.on('error', (err)=>{
             this.logger.error('uploadMongo stream error. see below.');
             console.log(err);
-            stream.destroy();
+            stream.resume();
         });
         try{
-            while((!finishCalled) || (!nullReturned)){
+            while((!finishCalled) || (!streamDone)){
                 await new Promise(resolve=>setImmediate(resolve));
             }
             if (asyncErr !== null){
-                stream.destroy();
+                stream.resume();
                 throw asyncErr;
             }
             await this.processFileStream(objDoc, [], tmpVar, dirpath);
@@ -435,7 +435,7 @@ export class FilesService {
         let retVal = new FilesMoreDto();
         retVal.loadMore = true;
         try{
-        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+        await this.dataSource.transaction(async manager=>{
             let result = await manager.find(Efile, {
                 where: {
                     user_serial: userSer,
@@ -527,7 +527,7 @@ export class FilesService {
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
-        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+        await this.dataSource.transaction(async manager=>{
             let whereObj = {
                 reader: userSer,
             }
@@ -607,7 +607,7 @@ export class FilesService {
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
-        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+        await this.dataSource.transaction(async manager=>{
             let whereObj1 = {
                 user_serial_to: userSer,
                 user_serial_from: friend,
@@ -697,7 +697,7 @@ export class FilesService {
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
-        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+        await this.dataSource.transaction(async manager=>{
             let whereObj: FindOptionsWhere<Erecycle> = {
                 user_serial: userSer,
                 del_type: 'direct'
@@ -769,7 +769,7 @@ export class FilesService {
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
-        await this.dataSource.transaction('SERIALIZABLE', async manager=>{
+        await this.dataSource.transaction(async manager=>{
             let whereObj: FindOptionsWhere<Efriend_mul> = {
                 user_serial_to: userSer,
             };

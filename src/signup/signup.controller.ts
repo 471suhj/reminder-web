@@ -7,12 +7,12 @@ import { HashPasswordService } from '../hash-password/hash-password.service';
 import { EncryptService } from '../encrypt/encrypt.service';
 import { MysqlService } from '../mysql/mysql.service';
 import { KeyObject } from 'node:crypto';
-import mysql from 'mysql2/promise';
+import mysql, { RowDataPacket } from 'mysql2/promise';
 import { AuthDec } from 'src/auth/auth.decorator';
 import { SignupService } from './signup.service';
 import { EncryptError } from 'src/encrypt/encrypt-error';
 import { AwsService } from 'src/aws/aws.service';
-import { ListTenantsCommand, ListTenantsCommandInput, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { ListTenantsCommand, ListTenantsCommandInput, MessageRejected, SendEmailCommand } from '@aws-sdk/client-sesv2';
 
 @AuthDec('anony-only')
 @Controller('signup')
@@ -76,21 +76,31 @@ export class SignupController {
     async emailCode(@Body() body: EmailDto): Promise<{success: boolean, message?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
+        // let [result] = await sqlPool.execute<mysql.RowDataPacket[]>('select user_serial from user where email=?', [body.email]);
         // if (result.length > 0){
         //     return {success: false, message: "이미 사용중인 이메일입니다."};
         // }
+        let [result] = await sqlPool.execute<RowDataPacket[]>(
+            'select email from email_blocked where email=? and email2=?',
+            [body.email.slice(0,65), body.email.slice(65)]
+        );
+        if (result.length > 0){
+            return {success: false, message: '수신 거부된 이메일입니다. 수신 거부를 해제하려면 comtrams@outlook.com으로 문의하십시오.'};
+        }
         const strCode: string = await this.hashPasswordService.getVerifiCode();
         await sqlPool.execute(
             'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
             [body.email.slice(0,65), body.email.slice(65), strCode, strCode]
         );
+        let emailMsg = `ComphyCat Reminder Online의 인증 번호는\n\n    ${strCode}\n\n입니다.`;
+        emailMsg += '\n\n\n만약 인증 번호를 요청하지 않으셨다면, 수신 거부를 할 수 있습니다. ';
+        emailMsg += '수신 거부 및 거부 해제를 위해서는 comtrams@outlook.com으로 연락해 주시기 바랍니다.';
         // const emailParams = {
         //     Content: {
         //         Simple: {
         //             Body: {
         //                 Text: {
-        //                     Data: `ComphyCat Reminder Online의 인증 번호는\n${strCode}\n입니다.`,
+        //                     Data: emailMsg,
         //                     Charset: 'UTF-8'
         //                 }
         //             },
@@ -106,7 +116,17 @@ export class SignupController {
         //     FromEmailAddress: 'noreply@comphycat.uk'
         // };
         // const emailCmd = new SendEmailCommand(emailParams);
-        // await this.awsService.client.send(emailCmd);
+        // try {
+        //     await this.awsService.client.send(emailCmd);
+        // } catch (err) {
+        //     console.log(err);
+        //     if (err instanceof MessageRejected){
+        //         if (err.message.slice(0, 30) === 'Email address is not verified.'){
+        //             return {success: false, message: 'Email sender is sandboxed, and could not send the email.'};
+        //         }
+        //     }
+        //     return {success: false, message: '서버 자체의 오류로 이메일 전송을 실패했습니다.'};
+        // } 
         //this.logger.log(`verification code for ${body.email}: ${strCode}`);
         return {success: true};
     }
