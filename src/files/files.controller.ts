@@ -1,7 +1,7 @@
 import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, Redirect, Req } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
-import { FilesGetDto } from './files-get.dto';
+import { FilesGetResDto } from './files-get-res.dto';
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { FilesService } from './files.service';
 import { FilesMoreDto } from './files-more.dto';
@@ -36,7 +36,7 @@ export class FilesController {
 
     @Get()
     @Render('files/files')
-    async getFiles(@User() userSer: number, @Query('dirid', new ParseIntPipe({optional: true})) dirid: number|undefined): Promise<FilesGetDto> {
+    async getFiles(@User() userSer: number, @Query('dirid', new ParseIntPipe({optional: true})) dirid: number|undefined): Promise<FilesGetResDto> {
         if (dirid === undefined){
             dirid = await this.filesService.getUserRoot(userSer, 'files');
         }
@@ -49,7 +49,7 @@ export class FilesController {
 
     @Get('inbox')
     @Render('files/files')
-    async getInbox(@User() userSer: number): Promise<FilesGetDto> {
+    async getInbox(@User() userSer: number): Promise<FilesGetResDto> {
         return await this.filesService.renderFilesPage(userSer, await this.filesService.getUserRoot(userSer, 'inbox'))
     }
 
@@ -84,19 +84,19 @@ export class FilesController {
     
     @Get('bookmarks')
     @Render('files/bookmarks')
-    async getBookmarks(@User() userSer: number): Promise<FilesGetDto> {
+    async getBookmarks(@User() userSer: number): Promise<FilesGetResDto> {
         return await this.filesService.renderSharedPage(userSer, 'bookmarks');
     }
 
     @Get('shared')
     @Render('files/shared')
-    async getShared(@User() userSer: number): Promise<FilesGetDto>{
+    async getShared(@User() userSer: number): Promise<FilesGetResDto>{
         return await this.filesService.renderSharedPage(userSer, 'shared');
     }
 
     @Get('recycle')
     @Render('files/recycle')
-    async getRecycle(@User() userSer: number): Promise<FilesGetDto>{
+    async getRecycle(@User() userSer: number): Promise<FilesGetResDto>{
         return await this.filesService.renderSharedPage(userSer, 'recycle');
     }
 
@@ -166,7 +166,7 @@ export class FilesController {
     }
 
     // rename, create directory, create files from files
-    @Put('manage') // 'before's in filesarrdto are not ignored.
+    @Put('manage') // 'before's in FilesArrResDto are not ignored.
     async putManage(@User() userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
         let retVal: FileMoveResDto;
@@ -194,7 +194,7 @@ export class FilesController {
     }
 
     @Post('manage')
-    async postManage(@User() userSer: number, @Req() req: Request){
+    async postManage(@User() userSer: number, @Req() req: Request): Promise<FileMoveResDto> {
         let reqOrigin = req.headers['sec-fetch-site'];
         if (reqOrigin !== 'same-origin' && reqOrigin !== 'same-site'){
             throw new BadRequestException();

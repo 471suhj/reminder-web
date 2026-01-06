@@ -1,6 +1,6 @@
 import { FileIdentResDto } from "./file-ident-res.dto";
 
-export class FilesArrDto {
+export class FilesArrResDto {
     arr: {
         before?: FileIdentResDto;
         link?: string;

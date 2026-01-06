@@ -1,6 +1,6 @@
 import { UserCommonDto } from "src/user/user-common.dto";
 
-export class FilesGetDto extends UserCommonDto{
+export class FilesGetResDto extends UserCommonDto{
     dirName: string;
     dirPath: string;
     path: string;

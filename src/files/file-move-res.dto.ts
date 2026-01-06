@@ -1,8 +1,8 @@
 import { FileIdentResDto } from "./file-ident-res.dto";
-import { FilesArrDto } from "./files-arr.dto";
+import { FilesArrResDto } from "./files-arr-res.dto";
 
 export class FileMoveResDto { // does not ignore 'before'
-    addarr: FilesArrDto['arr'] = [];
+    addarr: FilesArrResDto['arr'] = [];
     delarr: FileIdentResDto[] = [];
     alreadyExists?: boolean;
     failed: [number, string|Date][] = [];

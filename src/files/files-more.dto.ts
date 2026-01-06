@@ -1,7 +1,7 @@
-import { FilesArrDto } from "./files-arr.dto";
+import { FilesArrResDto } from "./files-arr-res.dto";
 
 export class FilesMoreDto { // before is ignored
-    addarr: FilesArrDto['arr'] = [];
+    addarr: FilesArrResDto['arr'] = [];
     loadMore: boolean = true;
     needRefresh: boolean;
     needReload: boolean;

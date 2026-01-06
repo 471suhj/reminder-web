@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import mysql, { RowDataPacket, Pool, PoolConnection, ResultSetHeader, Connection } from 'mysql2/promise';
-import { FilesGetDto } from './files-get.dto';
+import { FilesGetResDto } from './files-get-res.dto';
 import { PrefsService } from 'src/prefs/prefs.service';
 import { SysdirType } from './sysdir.type';
 import { FileDelResDto } from './file-del-res.dto';
 import { FileIdentResDto } from './file-ident-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
-import { FilesArrDto } from './files-arr.dto';
+import { FilesArrResDto } from './files-arr-res.dto';
 import { FileShareResDto } from './file-share-res.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { SortModeDto } from './sort-mode.dto';
@@ -396,8 +396,8 @@ export class FilesService {
         }
     }
 
-    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetDto>{
-        let retObj: FilesGetDto = new FilesGetDto();
+    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetResDto>{
+        let retObj: FilesGetResDto = new FilesGetResDto();
         // includes user verification
         const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
         retObj.countItem = 'false';
@@ -411,11 +411,11 @@ export class FilesService {
         return retObj;
     }
 
-    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetDto>{
+    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetResDto>{
         if (!SysdirType.arr.includes(dirType)){
             throw new BadRequestException();
         }
-        let retObj: FilesGetDto = new FilesGetDto();
+        let retObj: FilesGetResDto = new FilesGetResDto();
         const dirid = await this.getUserRoot(userSer, dirType);
 
         retObj.countItem = 'false';
@@ -829,7 +829,7 @@ export class FilesService {
         return retVal;
     }
 
-    private async loadFriendMore_fillInfo(lst: FilesArrDto['arrFriend']){
+    private async loadFriendMore_fillInfo(lst: FilesArrResDto['arrFriend']){
         let mapArr = new Map(lst.map(val=>[val.id, val]));
         let arrSerial = lst.map(val=>val.id);
         if (lst.length <= 0){
@@ -927,7 +927,7 @@ export class FilesService {
             let str1 = `select lead(file_serial, 1, -1) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
             str1 += source;
             str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
-            str1 += 'for share'; // ignored for autocommits
+            str1 += 'for share';
             let [result] = await conn.query<RowDataPacket[]>(
                 str1, arrParam
             );
@@ -940,7 +940,7 @@ export class FilesService {
         return files;
     }
 
-    async replaceNames(userSer: number, lst: FilesArrDto['arr']){
+    async replaceNames(userSer: number, lst: FilesArrResDto['arr']){
         let arrnames = new Set([-1]);
         for (const val of lst.map(val=>val.shared)){
             if (val === undefined){continue;}// as all of the shared will actually be undefined.
@@ -978,7 +978,7 @@ export class FilesService {
         }
     }
 
-    async resolveSharedNames(lst: FilesArrDto['arr'], conn?: Connection, lock?: boolean){
+    async resolveSharedNames(lst: FilesArrResDto['arr'], conn?: Connection, lock?: boolean){
         if (lst.length <= 0){
             return;
         }
@@ -1187,7 +1187,7 @@ export class FilesService {
         let str2 = `delete from file where user_serial=? and file_serial in (?) `;
         let str6 = `insert into file values (?) `;
         let str3 = `update file set file_name=concat(file_name, '-2') `
-        str3 += `where user_serial=? and parent_serial=? and (type='movedir' or type='movefile') `;
+        str3 += `where user_serial=? and parent_serial=? and (type='movedir' or type='movefile') order by file_name desc `;
         const subq = `select file_name from file where user_serial=? and parent_serial=? and type in ('file', 'dir') for update `;
         let str4 = `update file set type=if(type='movedir','dir','file'), last_renamed=current_timestamp where (type='movedir' or type='movefile') and file_name not in (?) `;
         let str7 = `select file_serial from file where user_serial=? and (type='movedir' or type='movefile') for update `;
@@ -1260,7 +1260,7 @@ export class FilesService {
         } else {
             result = [];
         }
-        let addarr: FilesArrDto['arr'] = result.map((val)=>{
+        let addarr: FilesArrResDto['arr'] = result.map((val)=>{
             return {
                 link: val.type==='dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`,
                 id: val.file_serial,

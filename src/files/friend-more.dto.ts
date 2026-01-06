@@ -1,7 +1,7 @@
-import { FilesArrDto } from "./files-arr.dto";
+import { FilesArrResDto } from "./files-arr-res.dto";
 
 export class FriendMoreDto {
-    addarr: FilesArrDto['arrFriend'];
+    addarr: FilesArrResDto['arrFriend'];
     loadMore: boolean;
     needRefresh: boolean;
     needReload: boolean; // unused
