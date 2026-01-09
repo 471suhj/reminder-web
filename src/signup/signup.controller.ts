@@ -4,13 +4,13 @@ import { CheckidDto } from './checkid.dto';
 import { VerifyEmailDto } from './verify-email.dto';
 import { EmailDto } from './email.dto';
 import { HashPasswordService } from '../hash-password/hash-password.service';
-import { EncryptService } from '../encrypt/encrypt.service';
+import { SigninEncryptService } from '../hash-password/signin-encrypt.service';
 import { MysqlService } from '../mysql/mysql.service';
 import { KeyObject } from 'node:crypto';
 import mysql, { RowDataPacket } from 'mysql2/promise';
 import { AuthDec } from 'src/auth/auth.decorator';
 import { SignupService } from './signup.service';
-import { EncryptError } from 'src/encrypt/encrypt-error';
+import { EncryptError } from 'src/hash-password/encrypt-error';
 import { AwsService } from 'src/aws/aws.service';
 import { ListTenantsCommand, ListTenantsCommandInput, MessageRejected, SendEmailCommand } from '@aws-sdk/client-sesv2';
 
@@ -19,7 +19,7 @@ import { ListTenantsCommand, ListTenantsCommandInput, MessageRejected, SendEmail
 export class SignupController {
     constructor(
         private readonly hashPasswordService: HashPasswordService, 
-        private readonly encryptService: EncryptService,
+        private readonly signinEncryptService: SigninEncryptService,
         private readonly mysqlService: MysqlService,
         private readonly signupService: SignupService,
         private readonly awsService: AwsService,
@@ -31,7 +31,7 @@ export class SignupController {
     async registerUser(@Body() body: RegisterDto): Promise<{success: boolean, message?: string, expired?: boolean}>{
         try {
             if (!body.nokey) {
-                body.password = await this.encryptService.decryptPW(body.key as KeyObject, body.password);
+                body.password = await this.signinEncryptService.decryptPW(body.key as KeyObject, body.password);
             }
         } catch (err) {
             if ((err instanceof EncryptError) && (err.encr_type === 'expired')){
@@ -92,42 +92,42 @@ export class SignupController {
             'insert into email_verification (email, email2, code) value (?,?,?) on duplicate key update code=?',
             [body.email.slice(0,65), body.email.slice(65), strCode, strCode]
         );
-        let emailMsg = `ComphyCat Reminder Online의 인증 번호는\n\n    ${strCode}\n\n입니다.`;
+        let emailMsg = `ComphyCat Reminder Online의 인증 번호는\n\n${strCode}\n\n입니다.`;
         emailMsg += '\n\n\n만약 인증 번호를 요청하지 않으셨다면, 수신 거부를 할 수 있습니다. ';
         emailMsg += '수신 거부 및 거부 해제를 위해서는 comtrams@outlook.com으로 연락해 주시기 바랍니다.';
-        // const emailParams = {
-        //     Content: {
-        //         Simple: {
-        //             Body: {
-        //                 Text: {
-        //                     Data: emailMsg,
-        //                     Charset: 'UTF-8'
-        //                 }
-        //             },
-        //             Subject: {
-        //                 Data: 'ComphyCat Reminder Online 인증 번호',
-        //                 Charset: 'UTF-8'
-        //             }
-        //         }
-        //     },
-        //     Destination: {
-        //         ToAddresses: [body.email]
-        //     },
-        //     FromEmailAddress: 'noreply@comphycat.uk'
-        // };
-        // const emailCmd = new SendEmailCommand(emailParams);
-        // try {
-        //     await this.awsService.client.send(emailCmd);
-        // } catch (err) {
-        //     console.log(err);
-        //     if (err instanceof MessageRejected){
-        //         if (err.message.slice(0, 30) === 'Email address is not verified.'){
-        //             return {success: false, message: 'Email sender is sandboxed, and could not send the email.'};
-        //         }
-        //     }
-        //     return {success: false, message: '서버 자체의 오류로 이메일 전송을 실패했습니다.'};
-        // } 
-        //this.logger.log(`verification code for ${body.email}: ${strCode}`);
+        const emailParams = {
+            Content: {
+                Simple: {
+                    Body: {
+                        Text: {
+                            Data: emailMsg,
+                            Charset: 'UTF-8'
+                        }
+                    },
+                    Subject: {
+                        Data: 'ComphyCat Reminder Online 인증 번호',
+                        Charset: 'UTF-8'
+                    }
+                }
+            },
+            Destination: {
+                ToAddresses: [body.email]
+            },
+            FromEmailAddress: 'noreply@comphycat.uk'
+        };
+        const emailCmd = new SendEmailCommand(emailParams);
+        try {
+            await this.awsService.client.send(emailCmd);
+        } catch (err) {
+            console.log(err);
+            if (err instanceof MessageRejected){
+                if (err.message.slice(0, 30) === 'Email address is not verified.'){
+                    return {success: false, message: 'Email sender is sandboxed, and could not send the email.'};
+                }
+            }
+            return {success: false, message: '서버 자체의 오류로 이메일 전송을 실패했습니다.'};
+        } 
+        this.logger.log(`verification code for ${body.email}: ${strCode}`);
         return {success: true};
     }
 

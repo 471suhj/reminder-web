@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Res, Logger, BadRequestException, Get, Req, Query, InternalServerErrorException, Render } from '@nestjs/common';
 import { GetPWDto } from './get-pw.dto';
-import { EncryptService } from '../encrypt/encrypt.service';
-import { EncryptError } from '../encrypt/encrypt-error';
+import { SigninEncryptService } from '../hash-password/signin-encrypt.service';
+import { EncryptError } from '../hash-password/encrypt-error';
 import { RespondLoginDto } from './respond-login.dto';
 import { HashPasswordService } from '../hash-password/hash-password.service';
 import { AuthService, setCookie } from './auth.service';
@@ -17,13 +17,14 @@ import { SignupService } from 'src/signup/signup.service';
 import axios from 'axios';
 import { User } from 'src/user/user.decorator';
 import { AuthGuard } from './auth.guard';
+import { SendPWKeyDto } from 'src/hash-password/send-pwkey.dto';
 
 @AuthDec('anony-only')
 @Controller('auth')
 export class AuthController {
 
     constructor(
-        private encryptService: EncryptService,
+        private signinEncryptService: SigninEncryptService,
         private authService: AuthService,
         private mysqlService: MysqlService,
         private httpService: HttpService,
@@ -47,12 +48,18 @@ export class AuthController {
         res.redirect('/');
     }
 
+    @Get('encr')
+    async sendPWEncrypt(): Promise<SendPWKeyDto>{
+        return {value: await this.signinEncryptService.getPublicPWKey()};
+    }
+
+
     @Post('auth')
     async authPassword (@Body() body: GetPWDto, @Res({passthrough: true}) response: Response): Promise<RespondLoginDto>{
         const resLogin: RespondLoginDto = new RespondLoginDto();
         if (!body.nokey && body.key){
             try{
-                body.password = await this.encryptService.decryptPW(body.key, body.password);
+                body.password = await this.signinEncryptService.decryptPW(body.key, body.password);
             } catch (err) {
                 if (err instanceof EncryptError){
                     if (err.encr_type === 'expired'){

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { createCipheriv, createDecipheriv, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Cipher, Decipher } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -89,7 +89,8 @@ export class HashPasswordService {
     }
 
     async getVerifiCode(): Promise<string>{
-        return (await this.getByte(6)).toString('base64');
+        const prmInt = promisify(randomInt);
+        return String(await prmInt(100000000)).padStart(8, '0');
     }
 
     async comparePW(PW: string, salt: string, compareto: string): Promise<boolean>{

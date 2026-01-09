@@ -1,5 +1,5 @@
 mysql/mongo/aws
-graphics/hash-password/encrypt
+graphics/hash-password
 signup
 auth/prefs(refs files module)
 home

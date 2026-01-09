@@ -5,7 +5,7 @@ import { EncryptError } from './encrypt-error';
 import { Cron } from '@nestjs/schedule';
 
 @Injectable()
-export class EncryptService {
+export class SigninEncryptService {
     #keyOptions: RSAKeyPairOptions<'jwk', 'pem'> = {
         modulusLength: 4096,
         publicKeyEncoding: {type: 'spki', format: 'jwk'},
@@ -18,9 +18,9 @@ export class EncryptService {
     private readonly logger = new Logger('encrypt.service');
 
     constructor(){
-        console.log('start: EncryptService');
+        console.log('start: SigninEncryptService');
         this.createPublicPWKey();
-        console.log('end: EncryptService');
+        console.log('end: SigninEncryptService');
     }
 
     @Cron('0 0 3 * * *')
