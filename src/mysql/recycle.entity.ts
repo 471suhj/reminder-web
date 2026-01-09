@@ -26,7 +26,7 @@ export class Erecycle {
 
     @Index({unique: true})
     @PrimaryColumn({type: 'bigint', unsigned: true})
-    file_serial: number;
+    file_serial: string;
 
     @Column({type: 'timestamp', default: ()=>'CURRENT_TIMESTAMP'})
     last_renamed: Date;

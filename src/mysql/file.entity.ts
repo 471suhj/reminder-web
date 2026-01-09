@@ -34,7 +34,7 @@ export class Efile {
     @Index({unique: true})
     @Generated('increment')
     @Column({type: 'bigint', unsigned: true})
-    file_serial: number;
+    file_serial: string;
     
     @Column({type: 'timestamp', default: ()=>'CURRENT_TIEMSTAMP'})
     last_renamed: Date;

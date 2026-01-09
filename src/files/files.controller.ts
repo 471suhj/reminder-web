@@ -454,7 +454,7 @@ export class FilesController {
                         [userSer, body.to, arrTypeName]
                     ) : [[]];
                 const [resDupPacket] = (resDuplicateNames.length > 0) ? await conn.query<RowDataPacket[]>(
-                        `select file_serial, type, file_name, last_renamed as timestamp, last_modified as modif from file where user_serial=? and parent_serial=? and (type, file_name) in (?) ` + body.action === 'move' ? 'for update' : 'for share',
+                        `select file_serial, type, file_name, last_renamed as timestamp, last_modified as modif from file where user_serial=? and parent_serial=? and (type, file_name) in (?) ` + (body.action === 'move' ? 'for update' : 'for share'),
                         [userSer, body.from, resDuplicateNames]
                     ) : [[]];
                 arrDuplicate = resDupPacket as typeof arrDuplicate;

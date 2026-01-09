@@ -28,7 +28,7 @@ export class Eshared_def {
     file_serial_2: Ebookmark;
 
     @PrimaryColumn({type: 'bigint', unsigned: true})
-    file_serial: number;
+    file_serial: string;
 
     @Column({type: 'char', length: 40})
     file_name: string;

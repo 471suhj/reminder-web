@@ -27,7 +27,7 @@ export class Ebookmark{
     file_name: string;
 
     @PrimaryColumn()
-    file_serial: number;
+    file_serial: string;
 
     @ViewColumn()
     last_renamed: Date;

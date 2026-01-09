@@ -9,13 +9,13 @@ export class FilesArrResDto {
         text: string;
         bookmarked?: boolean;
         shared?: string;
-        date: string|Date;
-        dateShared?: string|Date;
-        dateDeleted?: string|Date;
+        date: Date;
+        dateShared?: Date;
+        dateDeleted?: Date;
         origPath?: string;
         ownerImg?: string;
         ownerName?: string;
-        timestamp: string|Date;
+        timestamp: Date;
     }[];
     arrFriend: {
         before?: {id: number};

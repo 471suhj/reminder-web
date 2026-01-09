@@ -447,7 +447,7 @@ export class FilesService {
             let result = await manager.find(Efile, {
                 where: {
                     user_serial: userSer,
-                    file_serial: dir
+                    file_serial: String(dir),
                 }
             });
             if (result.length <= 0){
@@ -469,7 +469,7 @@ export class FilesService {
                     where: {
                         user_serial: userSer,
                         parent_serial: dir,
-                        file_serial: lastFile,
+                        file_serial: String(lastFile),
                         last_renamed: lastTime
                     }
                 });
@@ -510,13 +510,13 @@ export class FilesService {
             retVal.addarr = result.map(val=>{return {
                 link: (val.issys === 'true' ? `/files/${val.file_name}` 
                     : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
-                id: val.file_serial,
+                id: Number(val.file_serial),
                 isFolder: val.type === 'dir',
                 text: val.issys === 'true' ? SysdirType.translate(val.file_name) : val.file_name,
                 bookmarked: val.bookmarked === 'true',
                 shared: val.shares.map(val=>val.user_serial_to).join(','),
-                date: (val.last_modified as Date).toISOString(),
-                timestamp: val.last_renamed.toISOString()
+                date: (val.last_modified as Date),
+                timestamp: val.last_renamed,
             };});
         });
         } catch (err) {
@@ -544,10 +544,10 @@ export class FilesService {
                 let result2 = await manager.find(Efile, {
                     where: [{
                         user_serial: userSer,
-                        file_serial: lastFile,
+                        file_serial: String(lastFile),
                         last_renamed: lastTime
                     },{
-                        file_serial: lastFile,
+                        file_serial: String(lastFile),
                         last_renamed: lastTime,
                         shares: {
                             user_serial_to: userSer
@@ -591,15 +591,15 @@ export class FilesService {
             retVal.addarr = result.map(val=>{return {
                 link: (val.issys === 'true' ? `/files/${val.file_name}` 
                     : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
-                id: val.file_serial,
+                id: Number(val.file_serial),
                 isFolder: val.type === 'dir',
                 text: val.file_name,
                 bookmarked: true,
                 shared: val.shares.map(val=>val.user_serial_to).join(','),
-                date: (val.last_modified as Date).toISOString(),
+                date: (val.last_modified as Date),
                 ownerImg: '/graphics/profimg?id=' + val.user_serial,
                 ownerName: String(val.user_serial),
-                timestamp: val.last_renamed.toISOString()
+                timestamp: val.last_renamed,
             };});
         });
         } catch (err) {
@@ -632,12 +632,12 @@ export class FilesService {
                         shares: true,
                     },
                     where: {
-                        file_serial: lastFile,
+                        file_serial: String(lastFile),
                         last_renamed: lastTime,
                         shares: {
-                            user_serial_to: userSer
+                            user_serial_to: userSer,
                         },
-                        user_serial: friend
+                        user_serial: friend,
                     }
                 });
                 if (result.length <= 0){
@@ -680,16 +680,16 @@ export class FilesService {
             }
             retVal.addarr = result2.map(val=>{return {
                 link: `/edit?id=${val.file_serial}`,
-                id: val.file_serial,
+                id: Number(val.file_serial),
                 isFolder: val.file.type === 'dir',
                 text: val.file_name,
                 bookmarked: val.bookmarked === 'true',
                 shared: val.file.shares.map(val=>val.user_serial_to).join(','),
                 dateShared: val.date_shared,
-                date: (val.file.last_modified as Date).toISOString(),
+                date: (val.file.last_modified as Date),
                 ownerName: String(val.friend_mono.user_serial_from),
                 ownerImg: '/graphics/profimg?id=' + val.user_serial_from,
-                timestamp: val.file.last_renamed.toISOString()
+                timestamp: val.file.last_renamed,
             };});
         });
         } catch (err) {
@@ -715,8 +715,8 @@ export class FilesService {
                 let result = await manager.find(Erecycle, {
                     where: {
                         user_serial: userSer,
-                        file_serial: lastFile,
-                        last_renamed: lastTime
+                        file_serial: String(lastFile),
+                        last_renamed: lastTime,
                     }
                 });
                 if (result.length <= 0){
@@ -751,7 +751,7 @@ export class FilesService {
                 retVal.loadMore = false;
             }
             retVal.addarr = result2.map(val=>{return {
-                id: val.file_serial,
+                id: Number(val.file_serial),
                 isFolder: val.type === 'dir',
                 text: val.file_name,
                 date: val.last_modified,
@@ -880,21 +880,29 @@ export class FilesService {
         } else {
             return;
         }
-        let ret: FilesMoreDto;
-        if (context === 'bookmarks'){
-            ret =  await this.loadBookmarkMore(userSer, lastfile, timestamp, sort);
-        } else if (context === 'files' && dirOrFriend){
-            if (dirDate === undefined){
-                throw new InternalServerErrorException();
+        let ret = new FilesMoreDto();
+        ret.addarr = [{id: lastfile, timestamp: timestamp, date: new Date(), isFolder: true, text: ''}];
+        ret.loadMore = true;
+        while (ret.loadMore) {
+            const lastitm = ret.addarr.at(-1);
+            if (!lastitm){
+                break;
             }
-            ret = await this.loadFileMore(userSer, dirOrFriend, dirDate, lastfile, timestamp, sort);
-        } else if (context === 'recycle'){
-            ret = await this.loadRecycleMore(userSer, lastfile, timestamp, sort);
-        } else if (context === 'shared'){
-            ret = await this.loadSharedMore(userSer, lastfile, timestamp, sort, dirOrFriend);
-        } else {throw new BadRequestException();}
-
-        lst = lst.concat(ret.addarr.map(val=>{return {id: val.id, timestamp: new Date(val.timestamp)}}));
+            if (context === 'bookmarks'){
+                ret =  await this.loadBookmarkMore(userSer, lastitm.id, lastitm.timestamp, sort);
+            } else if (context === 'files' && dirOrFriend){
+                if (dirDate === undefined){
+                    throw new InternalServerErrorException();
+                }
+                ret = await this.loadFileMore(userSer, dirOrFriend, dirDate, lastitm.id, lastitm.timestamp, sort);
+            } else if (context === 'recycle'){
+                ret = await this.loadRecycleMore(userSer, lastitm.id, lastitm.timestamp, sort);
+            } else if (context === 'shared'){
+                ret = await this.loadSharedMore(userSer, lastitm.id, lastitm.timestamp, sort, dirOrFriend);
+            } else {throw new BadRequestException();}
+    
+            lst.push(...ret.addarr.map(val=>{return {id: val.id, timestamp: new Date(val.timestamp)}}));
+        }
     }
 
     async resolveFriendLoadmore(userSer: number, lst: number[], lastfriend: number, sort: SortModeDto){
@@ -1155,7 +1163,7 @@ export class FilesService {
             return {arrValidFiles: new Map<number, Date>(), arrFail: [], arrTypeName: []};
         }
         let str1 = `select file_serial, last_renamed, type, file_name from file where user_serial=? and parent_serial=? and (file_serial, last_renamed) in (?) and issys='false' `;
-        str1 += move ? 'for update' : 'for share';
+        str1 += (move ? 'for update' : 'for share');
         let [resName] = await conn.query<RowDataPacket[]>(str1, [userSer, dirfrom, files_]);
         let arrLeft = files_.slice();
         let arrString = arrLeft.map(val=>val[1].toISOString() + val[0]);
@@ -1254,7 +1262,7 @@ export class FilesService {
             let str1 = `insert into file (user_serial, parent_serial, type, file_name, last_modified, copy_origin) `;
             str1 += `select f1.user_serial, f2.file_serial, f1.type, f1.file_name, f1.last_modified, f1.file_serial `;
             str1 += `from file as f1 inner join file as f2 on f1.parent_serial=f2.copy_origin `; // f1: file to copy, f2: dir already copied
-            str1 += `f2.user_serial=? and f2.copy_origin<>0 and f2.type='dir' and f1.user_serial=? `;
+            str1 += `where f2.user_serial=? and f2.copy_origin<>0 and f2.type='dir' and f1.user_serial=? `;
             [result] = await conn.execute<ResultSetHeader>(str1, [userSer, userSer]);
             if (newdirs.length > 0) {
                 await conn.query(`update file set copy_origin=0 where user_serial=? and type='dir' and file_serial in (?)`, [userSer, newdirs.map(val=>val.file_serial)]);
@@ -1266,19 +1274,19 @@ export class FilesService {
     // important!
     // mark shouldn't be used by restore mechanism. it is used by sharecopy.
     private async restoreFiles_checkPath(
-        conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]
+        conn: PoolConnection, userSer: number, files_: readonly FileIdentReqDto[]
     ): Promise<{arr: FileIdentReqDto[], arrFail: FileIdentReqDto[], namechange: boolean}> {
-        if (arr_.length <= 0){
+        if (files_.length <= 0){
             return {arr: [], arrFail: [], namechange: false};
         }
-        let arr = arr_.slice();
-        let arr2 = arr.map((val)=>val.id);
+        let files = files_.slice();
+        let arrId = files.map((val)=>val.id);
         // fetch names and other info
         let str1 = `select file_serial, parent_path, file_name, type from recycle `;
         str1 += `where user_serial=? and (file_serial, last_renamed) in (?) order by parent_path `;
         str1 += 'for update';
         let [result] = await conn.query<RowDataPacket[]>(
-            str1, [userSer, arr.map((val)=>[val.id, val.timestamp])]
+            str1, [userSer, files.map((val)=>[val.id, val.timestamp])]
         );
         // make path (call makepath), and check for name clashes
         str1 = `select file_serial from file `;
@@ -1288,6 +1296,7 @@ export class FilesService {
         let dirid: number;
         let namechange = false;
         let retArr: FileIdentReqDto[] = [];
+        const addedNames: string[] = [];
         for (let i = 0; i < result.length; i++){
             if (curPath !== result[i].parent_path){
                 curPath = result[i].parent_path;
@@ -1299,7 +1308,7 @@ export class FilesService {
                 let [result2] = await conn.execute<RowDataPacket[]>(
                     str1, [userSer, dirid!, result[i].type, newname]
                 );
-                if (result2.length <= 0){
+                if (result2.length <= 0 && (addedNames.indexOf(curPath + newname) === -1)){
                     break;
                 }
                 newname += '-2';
@@ -1312,12 +1321,13 @@ export class FilesService {
             if (toolong){continue;}
             let str2 = `update recycle set file_name=?, parent_serial=? where user_serial=? and file_serial=? `;
             await conn.execute<RowDataPacket[]>(str2, [newname, dirid!, userSer, result[i].file_serial]);
-            let loc = arr2.indexOf(result[i].file_serial);
+            let loc = arrId.indexOf(result[i].file_serial);
             if (loc === -1){this.logger.error('restorefiles: ' + result[i].file_serial);continue;}
-            arr2.splice(loc,1);
-            retArr.push(...arr.splice(loc,1));
+            arrId.splice(loc,1);
+            retArr.push(...files.splice(loc,1));
+            addedNames.push(curPath + newname);
         }
-        return {arr: retArr, arrFail: arr, namechange};
+        return {arr: retArr, arrFail: files, namechange};
     }
 
     // important!
