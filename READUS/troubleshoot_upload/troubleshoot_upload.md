@@ -47,11 +47,11 @@ Note: If you listen for this event, you should always consume the stream whether
 
 ## 2. MySQL에 deadlock이 발생
 
-[General Log: mysql-log.log](mysql-log.log) (관련 부분만 넣었으며 Prepare를 제거하고 주석을 추가하는 등의 변형이 있음)
+[General Log: mysql-log.txt](mysql-log.txt) (관련 부분만 넣었으며 Prepare를 제거하고 주석을 추가하는 등의 변형이 있음)
 
 [관련 explain: mysql_explain.txt](mysql_explain.txt)
 
-mysql-log.log
+mysql-log.txt
 ```
 2026-01-04T11:27:24.816130Z	   11 Query	start transaction
 2026-01-04T11:27:24.816464Z	   10 Query	start transaction
@@ -102,7 +102,7 @@ bb.on('file', async (name: string, fstream: Readable, info: busboy.FileInfo)=>{
 
 #### 구체적 상황의 분석
 
-mysql-log.log
+mysql-log.txt
 ```
 // this could not proceed. as a result, two 10s are sent consequently.
 2026-01-04T11:27:24.818214Z	   11 Execute	insert into file (user_serial, parent_serial, type, file_name) value (20, 360, 'file', 'abc - Copy')

@@ -29,96 +29,105 @@ export async function fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt
 }
 
 export async function fncAddItems(jsnRes, last, msgPos, msgNeg, checkItems, strHtml, includeBookmark, childLoc, objCnt, fncPrintCnt){
-    for (const listItem of jsnRes.addarr){
-        let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
-        let itmNew = null;
-		let notFound = false;
-        if (!last && listItem.before !== undefined){
-			// this returns null if not exists
-			itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
-			if (itmAfter === null){
+	let prevlen = 0;
+	while (prevlen != jsnRes.addarr.length){
+		prevlen = jsnRes.addarr.length;
+		for (let i = jsnRes.addarr.length - 1; i >= 0; i--){
+			const listItem = last ? jsnRes.addarr[0] : jsnRes.addarr[i];
+			let itmAfter = null; // the new item should come before this item. itmAfter is after the new file. null if last=true
+			let itmNew = null;
+			let notFound = false;
+			if (!last && listItem.before !== undefined){
+				// this returns null if not exists
+				itmAfter = document.getElementById('item' + (listItem.before.timestamp ?? '') + listItem.before.id);
+				if (itmAfter === null){
+					notFound = true;
+				}
+			} else if (!last) { // shouldn't happen
 				notFound = true;
+				listItem.before.id = -1;
 			}
-		} else if (!last) { // shouldn't happen
-			notFound = true;
-			listItem.before.id = -1;
-		}
-		if (last === true){ // when last===true
-			lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
-			itmNew = list.children[list.children.length - 2];
-		} else if (notFound === true || itmAfter === null){
-			if (listItem.before.id === -1){
-				list.insertAdjacentHTML('afterbegin', strHtml(listItem));
-				itmNew = list.children[0];
-			} else { // when new item belongs to overflow
+			if (last === true){ // when last===true
+				lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
+				itmNew = list.children[list.children.length - 2];
+			} else if (notFound === true){
+				if (listItem.before.id === -1){
+					list.insertAdjacentHTML('afterbegin', strHtml(listItem));
+					itmNew = list.children[0];
+				} else if (listItem.before.id === -2) {
+					lblLoadMore.insertAdjacentHTML('beforebegin', strHtml(listItem));
+					itmNew = list.children[list.children.length - 2];
+				} else { // when new item belongs to overflow
+					continue;
+				}
+			} else {
+				itmAfter.insertAdjacentHTML('beforebegin', strHtml(listItem));
+				itmNew = itmAfter.previousSibling;
+			}
+
+			let imgBookmark = null;
+			itmNew.firstElementChild.checked = checkItems;
+			itmNew.addEventListener('click', (event)=>{
+				const listChkbox = itmNew.firstElementChild;
+				if (event.target !== listChkbox && event.target !== imgBookmark){
+					for (const tmpListItem of list.children){
+						tmpListItem.children[0].checked = false;
+					}
+					listChkbox.checked = true;
+				}    
+			});
+			if (listItem.link === undefined){
+			} else if (listItem.link.slice(0, 5) === '/edit'){
+				itmNew.addEventListener('dblclick', ()=>{
+					open(listItem.link, '_blank');
+				});
+			} else {
+				itmNew.addEventListener('dblclick', ()=>{
+					window.location.href = listItem.link;
+				});
+			}
+			objCnt.numItemCnt++;
+			jsnRes.addarr.splice(last ? 0 : i, 1);
+			if (!includeBookmark){
 				continue;
 			}
-        } else {
-            itmAfter.insertAdjacentHTML('beforebegin', strHtml(listItem));
-            itmNew = itmAfter.previousSibling;
-        }
-
-        let imgBookmark = null;
-        itmNew.firstElementChild.checked = checkItems;
-        itmNew.addEventListener('click', (event)=>{
-            const listChkbox = itmNew.firstElementChild;
-            if (event.target !== listChkbox && event.target !== imgBookmark){
-                for (const tmpListItem of list.children){
-                    tmpListItem.children[0].checked = false;
-                }
-                listChkbox.checked = true;
-            }    
-        });
-		if (listItem.link === undefined){
-		} else if (listItem.link.slice(0, 5) === '/edit'){
-			itmNew.addEventListener('dblclick', ()=>{
-				open(listItem.link, '_blank');
+			let divBookmark = itmNew.children[childLoc].firstElementChild;
+			imgBookmark = divBookmark.firstElementChild;
+			divBookmark.addEventListener('click', async function(){
+				let action = 'PUT';
+				if (divBookmark.dataset.bookmarked === 'true'){
+					action = 'DELETE';
+				}
+				const reqBody = {action: 'bookmark', sort: sortMode, files: [{id: Number(itmNew.dataset.id),
+				timestamp: new Date(itmNew.dataset.timestamp)}], last: {id: 0, timestamp: '2000-01-01T00:00:00.000Z'}};
+				await doFetch('/files/bookmark', action, JSON.stringify(reqBody),
+				'', '처리에 실패했습니다.', async function(result){
+					const jsnRes = await result.json();
+					if (jsnRes.failed.length > 0){
+						return '처리에 실패했습니다.'
+					}
+					if (action === 'DELETE'){
+						divBookmark.dataset.bookmarked = 'false';
+						imgBookmark.style.display = 'none';
+					} else {
+						divBookmark.dataset.bookmarked = 'true';
+						imgBookmark.style.display = 'block';
+					}
+				});
 			});
-		} else {
-			itmNew.addEventListener('dblclick', ()=>{
-				window.location.href = listItem.link;
-			});
+			divBookmark.addEventListener('mouseenter', function(){
+				imgBookmark.style.display = 'block';
+			})
+			divBookmark.addEventListener('mouseleave', function(){
+				if (divBookmark.dataset.bookmarked === 'false'){
+					imgBookmark.style.display = 'none';
+				}
+			})
+			if (divBookmark.dataset.bookmarked !== 'true'){
+				imgBookmark.style.display = 'none';
+			}
 		}
-        objCnt.numItemCnt++;
-        if (!includeBookmark){
-            continue;
-        }
-        let divBookmark = itmNew.children[childLoc].firstElementChild;
-        imgBookmark = divBookmark.firstElementChild;
-        divBookmark.addEventListener('click', async function(){
-            let action = 'PUT';
-            if (divBookmark.dataset.bookmarked === 'true'){
-                action = 'DELETE';
-            }
-			const reqBody = {action: 'bookmark', sort: sortMode, files: [{id: Number(itmNew.dataset.id),
-			timestamp: new Date(itmNew.dataset.timestamp)}], last: {id: 0, timestamp: '2000-01-01T00:00:00.000Z'}};
-            await doFetch('/files/bookmark', action, JSON.stringify(reqBody),
-            '', '처리에 실패했습니다.', async function(result){
-                const jsnRes = await result.json();
-                if (jsnRes.failed.length > 0){
-                    return '처리에 실패했습니다.'
-                }
-                if (action === 'DELETE'){
-                    divBookmark.dataset.bookmarked = 'false';
-                    imgBookmark.style.display = 'none';
-                } else {
-                    divBookmark.dataset.bookmarked = 'true';
-                    imgBookmark.style.display = 'block';
-                }
-            });
-        });
-        divBookmark.addEventListener('mouseenter', function(){
-            imgBookmark.style.display = 'block';
-        })
-        divBookmark.addEventListener('mouseleave', function(){
-            if (divBookmark.dataset.bookmarked === 'false'){
-                imgBookmark.style.display = 'none';
-            }
-        })
-        if (divBookmark.dataset.bookmarked !== 'true'){
-            imgBookmark.style.display = 'none';
-        }
-    }
+	}
 
     await fncRemoveItems(jsnRes, fncPrintCnt, msgNeg, msgPos, objCnt);
 }
@@ -232,12 +241,15 @@ export async function fncCopyMove(mode, msgPos, msgNegAll, msgNegPart, divPopup,
 					if (jsnRes.alreadyExists){
 						fncAnswerDlg(msgPos, msgNegAll, msgNegPart, dlgOverwrite, jsonBody, './move', 'PUT', fncInsertFile);
 						return;
-					} else if (jsnRes.failmessage) {
+					} else {
+						await fncInsertFile(jsnRes, false, msgPos, msgNegPart);
+					}
+					if (jsnRes.failmessage) {
 						return jsnRes.failmessage;
 					} else if (jsnRes.failed.length > 0){
-						return '복사 또는 이동에 실패했습니다.';
+						return '복사 또는 이동에 실패한 항목이 있습니다.';
 					} else {
-						return await fncInsertFile(jsnRes, false, msgPos, msgNegPart);
+						return; 
 					}
 			});
 		}

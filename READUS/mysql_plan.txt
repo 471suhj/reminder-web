@@ -66,6 +66,7 @@ create table file (
 	mark enum('false', 'true') not null default 'false',
 	copy_origin bigint unsigned not null default 0,
 	key (user_serial, mark),
+	key (user_serial, copy_origin), //
 	primary key (user_serial, parent_serial, type, file_name),
 	foreign key (user_serial) references user (user_serial)
 );

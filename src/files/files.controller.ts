@@ -400,141 +400,159 @@ export class FilesController {
     async putMove(@User() userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'files', body.from, body.timestamp);
-        let retVal = new FileMoveResDto();
+
+        const owncopy = (body.from === body.to);
+        const retVal = new FileMoveResDto();
         retVal.failmessage = '';
         let resAddedFiles: RowDataPacket[] = [];
+
+        const pool = await this.mysqlService.getSQL();
+
+        // check for access (destination dir)
+        if (!await this.filesService.checkAccess(pool, userSer, body.to, 'dir', 'fileonly', false)){
+            throw new BadRequestException('이동하려는 폴더의 접근이 거부되었습니다.');
+        }
+        
+        // check if moving to its own dir
+        // not a failure, but a meaningless operation
+        if (owncopy && body.action === 'move'){
+            return retVal;
+        }
+
         await this.mysqlService.doTransaction('files controller move', async (conn, rb)=>{
-            if (!body.timestamp){throw new BadRequestException();}
+            if (!body.timestamp){throw new BadRequestException('timestamp가 전송되지 않았습니다.');}
+            
+            // check for expired (source dir)
             if (!body.ignoreTimestamp && !(await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
                 rb.rback = true;
                 retVal.expired = true;
                 return;
             }
-            if (!await this.filesService.checkAccess(conn, userSer, body.to, 'dir', 'fileonly')){
-                throw new BadRequestException();
-            }
+
+            // check for invalid moving to subfolder
             if (body.action === 'move'){
                 const arrFiles = body.files.map(val=>val.id);
                 if ((await this.filesService.getDirInfo(conn, userSer, body.to)).arrParentId.some(val=>arrFiles.includes(val))){
                     retVal.failed = body.files.map(val=>[val.id, val.timestamp]);
                     retVal.failmessage = '이동하려는 경로가 선택된 폴더이거나 그 하위 폴더입니다.';
+                    rb.rback = true;
                     return;
                 }
             }
-            // access control: from dir, to dir, and files
-            // consider duplicating in the same folder
-            const relDir = (body.from === body.to) ? [body.from] : [body.from, body.to];
-            if (relDir.length <= 1 && body.action === 'move'){
-                rb.rback = true;
-                return;
-            }
+
             // check the validity of files and get the (type,name)s.
-            let {retArr: arrSafe, arrFail, resName} = await this.filesService.moveFiles_validateFiles(conn, userSer, body.from, body.files.map(val=>[val.id, val.timestamp]));            
-            
-            let resDup: RowDataPacket[];
-            if (resName.length > 0){
-                // get the list of files with the same name in the destination
-                [resDup] = await conn.query<RowDataPacket[]>(
-                    {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
-                    [userSer, body.to, resName]
-                );
-            } else {
-                resDup = [];
+            const getNameRes = await this.filesService.moveFiles_getName(conn, userSer, body.from, body.files.map(val=>[val.id, val.timestamp]), body.action === 'move');            
+            let arrFail = getNameRes.arrFail;
+            const arrTypeName = getNameRes.arrTypeName;
+            const arrValidFiles = getNameRes.arrValidFiles;
+
+            // check for name duplicates. arrDuplicate is later updated to hold only non-overwritable items
+            let arrDuplicate: {file_serial: number, type: 'file'|'dir', file_name: string, timestamp: Date, modif: Date}[];
+            {
+                const [resDuplicateNames] = (arrTypeName.length > 0) ? await conn.query<RowDataPacket[]>(
+                        {sql: `select type, file_name from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`, rowsAsArray: true},
+                        [userSer, body.to, arrTypeName]
+                    ) : [[]];
+                const [resDupPacket] = (resDuplicateNames.length > 0) ? await conn.query<RowDataPacket[]>(
+                        `select file_serial, type, file_name, last_renamed as timestamp, last_modified as modif from file where user_serial=? and parent_serial=? and (type, file_name) in (?) ` + body.action === 'move' ? 'for update' : 'for share',
+                        [userSer, body.from, resDuplicateNames]
+                    ) : [[]];
+                arrDuplicate = resDupPacket as typeof arrDuplicate;
             }
-            if (resDup.length > 0){
-                [resDup] = await conn.query<RowDataPacket[]>(
-                    `select file_serial, type, file_name, last_renamed as timestamp from file where user_serial=? and parent_serial=? and (type, file_name) in (?) for update`,
-                    [userSer, body.from, resDup]
-                );
-            } else {
-                resDup = [];
-            }
+
             // requset overwrite mode if needed
             if (!body.overwrite){
-                if ((resDup.length > 0) && (relDir.length >= 2)){ // assumes rename for copying to the same dir
+                if ((arrDuplicate.length > 0) && (!owncopy)){ // assumes rename for copying to the same dir
                     retVal.alreadyExists = true;
                     rb.rback = true;
                     return;
                 }
                 body.overwrite = 'buttonrename';
             }
+
             await conn.execute(`update file set copy_origin=0 where user_serial=? and copy_origin<>0`, [userSer]);
-            let result: RowDataPacket[];
-            let arrDup = resDup.map((val)=>val.file_serial);
+
             // delete items to overwrite
             if (body.overwrite === 'buttonoverwrite'){
-                // get original items to overwrite
-                if (resName.length > 0){
-                    [result] = await conn.query<RowDataPacket[]>(
+                // get original items to overwrite, file only (no folder)
+                const [resToDelete] = (arrTypeName.length > 0) ? await conn.query<RowDataPacket[]>(
                         `select file_serial, last_renamed from file where user_serial=? and parent_serial=? and type='file' and (type, file_name) in (?) for update`,
-                        [userSer, body.to, resName]
-                    );
-                } else {
-                    result = [];
-                }
-                // actually delete the items to overwrite
-                const { delarr, failed, failmessage } = await this.filesService.deleteFiles(conn, userSer, result.map((val)=>{return {id: val.file_serial, timestamp: val.last_renamed}}), body.to, 'force');
-                if (failmessage){this.logger.error('file copy error: failed to delete some: ' + failmessage);}
-                for (let i = 0; i < resName.length; i++){
-                    if (resName[i][0] === 'dir'){
-                        retVal.failmessage += '폴더의 경우 덮어쓰기 실패로 "-2"가 추가된 상태로 복사/이동되었습니다. ';
+                        [userSer, body.to, arrTypeName]
+                    ) : [[]];
+                
+                // actually delete the items (files only, no dirs) to overwrite
+                const deleteRes = await this.filesService.deleteFiles(conn, userSer, resToDelete.map((val)=>{return {id: val.file_serial, timestamp: val.last_renamed}}), body.to, 'force');
+                if (deleteRes.failmessage){this.logger.error('file copy error: failed to delete some: ' + deleteRes.failmessage);}
+                for (let i = 0; i < arrTypeName.length; i++){
+                    if (arrTypeName[i][0] === 'dir'){
+                        retVal.failmessage += '폴더의 경우 덮어쓰기가 불가하며 "-2"가 추가된 상태로 복사/이동되었습니다. ';
                         break;
                     }
                 }
-                if (failed.length > 0){
+                if (deleteRes.failed.length > 0){
                     retVal.failmessage += '일부 파일의 경우 덮어쓰기 실패로 "-2"가 추가된 상태로 복사/이동되었습니다. ';
                 }
-                // update arrDup to hold only items with name collisions
-                for (let i = 0; i < delarr.length; i++){
-                    let loc = arrDup.indexOf(delarr[i].id);
+
+                // update arrDuplicate to hold only items with name collisions
+                const duplicateSerials = arrDuplicate.map((val)=>val.file_serial);
+                for (let i = 0; i < deleteRes.delarr.length; i++){
+                    let loc = duplicateSerials.indexOf(deleteRes.delarr[i].id);
                     if (loc === -1){continue;}
-                    arrDup.splice(loc, 1);
-                    resDup.splice(loc, 1);
+                    duplicateSerials.splice(loc, 1);
+                    arrDuplicate.splice(loc, 1);
                 }
             }
-            // includes: skipping method
+
+
             // step1: move ordinary files first. don't forget to change last_renamed
-            // arrSafe represents items without name collisions
-            for (let i = 0; i < arrDup.length; i++){
-                arrSafe.delete(arrDup[i]);
+            // including skipping method
+            // arrValidFiles represents items without name collisions
+            for (let i = 0; i < arrDuplicate.length; i++){
+                arrValidFiles.delete(arrDuplicate[i].file_serial);
             }
             if (body.action === 'move'){
-                if (arrSafe.size > 0){
+                if (arrValidFiles.size > 0){
                     await conn.query(`update file set parent_serial=?, last_renamed=current_timestamp where user_serial=? and file_serial in (?)`,
-                        [body.to, userSer, Array.from(arrSafe, val=>val[0])]
+                        [body.to, userSer, Array.from(arrValidFiles, val=>val[0])]
                     );
                 }
-                retVal.delarr = Array.from(arrSafe, val=>{return {id: val[0], timestamp: val[1].toISOString()};});
+                retVal.delarr = body.action === 'move' ? Array.from(arrValidFiles, val=>{return {id: val[0], timestamp: val[1]};}) : [];
             } else { // copy
-                if (arrSafe.size > 0){
+                if (arrValidFiles.size > 0){
                     // duplication to the same dir cannot occur here: all duplications are handled in renamed file operations
                     await conn.query(`insert into file (user_serial, parent_serial, type, file_name, mark, copy_origin)
                         select ?, ?, type, file_name, 'true', file_serial from file where user_serial=? and file_serial in (?)`,
-                        [userSer, body.to, userSer, Array.from(arrSafe, val=>val[0])]
+                        [userSer, body.to, userSer, Array.from(arrValidFiles, val=>val[0])]
                     );
                 }
             }
+
             // step2: get the new name and then move/copy after step1, to prevent name collisions with files from step1.
             // don't forget to change last_renamed
             // deal with both move and copy
             // also deals with duplications within a dir.
             // excluding skip mode
             if (body.overwrite === 'buttonrename' || body.overwrite === 'buttonoverwrite'){
-                let {arrFail: arrFail2, addarr, delarr} = await this.filesService.moveFiles_rename(conn, userSer, body.action === 'move', body.from, body.to, resDup as {file_serial: number, file_name: string, type: string, timestamp: Date}[]);
+                let {arrFail: arrFail2, addarr, delarr} = await this.filesService.moveFiles_rename(conn, userSer, body.action === 'move', body.from, body.to, arrDuplicate);
                 arrFail = arrFail.concat(arrFail2);
-                retVal.addarr = relDir.length === 1 ? addarr : [];
-                retVal.delarr = body.action === 'move' ? retVal.delarr.concat(delarr) : [];
+                retVal.addarr = addarr;
+                retVal.delarr = retVal.delarr.concat(delarr)
             }
-            retVal.failed = arrFail.map(val=>[val[0], val[1].toISOString()]);
-            // step3: copy recursively
+
+            retVal.failed = arrFail.map(val=>[val[0], val[1]]);
+
+            // step3: copy recursively. copy_origin is cleared during the process
             await this.filesService.moveFiles_copyRecurse(conn, userSer);
 
             [resAddedFiles] = await conn.execute<RowDataPacket[]>(
                 `select file_serial, copy_origin from file where user_serial=? and copy_origin<>0 for share`, [userSer]
             );
+
+            // why this is in the transaction: described in troubleshoot_copymove.md
+            await this.filesService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         });
+
         // do not use here
-        await this.filesService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
         return retVal;
     }
