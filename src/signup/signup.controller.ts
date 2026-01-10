@@ -94,7 +94,7 @@ export class SignupController {
         );
         let emailMsg = `ComphyCat Reminder Online의 인증 번호는\n\n${strCode}\n\n입니다.`;
         emailMsg += '\n\n\n만약 인증 번호를 요청하지 않으셨다면, 수신 거부를 할 수 있습니다. ';
-        emailMsg += '수신 거부 및 거부 해제를 위해서는 comtrams@outlook.com으로 연락해 주시기 바랍니다.';
+        emailMsg += `수신 거부 및 거부 해제를 위해서는 https://comphycat.uk/unsubscribe?addr=${body.email} 에 접속하시거나 또는 comtrams@outlook.com으로 연락해 주시기 바랍니다.`;
         const emailParams = {
             Content: {
                 Simple: {
@@ -107,7 +107,7 @@ export class SignupController {
                     Subject: {
                         Data: 'ComphyCat Reminder Online 인증 번호',
                         Charset: 'UTF-8'
-                    }
+                    },
                 }
             },
             Destination: {
@@ -135,20 +135,20 @@ export class SignupController {
     async verifyCode(@Body() body: VerifyEmailDto): Promise<{success: boolean, key?: string, failmessage?: string}>{
         const sqlPool: mysql.Pool = await this.mysqlService.getSQL();
         body.email = body.email.toLowerCase();
-        // const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
-        // ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
-        // if (result.length <= 0){
-        //     return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
-        // } else {
-        //     if (result.length > 1){
-        //         this.logger.error('duplicate in email_verification with email=' + body.email);
-        //     }
-        //     if (result[0]['code'] === body.code){
+        const [result] = await sqlPool.execute<mysql.RowDataPacket[]>
+        ('select code from email_verification where email=? and email2=?', [body.email.slice(0, 65), body.email.slice(65)]);
+        if (result.length <= 0){
+            return {success: false, failmessage: '인증 번호가 만료되었습니다.'};
+        } else {
+            if (result.length > 1){
+                this.logger.error('duplicate in email_verification with email=' + body.email);
+            }
+            if (result[0]['code'] === body.code){
                 return {success: true, key: await this.hashPasswordService.encryptEmail(body.email)};
-        //     } else {
-        //         return {success: false};
-        //     }
-        // }
+            } else {
+                return {success: false};
+            }
+        }
     }
 
 

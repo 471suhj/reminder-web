@@ -105,6 +105,32 @@ export class AppController {
   }
 
   @AuthDec('all')
+  @Get('unsubscribe')
+  async getUnsubscribe(@Query('addr') addr?: string): Promise<string>{
+    if (addr === undefined) {
+      return '주소가 제공되지 않았습니다.';
+    } else if (addr.length > 320 || !addr.includes('@')) {
+      return '잘못된 주소입니다.';
+    }
+    let errOccurred = false;
+    this.mysqlService.doTransaction('unsubscribe', async conn=>{
+      try{
+        const [result] = await conn.execute<RowDataPacket[]>(`select email from email_blocked where email=? and email2=? for update`, [addr.slice(0, 65), addr.slice(65)]);
+        if (result.length <= 0) {
+          await conn.execute<RowDataPacket[]>(`insert into email_blocked (email, email2) value (?, ?)`, [addr.slice(0, 65), addr.slice(65)]);
+        }
+      } catch (err) {
+        errOccurred = true;
+        console.log(err);
+      }
+    });
+    if (errOccurred) {
+      return '수신 거부의 과정에서 오류가 발생했습니다. comtrams@outlook.com으로 문의 부탁드립니다. 불편을 드려서 죄송합니다.';
+    }
+    return addr + '(으)로의 수신 거부가 완료되었습니다.';
+  }
+
+  @AuthDec('all')
   @Get('private-cv')
   @Render('test')
   getTest(){
