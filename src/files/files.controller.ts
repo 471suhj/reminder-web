@@ -23,12 +23,16 @@ import type { Request } from 'express';
 import busboy from 'busboy';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
+import { FileResolutionService } from './file-resolution.service';
+import { FileUtilsService } from './file-utils.service';
 
 @Controller('files')
 export class FilesController {
     constructor(
         private readonly mysqlService: MysqlService, 
         private readonly filesService: FilesService,
+        private readonly fileResolutionService: FileResolutionService,
+        private readonly fileUtilsService: FileUtilsService,
         private readonly mongoService: MongoService,
     ){}
 
@@ -38,9 +42,9 @@ export class FilesController {
     @Render('files/files')
     async getFiles(@User() userSer: number, @Query('dirid', new ParseIntPipe({optional: true})) dirid: number|undefined): Promise<FilesGetResDto> {
         if (dirid === undefined){
-            dirid = await this.filesService.getUserRoot(userSer, 'files');
+            dirid = await this.fileUtilsService.getUserRoot(userSer, 'files');
         }
-        return await this.filesService.renderFilesPage(userSer, dirid);
+        return await this.fileResolutionService.renderFilesPage(userSer, dirid);
     }
 
     @Get('files')
@@ -50,7 +54,7 @@ export class FilesController {
     @Get('inbox')
     @Render('files/files')
     async getInbox(@User() userSer: number): Promise<FilesGetResDto> {
-        return await this.filesService.renderFilesPage(userSer, await this.filesService.getUserRoot(userSer, 'inbox'))
+        return await this.fileResolutionService.renderFilesPage(userSer, await this.fileUtilsService.getUserRoot(userSer, 'inbox'))
     }
 
     @Get('loadmore') // files, shared, bookmarks, inbox, recycle
@@ -66,17 +70,17 @@ export class FilesController {
     ): Promise<FilesMoreDto|FriendMoreDto>{
         switch (mode){
             case 'files':
-                return await this.filesService.loadFileMore(userSer, dirId, lastrenamed, startAfter, timestamp, {criteria: sort, incr: sortincr});
+                return await this.fileResolutionService.loadFileMore(userSer, dirId, lastrenamed, startAfter, timestamp, {criteria: sort, incr: sortincr});
             case 'profile':
-                return await this.filesService.loadSharedMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr}, dirId);
+                return await this.fileResolutionService.loadSharedMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr}, dirId);
             case 'shared':
-                return await this.filesService.loadSharedMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
+                return await this.fileResolutionService.loadSharedMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
             case 'friends':
-                return await this.filesService.loadFriendMore(userSer, startAfter, {criteria: sort, incr: sortincr});
+                return await this.fileResolutionService.loadFriendMore(userSer, startAfter, {criteria: sort, incr: sortincr});
             case 'bookmarks':
-                return await this.filesService.loadBookmarkMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
+                return await this.fileResolutionService.loadBookmarkMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
             case 'recycle':
-                return await this.filesService.loadRecycleMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
+                return await this.fileResolutionService.loadRecycleMore(userSer, startAfter, timestamp, {criteria: sort, incr: sortincr});
             default:
                 throw new BadRequestException();
         }
@@ -85,19 +89,19 @@ export class FilesController {
     @Get('bookmarks')
     @Render('files/bookmarks')
     async getBookmarks(@User() userSer: number): Promise<FilesGetResDto> {
-        return await this.filesService.renderSharedPage(userSer, 'bookmarks');
+        return await this.fileResolutionService.renderSharedPage(userSer, 'bookmarks');
     }
 
     @Get('shared')
     @Render('files/shared')
     async getShared(@User() userSer: number): Promise<FilesGetResDto>{
-        return await this.filesService.renderSharedPage(userSer, 'shared');
+        return await this.fileResolutionService.renderSharedPage(userSer, 'shared');
     }
 
     @Get('recycle')
     @Render('files/recycle')
     async getRecycle(@User() userSer: number): Promise<FilesGetResDto>{
-        return await this.filesService.renderSharedPage(userSer, 'recycle');
+        return await this.fileResolutionService.renderSharedPage(userSer, 'recycle');
     }
 
     @Delete('recycle')
@@ -105,7 +109,7 @@ export class FilesController {
         if (body.files.length <= 0){
             return {delarr: [], failed: []};
         }
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+        await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         if (body.action !== 'permdel'){throw new BadRequestException();}
         let resDelArr: RowDataPacket[] = [];
@@ -149,7 +153,7 @@ export class FilesController {
 
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
     async putRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+        await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         let arr: FileIdentReqDto[], arrFail: FileIdentReqDto[], clash_toolong: boolean, namechange: boolean;
         if (body.action !== 'restore'){throw new BadRequestException();}
@@ -185,7 +189,7 @@ export class FilesController {
             });
         } else {throw new BadRequestException();}
         try{
-            await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'files', body.id);
+            await this.fileResolutionService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'files', body.id);
         } catch (err) {
             retVal!.addarr.forEach(val=>{val.before = {id:-1, timestamp: ''};})
             console.log(err);
@@ -201,8 +205,8 @@ export class FilesController {
         }
 
         let retVal = new FileMoveResDto();
-        const dir = await this.filesService.getUserRoot(userSer, 'upload_tmp');
-        const root = await this.filesService.getUserRoot(userSer, 'files');
+        const dir = await this.fileUtilsService.getUserRoot(userSer, 'upload_tmp');
+        const root = await this.fileUtilsService.getUserRoot(userSer, 'files');
         const subt = '(user_serial, parent_serial, type, file_name)';
         let closeReturned = false;
         let streamDone = true;
@@ -250,7 +254,7 @@ export class FilesController {
                     );
                     
                 });
-                await this.filesService.uploadMongo(res[0].file_serial, fstream, userSer);
+                await this.fileUtilsService.uploadMongo(res[0].file_serial, fstream, userSer);
                 // one transaction
                 let {failed} = await this.putMove(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
                     from: dir, to: root, last: {id: -1, timestamp: new Date()}, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
@@ -297,14 +301,14 @@ export class FilesController {
             case 'bookmark': strMode = 'bookmarks'; break;
             default: throw new BadRequestException();
         }
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+        await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, strMode, body.from, body.timestamp);
         let retVal = new FileDelResDto();
         await this.mysqlService.doTransaction('files controller delete manage', async (conn, rb)=>{
             switch (body.action){
                 case 'selected':
                     if (!body.timestamp || !body.from){throw new BadRequestException();}
-                    if (!body.ignoreTimestamp && !(await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
+                    if (!body.ignoreTimestamp && !(await this.fileUtilsService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
                         retVal.expired = true;
                         rb.rback = true;
                         return;
@@ -343,7 +347,7 @@ export class FilesController {
         if (body.friends.length <= 0){
             return {addarr: [], failed: [], delarr: []};
         }
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+        await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, body.source === 'profile' ? 'files' : 'shared', body.from, body.timestamp);
         const pool = await this.mysqlService.getSQL();
         let [dirResult] = await pool.query<RowDataPacket[]>(
@@ -390,7 +394,7 @@ export class FilesController {
             retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode, body.message);
         });
         if (body.sort !== undefined){
-            retVal.addarr = retVal.addarr.concat(await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]));
+            retVal.addarr = retVal.addarr.concat(await this.fileResolutionService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]));
         }
         return retVal;
     }
@@ -398,7 +402,7 @@ export class FilesController {
     // copy and move from files
     @Put('move') // copy_origin eventually marks only copied 'files'
     async putMove(@User() userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
-        await this.filesService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
+        await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'files', body.from, body.timestamp);
 
         const owncopy = (body.from === body.to);
@@ -409,7 +413,7 @@ export class FilesController {
         const pool = await this.mysqlService.getSQL();
 
         // check for access (destination dir)
-        if (!await this.filesService.checkAccess(pool, userSer, body.to, 'dir', 'fileonly', false)){
+        if (!await this.fileUtilsService.checkAccess(pool, userSer, body.to, 'dir', 'fileonly', false)){
             throw new BadRequestException('이동하려는 폴더의 접근이 거부되었습니다.');
         }
         
@@ -423,7 +427,7 @@ export class FilesController {
             if (!body.timestamp){throw new BadRequestException('timestamp가 전송되지 않았습니다.');}
             
             // check for expired (source dir)
-            if (!body.ignoreTimestamp && !(await this.filesService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
+            if (!body.ignoreTimestamp && !(await this.fileUtilsService.checkTimestamp(conn, userSer, body.from, body.timestamp, 'dir'))){
                 rb.rback = true;
                 retVal.expired = true;
                 return;
@@ -432,7 +436,7 @@ export class FilesController {
             // check for invalid moving to subfolder
             if (body.action === 'move'){
                 const arrFiles = body.files.map(val=>val.id);
-                if ((await this.filesService.getDirInfo(conn, userSer, body.to)).arrParentId.some(val=>arrFiles.includes(val))){
+                if ((await this.fileUtilsService.getDirInfo(conn, userSer, body.to)).arrParentId.some(val=>arrFiles.includes(val))){
                     retVal.failed = body.files.map(val=>[val.id, val.timestamp]);
                     retVal.failmessage = '이동하려는 경로가 선택된 폴더이거나 그 하위 폴더입니다.';
                     rb.rback = true;
@@ -549,11 +553,11 @@ export class FilesController {
             );
 
             // why this is in the transaction: described in troubleshoot_copymove.md
-            await this.filesService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
+            await this.fileUtilsService.copyMongo(resAddedFiles.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         });
 
         // do not use here
-        retVal.addarr = await this.filesService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
+        retVal.addarr = await this.fileResolutionService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal.addarr, 'files', body.from);
         return retVal;
     }
 
@@ -583,7 +587,7 @@ export class FilesController {
         @Query('dirid', new ParseIntPipe({optional: true})) dirid?: number
     ): Promise<FileListResDto>{
         let retVal = new FileListResDto();
-        let rootid = await this.filesService.getUserRoot(userSer, 'files');
+        let rootid = await this.fileUtilsService.getUserRoot(userSer, 'files');
         if (dirid === undefined){
             dirid = rootid;
         }
@@ -604,7 +608,7 @@ export class FilesController {
             }
         });
         try {
-            retVal.path = (await this.filesService.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid)).path;
+            retVal.path = (await this.fileUtilsService.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid)).path;
         } catch (err) {
             retVal.path = '오류가 발생했습니다.';
             console.log(err);

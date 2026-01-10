@@ -14,14 +14,15 @@ import { ProfileGetDto } from './profile-get.dto';
 import { InboxSaveDto } from 'src/files/inbox-save.dto';
 import { MongoService } from 'src/mongo/mongo.service';
 import { NotifColDto } from 'src/mongo/notif-col.dto';
+import { FileResolutionService } from 'src/files/file-resolution.service';
 
 @Controller('friends')
 export class FriendsController {
 
     constructor(
-        private readonly dataSource: DataSource,
         private readonly mysqlService: MysqlService,
         private readonly filesService: FilesService,
+        private readonly fileResolutionService: FileResolutionService,
         private readonly prefsService: PrefsService,
         private readonly mongoService: MongoService,
     ){}
@@ -58,7 +59,7 @@ export class FriendsController {
         @User(ParseIntPipe) userSer: number,
         @Body() body: {sort: SortModeDto, last: number, friends: Array<number>}
     ): Promise<FileDelResDto>{
-        await this.filesService.resolveFriendLoadmore(userSer, body.friends, body.last, body.sort);
+        await this.fileResolutionService.resolveFriendLoadmore(userSer, body.friends, body.last, body.sort);
         await this.mysqlService.doTransaction('friends controller delete', async (conn)=>{
             await this.filesService.deleteFriends(conn, userSer, body.friends);
         });

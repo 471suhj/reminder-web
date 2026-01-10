@@ -1,1024 +1,34 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, Res } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, Res } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
-import mysql, { RowDataPacket, Pool, PoolConnection, ResultSetHeader, Connection } from 'mysql2/promise';
-import { FilesGetResDto } from './files-get-res.dto';
-import { PrefsService } from 'src/prefs/prefs.service';
-import { SysdirType } from './sysdir.type';
+import { RowDataPacket, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { FileDelResDto } from './file-del-res.dto';
-import { FileIdentResDto } from './file-ident-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
 import { FilesArrResDto } from './files-arr-res.dto';
 import { FileShareResDto } from './file-share-res.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { SortModeDto } from './sort-mode.dto';
-import { DataSource, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
-import type { FindOptionsWhere, FindOptionsOrder } from 'typeorm';
-import { Efile } from 'src/mysql/file.entity';
-import { FilesMoreDto } from './files-more.dto';
-import { Ebookmark } from '../mysql/bookmark.entity';
-import { Eshared_def } from 'src/mysql/shared_def.entity';
-import { Erecycle } from 'src/mysql/recycle.entity';
-import { FriendMoreDto } from './friend-more.dto';
-import { Efriend_mul } from 'src/mysql/friend_mul.entity';
 import { MongoService } from 'src/mongo/mongo.service';
 import { ShareHardNotifDto } from 'src/home/share-hard-notif.dto';
 import { NotifColDto } from 'src/mongo/notif-col.dto';
 import { ShareCopyNotifDto } from 'src/home/share-copy-notif.dto';
 import { FiledatColDto } from 'src/mongo/filedat-col.dto';
-import { Document, OptionalId } from 'mongodb';
-import { Readable } from 'node:stream';
-import fs, { FileHandle } from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { UnshareNotifDto } from 'src/home/unshare-notif.dto';
+import { FileUtilsService } from './file-utils.service';
+import { FileResolutionService } from './file-resolution.service';
 
 @Injectable()
 export class FilesService {
-    constructor(private readonly mysqlService: MysqlService, private readonly prefsService: PrefsService,
-        private readonly dataSource: DataSource, private readonly mongoService: MongoService){}
+    constructor(
+        private readonly mysqlService: MysqlService,
+        private readonly mongoService: MongoService,
+        @Inject(forwardRef(()=>FileUtilsService)) private readonly fileUtilsService: FileUtilsService,
+        @Inject(forwardRef(()=>FileResolutionService))private readonly fileResoultionService: FileResolutionService,
+    ){}
 
     private readonly logger = new Logger(FilesService.name);
 
-    // should not be blocking or blocked
-    async getUserRoot(userSer: number, type: SysdirType['val']){
-        const pool: Pool = await this.mysqlService.getSQL();
-        if (!SysdirType.arr.includes(type)){
-            throw new InternalServerErrorException();
-        }
-        let [result] = await pool.execute<RowDataPacket[]>(
-            `select file_serial from file where user_serial=? and issys='true' and file_name='${type}'`, [userSer]);
-        if (result.length <= 0){
-            throw new Error('files service mysql: root folder cannot be found userid=' + userSer);
-        }
-        return Number(result[0].file_serial);
-    }
-
-    async makePath(conn: PoolConnection, userSer: number, path: string){
-        let dirid = await this.getUserRoot(userSer, 'files');
-        let arrName = path.split('/');
-        let level = 1; // not 0
-        let result: RowDataPacket[];
-        let str1 = `select file_serial from file `;
-        str1 += `where user_serial=? and parent_serial=? and file_name=? and type='dir' `;
-        str1 += 'for update';
-        while (level < arrName.length){
-            [result] = await conn.execute<RowDataPacket[]>(
-                str1, [userSer, dirid, arrName[level]]
-            );
-            if (result.length <= 0){
-                await conn.query<RowDataPacket[]>(
-                    `insert into file (user_serial, parent_serial, type, file_name) value (?)`,
-                    [[userSer, dirid, 'dir', arrName[level]]]
-                );
-                [result] = await conn.execute<RowDataPacket[]>(
-                    str1, [userSer, dirid, arrName[level]]
-                );
-            }
-            dirid = result[0].file_serial;
-            level++;
-        }
-        return dirid;
-    }
-
-    // parentId includes itself
-    // includes user verification
-    async getDirInfo(conn: Connection, userSer: number, fileId: number)
-    : Promise<{path: string, pathHtml: string, parentId: number, dirName: string, lastRenamed: Date, arrParentId: number[], issys: boolean}>{
-        let path = '';
-        let pathHtml = '';
-        let parentId = 0;
-        let dirName = '';
-        let lastRenamed!: Date;
-        let arrParentId: number[] = [fileId];
-        let issys = false;
-
-        let cont = true;
-        let result: RowDataPacket[];
-        let curId = fileId;
-        let firstReq = true;
-        while (cont){
-            [result] = await conn.execute<RowDataPacket[]>( // for repeatable read
-                'select parent_serial, file_name, last_renamed, issys from file where user_serial=? and file_serial=? for share', [userSer, curId]);
-            if (result.length <= 0) {
-                if (firstReq){
-                    throw new BadRequestException();
-                } else {
-                    throw new Error('result is empty');
-                }
-            }
-            if (firstReq){
-                parentId = Number(result[0].parent_serial === 1 ? fileId : result[0].parent_serial);
-                dirName = String(result[0].file_name);
-                lastRenamed = result[0].last_renamed;
-                issys = result[0].issys === 'true';
-            }
-            path = result[0].file_name + path;
-            pathHtml = `<a class="addrLink" href="/files?dirid=${curId}">${result[0].file_name}</a>`+ pathHtml;
-            if (Number(result[0].parent_serial) === 1){
-                cont = false;
-            } else {
-                path = '/' + path;
-                pathHtml = '/' + pathHtml;
-                curId = Number(result[0].parent_serial);
-                firstReq = false;
-                arrParentId.push(result[0].parent_serial);
-            }
-        }
-        return {path, pathHtml, parentId, dirName, lastRenamed, arrParentId, issys};
-    }
-
-    // if mode is not sepcified, check both dir and files
-    // default for lock: true
-    async checkTimestamp(conn: Connection, userSer: number, fileSer: number, time: Date, mode?: 'dir'|'file', lock: boolean = true){
-        let str1 = `select file_serial from file where user_serial=? and file_serial=? and last_renamed=? `
-        if (mode === 'dir'){
-            str1 += `and type='dir' `;
-        } else if (mode === 'file'){
-            str1 += `and type<>'dir' `;
-        }
-        if (lock !== false) {
-            str1 += 'for share';
-        }
-        let [result] = await conn.execute<RowDataPacket[]>(
-            str1, [userSer, fileSer, time]
-        );
-        return (result.length > 0);
-    }
-
-    // default: lock: true
-    async checkAccess(conn: Connection, userSer: number, fileSer: number, mode?: 'dir'|'file', nosys?: 'true'|'fileonly', lock: boolean = true){
-        let str1 = `select file_serial from file where user_serial=? and file_serial=? `;
-        if (mode === 'dir'){
-            str1 += `and type='dir' `;
-        } else if (mode === 'file'){
-            str1 += `and type='file' `;
-        }
-        if (nosys === 'fileonly'){
-            str1 += `and (file_name='files' or issys='false') `;
-        } else if (nosys === 'true'){
-            str1 += `and issys='false' `;
-        }
-        if (lock !== false) { // default lock is true
-            str1 += 'for share';
-        }
-        let [result] = await conn.execute<RowDataPacket[]>(
-            str1,
-            [userSer, fileSer]
-        );
-        return (result.length > 0);
-    }
-
-    private translateColumnBase(val: string, mode: SysdirType['val']){
-        switch(val){
-            case 'colName':
-                return ['file_name'];
-            case 'colDate':
-                return ['last_modified', 'file_name'];
-            case 'colOwner':
-                return ['user_serial', 'file_name'];
-            case 'colPath':
-                if (mode === 'recycle'){return ['parent_path', 'file_name'];} else {break;}
-            case 'colDelDate':
-                if (mode === 'recycle'){return ['last_renamed', 'file_name'];} else {break;} // thrown for maintainability
-        }
-        throw new BadRequestException();
-    }
-
-    async copyMongo(arrAdded: {id: number, origin: number}[]){
-        let limit = Math.ceil(arrAdded.length / 80);
-        const mapOrig = new Map(arrAdded.map(val=>[val.origin, val.id]));
-        const arrOrig = Array.from(mapOrig.keys());
-        const coll = await this.mongoService.getDb().collection('file_data');
-        let arrDocs: Document[] = [];
-        for (let i = 0; i < limit; i++){
-            const cur = coll.find({serial: {$in: arrOrig.slice(80 * i, 80 * (i + 1))}}).project({_id: 0});
-            const arrRet = await cur.toArray();
-            cur.close();
-            for (let j = 0; j < arrRet.length; j++){
-                arrRet[j].serial = mapOrig.get(arrRet[j].serial);
-            }
-            arrDocs = arrDocs.concat(arrRet);
-        }
-        for (const itm of arrAdded){
-            try{
-                await fs.cp(join(__dirname, `../../filesys/${itm.origin}`), join(__dirname, `../../filesys/${itm.id}`), {errorOnExist: true, force: false, recursive: true});
-            } catch (err) {
-                console.log(err);
-            }
-        }
-        if (arrDocs.length > 0){
-            await coll.insertMany(arrDocs);
-        }
-    }
-
-    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle}, pth: string){
-        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
-        let newbuf = '';
-        let commit = async ()=>{
-            if (newbuf === ''){ // A: end phase. note that two consequent '' may arrive.
-                switch (tmpVar.phase){
-                    case '':
-                        break;
-                    case 'M':
-                        break;
-                    case 'P':
-                        let pairVal = tmpVar.buf.split('=');
-                        if (pairVal.length > 0){
-                            if (!availProp.includes(pairVal[0])){
-                                throw new BadRequestException();
-                            }
-                            doc.metadata[pairVal.shift()!] = pairVal.join('=');
-                        }
-                        break;
-                    case 'N':
-                        if (tmpVar.fh === null){
-                            throw new InternalServerErrorException();
-                        }
-                        await tmpVar.fh.appendFile(tmpVar.buf);
-                        await tmpVar.fh.close();
-                        tmpVar.fh = null;
-                        // push tmpVar.buf, then close the fs.
-                        break;
-                    default: 
-                        throw new BadRequestException();
-                }
-                tmpVar.phase = '';
-                tmpVar.buf = '';
-                return;
-            }
-            if (tmpVar.phase === ''){ // B: start a new phase (no pushing to the buf. step B includes step C.)
-                tmpVar.phase = newbuf.slice(0, 1);
-                newbuf = newbuf.slice(1);
-                tmpVar.buf = '';
-                switch (tmpVar.phase){
-                    case 'N':
-                        tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
-                        doc.arrlen = tmpVar.idx;
-                        break;
-                }
-            }
-            // C: continue the phase
-            switch (tmpVar.phase){
-                case 'M':
-                    tmpVar.buf = '';
-                    break;
-                case 'P':
-                    tmpVar.buf += newbuf;
-                    if (tmpVar.buf.length > 100){
-                        throw new BadRequestException();
-                    }
-                    break;
-                case 'N':
-                    if (tmpVar.fh === null){
-                        throw new InternalServerErrorException();
-                    }
-                    await tmpVar.fh.appendFile(tmpVar.buf + newbuf);
-                    tmpVar.buf = '';
-                    break;
-                default: 
-                    throw new BadRequestException();
-            }
-        }
-        if (arr.length <= 0){ // empty array is passed only after all the contents are read
-            newbuf = '';
-            commit();
-            return;
-        }
-        for (let i = 0; i < arr.length; i++){
-            let str = arr[i];
-            // newbuf: fill the new content
-            // buf: store previous value if needed
-            // after each 'complete' value, send '' to mark an end
-            // consider 4 cases: ['...', '...&N...'], ['...', '...&A...'], ['...', '&A...'], ['...', '&N...']
-            // the other 2 cases are prevented in advance: ['...&', 'A...'], ['...&', 'N...']
-            if (str.slice(0, 1) === 'A'){
-                tmpVar.buf += '&';
-                tmpVar.buf += str.slice(1);
-            } else if (str === ''){ // to deal with: ['...', '&A...']
-                continue;
-            } else { // delete ''
-                if (i !== 0){
-                    newbuf = '';
-                    await commit();
-                }
-                newbuf = str;
-                await commit();
-            }
-        }
-    }
-
-    async uploadMongo(fileSer: number, stream: Readable, userSer: number){
-        const availVer = ['0.2', '0.3'];
-        let buf = '';
-        let streamDone = false;
-        let finishCalled = false;
-        let asyncErr: Error|null = null;
-        let objDoc = new FiledatColDto();
-        objDoc.serial = fileSer;
-        objDoc.user_serial = userSer;
-        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null};
-        const dirpath = join(__dirname, `../../filesys/${fileSer}`);
-        await fs.mkdir(dirpath, {});
-
-        let inspected = false;
-        // make sure that no errors are thrown
-        stream.on('readable', async ()=>{
-            if (asyncErr !== null){stream.resume(); return;} // so that readable will not be called unneccessarily
-            try{
-                streamDone = false;
-                let chunk: Buffer;
-                while ((chunk = stream.read()) !== null){
-                    // buf: at first, store all data to validate 'AAMPGRMB'
-                    // after validation, mostly empty, used to prevent sending arrays ending in ''
-                    buf += chunk.toString();
-                    let arrTmp = buf.split('&');
-                    buf = arrTmp.at(-1) ?? '';
-                    if (!inspected){ // if uninspected either inspect or continue;
-                        if (arrTmp.length > 1 || arrTmp[0].length > 17){ // pre-check
-                            if (arrTmp[0].slice(1, 17) !== 'AAMPGRMBFileVer='){
-                                throw new BadRequestException();
-                            }
-                        }
-                        if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
-                            if (availVer.includes(arrTmp[0].slice(17))){ // inspected
-                                objDoc.type = 'rmb' + arrTmp[0].slice(17) as typeof objDoc.type;
-                                inspected = true; // flow to the next stage
-                                arrTmp.shift();
-                            } else {
-                                throw new BadRequestException();
-                            }
-                        } else { // length still 1 and uninspected --> continue;
-                            return;
-                        }
-                    }
-                    buf = '';
-                    if (arrTmp.at(-1) === ''){
-                        arrTmp.pop();
-                        buf = '&';
-                    }
-                    await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
-                }
-            } catch (err) {
-                this.logger.error('uploadMongo stream error. see below.');
-                console.log(err);
-                asyncErr = err;
-                stream.resume();
-            } finally {
-                streamDone = true;
-            }
-        });
-        // end and close are run before data event finishes
-        stream.on('end', ()=>{
-        });
-        stream.on('close', ()=>{
-            finishCalled = true;
-        });
-        stream.on('error', (err)=>{
-            this.logger.error('uploadMongo stream error. see below.');
-            console.log(err);
-            stream.resume();
-        });
-        try{
-            while((!finishCalled) || (!streamDone)){
-                await new Promise(resolve=>setImmediate(resolve));
-            }
-            if (asyncErr !== null){
-                stream.resume();
-                throw asyncErr;
-            }
-            await this.processFileStream(objDoc, [], tmpVar, dirpath);
-            if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
-                objDoc.type = 'rmb0.3';
-            }
-            await this.mongoService.getDb().collection('file_data').insertOne(objDoc);
-        } catch (err) {
-            try{
-                await fs.rm(dirpath, {force: true, recursive: true});
-            } catch (err) {
-                console.log(err);
-            }
-            if (err instanceof BadRequestException){
-                throw err;
-            } else {
-                throw new InternalServerErrorException();
-            }
-        }
-    }
-
-    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetResDto>{
-        let retObj: FilesGetResDto = new FilesGetResDto();
-        // includes user verification
-        const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
-        retObj.countItem = 'false';
-        retObj.path = path;
-        retObj.uplink = '/files?dirid=' + String(parentId);
-        retObj.dirName = issys ? SysdirType.translate(dirName) : dirName;
-        retObj.dirPath = pathHtml;
-        retObj.dirId = dirid;
-        retObj.timestamp = lastRenamed.toISOString();
-        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, 'files'))};
-        return retObj;
-    }
-
-    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetResDto>{
-        if (!SysdirType.arr.includes(dirType)){
-            throw new BadRequestException();
-        }
-        let retObj: FilesGetResDto = new FilesGetResDto();
-        const dirid = await this.getUserRoot(userSer, dirType);
-
-        retObj.countItem = 'false';
-        retObj.path = 'files/' + dirType;
-        retObj.uplink = '/files';
-        retObj.dirName = SysdirType.translate(dirType);
-        retObj.dirPath = `<a class="addrLink" href="/files">files</a>/<a class="addrLink" href="/files/${dirType}">${dirType}</a>`;
-        retObj.dirId = dirid;
-        retObj.timestamp = new Date().toISOString();
-        let sideName =  (dirType === 'recycle' || dirType === 'inbox' || dirType === 'upload_tmp') ? 'files' : dirType;
-        retObj = {...retObj, ...(await this.prefsService.getUserCommon(userSer, sideName))}; // overwritten
-        return retObj;
-    }
-
-    async loadFileMore(userSer: number, dir: number, dirDate: Date, lastFile: number, lastTime: Date, sort: SortModeDto){
-        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'files')];
-        let retVal = new FilesMoreDto();
-        retVal.loadMore = true;
-        try{
-        await this.dataSource.transaction(async manager=>{
-            let result = await manager.find(Efile, {
-                where: {
-                    user_serial: userSer,
-                    file_serial: String(dir),
-                }
-            });
-            if (result.length <= 0){
-                throw new BadRequestException();
-            }
-            if (lastFile === 0){
-                if (+dirDate !== +(result[0].last_renamed)){
-                    retVal.needReload = true;
-                    throw new Error('rollback_');
-                }
-            }
-            let whereObj = {
-                user_serial: userSer,
-                parent_serial: dir
-            };
-            let wherearr: FindOptionsWhere<Efile>[] = [];
-            if (lastFile !== 0){
-                result = await manager.find(Efile, {
-                    where: {
-                        user_serial: userSer,
-                        parent_serial: dir,
-                        file_serial: String(lastFile),
-                        last_renamed: lastTime
-                    }
-                });
-                if (result.length <= 0){
-                    retVal.needRefresh = true;
-                    throw new Error('rollback_');
-                }
-                let lenTmp = crit.length;
-                for (let i = 0; i < lenTmp; i++){
-                    wherearr.push({...whereObj});
-                    let j = 0;
-                    for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i][crit[j]] = result[0][crit[j]];
-                    }
-                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
-                }
-            } else {
-                wherearr = [whereObj];
-            }
-            let orderObj = {};
-            for (const itm of crit){
-                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
-            }
-            result = await manager.find(Efile, {
-                relations: {
-                    shares: true
-                },
-                where: wherearr,
-                take: 21,
-                order: orderObj
-            });
-            if (result.length > 20){
-                retVal.loadMore = true;
-                result.pop();
-            } else {
-                retVal.loadMore = false;
-            }
-            retVal.addarr = result.map(val=>{return {
-                link: (val.issys === 'true' ? `/files/${val.file_name}` 
-                    : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
-                id: Number(val.file_serial),
-                isFolder: val.type === 'dir',
-                text: val.issys === 'true' ? SysdirType.translate(val.file_name) : val.file_name,
-                bookmarked: val.bookmarked === 'true',
-                shared: val.shares.map(val=>val.user_serial_to).join(','),
-                date: (val.last_modified as Date),
-                timestamp: val.last_renamed,
-            };});
-        });
-        } catch (err) {
-            if (err.message !== 'rollback_'){
-                throw err;
-            }
-        }
-        await this.replaceNames(userSer, retVal.addarr);
-        return retVal;
-    }
-
-    // create a view for this!
-    async loadBookmarkMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
-        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'bookmarks')];
-        let retVal = new FilesMoreDto();
-        retVal.addarr = [];
-        retVal.loadMore = true;
-        try{
-        await this.dataSource.transaction(async manager=>{
-            let whereObj = {
-                reader: userSer,
-            }
-            let wherearr: FindOptionsWhere<Ebookmark>[] = [];
-            if (lastFile !== 0){
-                let result2 = await manager.find(Efile, {
-                    where: [{
-                        user_serial: userSer,
-                        file_serial: String(lastFile),
-                        last_renamed: lastTime
-                    },{
-                        file_serial: String(lastFile),
-                        last_renamed: lastTime,
-                        shares: {
-                            user_serial_to: userSer
-                        }
-                    }]
-                });
-                if (result2.length <= 0){
-                    retVal.needRefresh = true;
-                    throw new Error('rollback_');
-                }
-                let lenTmp = crit.length;
-                for (let i = 0; i < lenTmp; i++){
-                    wherearr.push({...whereObj});
-                    let j = 0;
-                    for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i][crit[j]] = result2[0][crit[j]];
-                    }
-                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result2[0][crit[j]]) : LessThan(result2[0][crit[j]]);
-                }
-            } else {
-                wherearr = [whereObj];
-            }
-            let orderObj: FindOptionsOrder<Ebookmark> = {};
-            for (const itm of crit){
-                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
-            }
-            let result = await manager.find(Ebookmark, {
-                relations: {
-                    shares: true
-                },
-                where: wherearr,
-                take: 21,
-                order: orderObj
-            });
-            if (result.length > 20){
-                retVal.loadMore = true;
-                result.pop();
-            } else {
-                retVal.loadMore = false;
-            }
-            retVal.addarr = result.map(val=>{return {
-                link: (val.issys === 'true' ? `/files/${val.file_name}` 
-                    : (val.type === 'dir' ? `/files?dirid=${val.file_serial}` : `/edit?id=${val.file_serial}`)),
-                id: Number(val.file_serial),
-                isFolder: val.type === 'dir',
-                text: val.file_name,
-                bookmarked: true,
-                shared: val.shares.map(val=>val.user_serial_to).join(','),
-                date: (val.last_modified as Date),
-                ownerImg: '/graphics/profimg?id=' + val.user_serial,
-                ownerName: String(val.user_serial),
-                timestamp: val.last_renamed,
-            };});
-        });
-        } catch (err) {
-            if (err.message !== 'rollback_') {throw err;}
-        }
-        await this.replaceNames(userSer, retVal.addarr);
-        return retVal;  
-    }
-
-    async loadSharedMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto, friend?: number){
-        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'shared')];
-        let retVal = new FilesMoreDto();
-        retVal.addarr = [];
-        retVal.loadMore = true;
-        try{
-        await this.dataSource.transaction(async manager=>{
-            let whereObj1 = {
-                user_serial_to: userSer,
-                user_serial_from: friend,
-            };
-            let whereObj2 = {
-                user_serial_to: friend,
-                user_serial_from: userSer,
-            };
-            let wherearr: FindOptionsWhere<Eshared_def>[] = [];
-            let result: Efile[];
-            if (lastFile !== 0){
-                result = await manager.find(Efile, {
-                    relations: {
-                        shares: true,
-                    },
-                    where: {
-                        file_serial: String(lastFile),
-                        last_renamed: lastTime,
-                        shares: {
-                            user_serial_to: userSer,
-                        },
-                        user_serial: friend,
-                    }
-                });
-                if (result.length <= 0){
-                    retVal.needRefresh = true;
-                    throw new Error('rollback_');
-                }
-                let lenTmp = crit.length;
-                let lenTmp_dbl = friend ? lenTmp * 2 : lenTmp;
-                for (let k = 0; k < lenTmp_dbl; k++){
-                    let i = k % lenTmp;
-                    wherearr.push({...((i === k) ? whereObj1 : whereObj2)});
-                    let j = 0;
-                    wherearr[i].file = {};
-                    for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i].file![crit[j]] = result[0][crit[j]];
-                    }
-                    wherearr[i].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
-                }
-            } else {
-                wherearr = friend ? [whereObj1, whereObj2] : [whereObj1];
-            }
-            let orderObj = {file: {}};
-            for (const itm of crit){
-                    orderObj.file[itm] = sort.incr ? "ASC" : "DESC";
-            }
-            let result2 = await manager.find(Eshared_def, {
-                relations: {
-                    file: {shares: true},
-                    friend_mono: true
-                },
-                where: wherearr,
-                take: 21,
-                order: orderObj,
-            });
-            if (result2.length > 20){
-                retVal.loadMore = true;
-                result2.pop();
-            } else {
-                retVal.loadMore = false;
-            }
-            retVal.addarr = result2.map(val=>{return {
-                link: `/edit?id=${val.file_serial}`,
-                id: Number(val.file_serial),
-                isFolder: val.file.type === 'dir',
-                text: val.file_name,
-                bookmarked: val.bookmarked === 'true',
-                shared: val.file.shares.map(val=>val.user_serial_to).join(','),
-                dateShared: val.date_shared,
-                date: (val.file.last_modified as Date),
-                ownerName: String(val.friend_mono.user_serial_from),
-                ownerImg: '/graphics/profimg?id=' + val.user_serial_from,
-                timestamp: val.file.last_renamed,
-            };});
-        });
-        } catch (err) {
-            if (err.message !== 'rollback_'){throw err;}
-        }
-        await this.replaceNames(userSer, retVal.addarr);
-        return retVal;
-    }
-
-    async loadRecycleMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
-        let crit = ['type', ...this.translateColumnBase(sort.criteria, 'recycle')];
-        let retVal = new FilesMoreDto();
-        retVal.addarr = [];
-        retVal.loadMore = true;
-        try{
-        await this.dataSource.transaction(async manager=>{
-            let whereObj: FindOptionsWhere<Erecycle> = {
-                user_serial: userSer,
-                del_type: 'direct'
-            };
-            let wherearr: FindOptionsWhere<Erecycle>[] = [];
-            if (lastFile !== 0){
-                let result = await manager.find(Erecycle, {
-                    where: {
-                        user_serial: userSer,
-                        file_serial: String(lastFile),
-                        last_renamed: lastTime,
-                    }
-                });
-                if (result.length <= 0){
-                    retVal.needRefresh = true;
-                    throw new Error('rollback_');
-                }
-                let lenTmp = crit.length;
-                for (let i = 0; i < lenTmp; i++){
-                    wherearr.push({...whereObj});
-                    let j = 0;
-                    for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i][crit[j]] = result[0][crit[j]];
-                    }
-                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
-                }
-            } else {
-                wherearr = [whereObj];
-            }
-            let orderObj = {};
-            for (const itm of crit){
-                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
-            }
-            let result2 = await manager.find(Erecycle, {
-                where: wherearr,
-                take: 21,
-                order: orderObj
-            });
-            if (result2.length > 20){
-                retVal.loadMore = true;
-                result2.pop();
-            } else {
-                retVal.loadMore = false;
-            }
-            retVal.addarr = result2.map(val=>{return {
-                id: Number(val.file_serial),
-                isFolder: val.type === 'dir',
-                text: val.file_name,
-                date: val.last_modified,
-                timestamp: val.last_renamed,
-                origPath: val.parent_path,
-                dateDeleted: val.last_renamed,
-            };});
-        });
-        } catch (err) {
-            if (err.message !== 'rollback_') {throw err;}
-        } 
-        return retVal;
-    }
-
-    async loadFriendMore(userSer: number, lastFriend: number, sort: SortModeDto){
-        let crit: string[];
-        if (sort.criteria === 'colName'){
-            crit = ['nickname', 'user_serial_from', 'user_serial_to'];
-        } else if (sort.criteria === 'colAdded'){
-            crit = ['date_added', 'user_serial_from', 'user_serial_to'];
-        } else {throw new BadRequestException();}
-        let retVal = new FriendMoreDto();
-        retVal.addarr = [];
-        retVal.loadMore = true;
-        try{
-        await this.dataSource.transaction(async manager=>{
-            let whereObj: FindOptionsWhere<Efriend_mul> = {
-                user_serial_to: userSer,
-            };
-            let wherearr: FindOptionsWhere<Efriend_mul>[] = [];
-            if (lastFriend !== 0){
-                let result = await manager.find(Efriend_mul, {
-                    where: {
-                        user_serial_to: userSer,
-                        user_serial_from: lastFriend,
-                    }
-                });
-                if (result.length <= 0){
-                    retVal.needRefresh = true;
-                    throw new Error('rollback');
-                }
-                let lenTmp = crit.length;
-                for (let i = 0; i < lenTmp; i++){
-                    wherearr.push({...whereObj});
-                    let j = 0;
-                    for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i][crit[j]] = result[0][crit[j]];
-                    }
-                    wherearr[i][crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
-                }
-            } else {
-                wherearr = [whereObj];
-            }
-            let orderObj = {};
-            for (const itm of crit){
-                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
-            }
-            let result2 = await manager.find(Efriend_mul, {
-                where: wherearr,
-                take: 21,
-                order: orderObj
-            });
-            if (result2.length > 20){
-                retVal.loadMore = true;
-                result2.pop();
-            } else {
-                retVal.loadMore = false;
-            }
-            retVal.addarr = result2.map(val=>{return {
-                link: '/friends/' + val.user_serial_from,
-                profileimg: '/graphics/profimg?id=' + val.user_serial_from,
-                nickname: val.nickname,
-                name: '',
-                userid: '',
-                sharedFiles: '',
-                id: val.user_serial_from,
-            };});
-        });
-        } catch (err) {
-            if (err.message !== 'rollback') {throw err;}
-        }
-        await this.loadFriendMore_fillInfo(retVal.addarr);
-        return retVal;
-    }
-
-    private async loadFriendMore_fillInfo(lst: FilesArrResDto['arrFriend']){
-        let mapArr = new Map(lst.map(val=>[val.id, val]));
-        let arrSerial = lst.map(val=>val.id);
-        if (lst.length <= 0){
-            return;
-        }
-        await this.mysqlService.doQuery('files service friendload fillinfo', async (conn)=>{
-            let [result] = await conn.query<RowDataPacket[]>(
-                `select user_serial, name, user_id from user where user_serial in (?)`, [arrSerial]
-            );
-            for (const val of result){
-                let itm = mapArr.get(val.user_serial);
-                if (itm === undefined){continue;}
-                itm.name = val.name;
-                itm.userid = val.user_id;
-                if (itm.nickname === ''){
-                    itm.nickname = val.name;
-                }
-            }
-            [result] = await conn.query<RowDataPacket[]>(
-                `select user_serial_from, file_name from shared_def where user_serial_from in (?)`, [arrSerial]
-            );
-            for (const val of result){
-                let itm = mapArr.get(val.user_serial_from);
-                if (itm === undefined){continue;}
-                itm.sharedFiles += val.file_name;
-                itm.sharedFiles += ', ';
-            }
-            for (const [_, val] of mapArr){
-                val.sharedFiles = val.sharedFiles.slice(0, -2);
-            }
-        });
-
-    }
-
-    async resolveLoadmore(userSer: number, lst: FileIdentReqDto[], lastfile: number, timestamp: Date, sort: SortModeDto,
-        context: 'files'|'bookmarks'|'recycle'|'shared', dirOrFriend?: number, dirDate?: Date
-    ){
-        if (lst.at(-1)?.id === -1 || lst.at(-1)?.id === 0){
-            lst.pop();
-        } else {
-            return;
-        }
-        let ret = new FilesMoreDto();
-        ret.addarr = [{id: lastfile, timestamp: timestamp, date: new Date(), isFolder: true, text: ''}];
-        ret.loadMore = true;
-        while (ret.loadMore) {
-            const lastitm = ret.addarr.at(-1);
-            if (!lastitm){
-                break;
-            }
-            if (context === 'bookmarks'){
-                ret =  await this.loadBookmarkMore(userSer, lastitm.id, lastitm.timestamp, sort);
-            } else if (context === 'files' && dirOrFriend){
-                if (dirDate === undefined){
-                    throw new InternalServerErrorException();
-                }
-                ret = await this.loadFileMore(userSer, dirOrFriend, dirDate, lastitm.id, lastitm.timestamp, sort);
-            } else if (context === 'recycle'){
-                ret = await this.loadRecycleMore(userSer, lastitm.id, lastitm.timestamp, sort);
-            } else if (context === 'shared'){
-                ret = await this.loadSharedMore(userSer, lastitm.id, lastitm.timestamp, sort, dirOrFriend);
-            } else {throw new BadRequestException();}
-    
-            lst.push(...ret.addarr.map(val=>{return {id: val.id, timestamp: new Date(val.timestamp)}}));
-        }
-    }
-
-    async resolveFriendLoadmore(userSer: number, lst: number[], lastfriend: number, sort: SortModeDto){
-        if (lst.at(-1) === 0){
-            lst.pop();
-        } else {
-            return;
-        }
-        let ret = await this.loadFriendMore(userSer, lastfriend, sort);
-        lst = lst.concat(ret.addarr.map(val=>val.id));
-    }
-
-    async resolveBefore<T extends {id: number, before?: FileIdentResDto}>(
-        conn: Connection, userSer: number, sort: SortModeDto, files_: readonly T[],
-        mode: 'files'|'profile', parent?: number, friend?: number
-    ){
-        if (files_.length <= 0){
-            return files_.slice();
-        }
-        let mapRes = new Map<number, FileIdentResDto>();
-        let files = files_.slice();
-        let filearr = files.map(val=>val.id);
-            if (mode === 'files' && parent === undefined){throw new BadRequestException();}
-            if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
-            let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
-            orderby += `${this.translateColumnBase(sort.criteria, 'files').join(' ' + (sort.incr ? 'asc' : 'desc') + ', ')} ${sort.incr ? 'asc' : 'desc'}`;
-            let source: string;
-            let arrParam: Array<number|string|Date|number[]>;
-            if (mode === 'files'){
-                source = `from file where user_serial=? and parent_serial=? `;
-                arrParam = [userSer, parent!, filearr];
-            } else if (mode === 'profile'){
-                source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
-                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
-                source += `inner join file using (file_serial)`;
-                arrParam = [userSer, friend!, friend!, userSer, filearr]
-            } else {throw new BadRequestException();}
-            let str1 = `select lead(file_serial, 1, -2) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
-            str1 += source;
-            str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
-            str1 += 'for share';
-            let [result] = await conn.query<RowDataPacket[]>(
-                str1, arrParam
-            );
-            for (let i = 0; i < result.length; i++){
-                mapRes.set(result[i].file_serial, {id: Number(result[i].pserial), timestamp: result[i].ptime});
-            }
-        for (let i = 0; i < files.length; i++){
-            files[i].before = mapRes.get(files[i].id);
-        }
-        return files;
-    }
-
-    async replaceNames(userSer: number, lst: FilesArrResDto['arr']){
-        let arrnames = new Set([-1]);
-        for (const val of lst.map(val=>val.shared)){
-            if (val === undefined){continue;}// as all of the shared will actually be undefined.
-            for (let itm of val.split(',')){
-                if (itm === ''){continue;}
-                arrnames.add(Number(itm));
-            }
-        }
-        for (const val of lst.map(val=>val.ownerName)){
-            if (val === undefined){continue;}// as all of the shared will actually be undefined.
-            if (val === ''){continue;}
-            arrnames.add(Number(val));
-        }
-        if (arrnames.size <= 0){
-            return;
-        }
-        let result: RowDataPacket[] = [];
-        await this.mysqlService.doQuery('files service replaceNames', async (conn)=>{
-            let str1 = `select user_serial, ifnull(nickname, name) as nickname, name from user left join friend_mono `;
-            str1 += `on user.user_serial=friend_mono.user_serial_from and friend_mono.user_serial_to=? `;
-            str1 += `where user_serial in (?)`;
-            [result] = await conn.query<RowDataPacket[]>(
-                str1, [userSer, Array.from(arrnames)]
-            );
-        });
-        let mapnames = new Map<number, string>(result.map(val=>[val.user_serial, val.nickname === '' ? val.name : val.nickname]));
-        mapnames.set(userSer, '나');
-        for (let i = 0; i < lst.length; i++){
-            if (lst[i].shared !== undefined){
-                lst[i].shared = lst[i].shared!.split(',').map(val=>mapnames.get(Number(val))).join(', ');
-            }
-            if (lst[i].ownerName !== undefined){
-                lst[i].ownerName = mapnames.get(Number(lst[i].ownerName!));
-            }
-        }
-    }
-
-    async resolveSharedNames(lst: FilesArrResDto['arr'], conn?: Connection, lock?: boolean): Promise<void> {
-        if (lst.length <= 0){
-            return;
-        }
-        let str1 = `select file_serial, user_serial_to as id `;
-        str1 += `from shared_def where file_serial in (?) `;
-        let result: RowDataPacket[] = [];
-        if (conn === undefined){
-            conn = await this.mysqlService.getSQL();
-        } else if (lock) {
-            str1 += 'for share';
-        }
-        [result] = await conn.query<RowDataPacket[]>(
-            str1, [lst.map(val=>val.id)]
-        );
-        let mapFile = new Map(lst.map(val=>[val.id, val]));
-        for (const itm of result){
-            let obj = mapFile.get(itm.file_serial);
-            if (obj === undefined){this.logger.error('resolveSharedNames: object not found for '+itm.file_serial);continue;}
-            obj.shared += (itm.id + ',');
-        }
-        for (const itm of lst){
-            itm.shared = itm.shared!.slice(0, -1);
-        }
-    }
     
     private async deleteFiles_validity(
         conn: PoolConnection, userSer: number, arr_: readonly FileIdentReqDto[]
@@ -1113,7 +123,7 @@ export class FilesService {
 
     private async deleteFiles_remove(conn: PoolConnection, userSer: number): Promise<void> {
         // remove parent dependency before deleting
-        const recDir = await this.getUserRoot(userSer, 'recycle');
+        const recDir = await this.fileUtilsService.getUserRoot(userSer, 'recycle');
         let str1 = `update file set parent_serial=?, file_name=file_serial where user_serial=? and to_delete<>'na' and issys='false'`;
         await conn.execute(str1, [recDir, userSer]);
         str1 = `delete from file `;
@@ -1138,7 +148,7 @@ export class FilesService {
             result = await this.deleteFiles_recurse(conn, userSer, result);
         }
         await this.deleteFiles_removeShares(conn, userSer);
-        const { path } = await this.getDirInfo(conn, userSer, from);
+        const { path } = await this.fileUtilsService.getDirInfo(conn, userSer, from);
         if (path.length > 255 && rb !== 'force'){ // too long and not force
             rb.rback = true;
             let retVal = new FileDelResDto();
@@ -1300,7 +310,7 @@ export class FilesService {
         for (let i = 0; i < result.length; i++){
             if (curPath !== result[i].parent_path){
                 curPath = result[i].parent_path;
-                dirid = await this.makePath(conn, userSer, curPath);
+                dirid = await this.fileUtilsService.makePath(conn, userSer, curPath);
             }
             let newname = result[i].file_name;
             let toolong = false;
@@ -1353,7 +363,7 @@ export class FilesService {
     // important!
     // mark shouldn't be used by restore mechanism. it is used by sharecopy.
     private async restoreFiles_moveFile(conn: PoolConnection, userSer: number): Promise<void> {
-        const recDir = await this.getUserRoot(userSer, 'recycle');
+        const recDir = await this.fileUtilsService.getUserRoot(userSer, 'recycle');
         await conn.execute(`delete from file where user_serial=? and parent_serial=?`, [userSer, recDir]);
         let str1 = `insert into file (user_serial, parent_serial, type, file_name, file_serial, last_modified) `;
         // set parent_serial and file_name as temporary to prevent foreign key failures
@@ -1514,7 +524,7 @@ export class FilesService {
         let [result] = await conn.query<RowDataPacket[]>(
             `select file_serial, copy_origin from recycle where user_serial in (?) and mark='true' for share`, [friends_]
         );
-        await this.copyMongo(result.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
+        await this.fileUtilsService.copyMongo(result.map(val=>{return {id: val.file_serial, origin: val.copy_origin};}));
         const savedfiles = await this.shareCopy_restore(conn, userSer, files_, friends_);
         await this.shareCopy_notify(conn, userSer, savedfiles, friends_, message);
         return retVal;
@@ -1575,8 +585,8 @@ export class FilesService {
                 urlArr: [['폴더 열기', '/files/shared'], ['파일 열기', '/edit?id=' + itm.file_serial]]});
         }
         await conn.execute(`update shared_def set mark='false' where user_serial_from=? and mark='true'`, [userSer]);
-        await this.resolveSharedNames(retVal.addarr, conn, true);
-        await this.replaceNames(userSer, retVal.addarr);
+        await this.fileResoultionService.resolveSharedNames(retVal.addarr, conn, true);
+        await this.fileResoultionService.replaceNames(userSer, retVal.addarr);
         if (arrNof.length > 0){
             await this.mongoService.getDb().collection('notification').insertMany(arrNof);
         }
@@ -1747,7 +757,7 @@ export class FilesService {
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
         retVal.addarr = [];
-        if (!await this.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
+        if (!await this.fileUtilsService.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
             throw new BadRequestException();
         }
         let [result2] = await conn.execute<RowDataPacket[]>(
@@ -1781,7 +791,7 @@ export class FilesService {
             ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
         }]
-        await this.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
+        await this.fileResoultionService.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
         const arrDocs: FiledatColDto[] = [];
         for (const itm of retVal.addarr){
             const dirpath = join(__dirname, `../../filesys/${itm.id}`);
@@ -1798,7 +808,7 @@ export class FilesService {
         if (name.length > 40) {throw new BadRequestException();}
         let retVal = new FileMoveResDto();
         retVal.addarr = [];
-        if(!await this.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
+        if(!await this.fileUtilsService.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
             throw new BadRequestException();
         }
         let [result2] = await conn.execute<RowDataPacket[]>(
@@ -1832,7 +842,7 @@ export class FilesService {
             ownerImg: '/graphics/profimg',
             timestamp: result2[0].last_renamed.toISOString()
         }];
-        await this.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
+        await this.fileResoultionService.resolveBefore(conn, userSer, sort, retVal.addarr, 'files', parent);
         return retVal;
     }
 
@@ -1842,7 +852,7 @@ export class FilesService {
         let retVal = new FileMoveResDto();
         retVal.addarr = [];
         retVal.delarr = [];
-        if (!await this.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
+        if (!await this.fileUtilsService.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
             throw new BadRequestException();
         }
         // validate timestamp and get file type
@@ -1891,7 +901,7 @@ export class FilesService {
             ownerImg: '/graphics/profimg',
             timestamp: result[0].last_renamed,
         });
-        await this.replaceNames(userSer, retVal.addarr);
+        await this.fileResoultionService.replaceNames(userSer, retVal.addarr);
         return retVal;
     }
 
@@ -1971,7 +981,7 @@ export class FilesService {
             // remove file data
             await fileCol.deleteMany({user_serial: userSer});
             // remove all files
-            const root = await this.getUserRoot(userSer, 'files');
+            const root = await this.fileUtilsService.getUserRoot(userSer, 'files');
             await conn.execute(
                 `update file set parent_serial=if(parent_serial=1,1,?), file_name=file_serial where user_serial=?`,
                 [root, userSer]

@@ -10,13 +10,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MongoService } from './mongo/mongo.service';
 import { WithId } from 'mongodb';
+import { FileUtilsService } from './files/file-utils.service';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService,
     private readonly mysqlService: MysqlService,
     private readonly mongoService: MongoService,
-    private readonly filesService: FilesService,
+    private readonly fileUtilsService: FileUtilsService,
   ) {}
 
   @AuthDec('anony-only')
@@ -55,7 +56,7 @@ export class AppController {
 
     let path = '공유된 파일';
     if (eligible[0].share_type === 'owner'){
-      ({path} = await this.filesService.getDirInfo(pool, userSer, fileid));
+      ({path} = await this.fileUtilsService.getDirInfo(pool, userSer, fileid));
     }
 
     let def;
