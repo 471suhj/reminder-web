@@ -198,7 +198,7 @@ export class FilesController {
     }
 
     @Post('manage')
-    async postManage(@User() userSer: number, @Req() req: Request): Promise<FileMoveResDto> {
+    async postManage(@User() userSer: number, @Req() req: Request, @Query('dirid', ParseIntPipe) dirid: number): Promise<FileMoveResDto> {
         let reqOrigin = req.headers['sec-fetch-site'];
         if (reqOrigin !== 'same-origin' && reqOrigin !== 'same-site'){
             throw new BadRequestException();
@@ -206,7 +206,9 @@ export class FilesController {
 
         let retVal = new FileMoveResDto();
         const dir = await this.fileUtilsService.getUserRoot(userSer, 'upload_tmp');
-        const root = await this.fileUtilsService.getUserRoot(userSer, 'files');
+        if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, dirid, 'dir', 'fileonly', false)){
+            throw new BadRequestException('해당 폴더에 접근할 수 없었습니다.');
+        }
         const subt = '(user_serial, parent_serial, type, file_name)';
         let closeReturned = false;
         let streamDone = true;
@@ -242,7 +244,9 @@ export class FilesController {
                             times++;
                             if (times < 4){
                                 retry = true;
+                                await conn.query('rollback');
                                 await new Promise(resolve=>setTimeout(resolve, 1000));
+                                await conn.query('start transaction');
                             } else {
                                 throw err;
                             }
@@ -257,7 +261,7 @@ export class FilesController {
                 await this.fileUtilsService.uploadMongo(res[0].file_serial, fstream, userSer);
                 // one transaction
                 let {failed} = await this.putMove(userSer, {action: 'move', files: [{id: res[0].file_serial, timestamp: res[0].last_renamed}],
-                    from: dir, to: root, last: {id: -1, timestamp: new Date()}, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
+                    from: dir, to: dirid, last: {id: -1, timestamp: new Date()}, sort: {criteria: 'colName', incr: true}, ignoreTimestamp: true, timestamp: new Date(), overwrite: 'buttonrename'});
                 // another transaction
                 await this.mysqlService.doTransaction('files controller post manage2', async conn=>{
                     if (failed.length <= 0){

@@ -132,7 +132,7 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 			for (const itm of ctlFile.files){
 				dat.append('file' + (cnt++), itm);
 			}
-            await doFetch('./manage?id=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async (result)=>{
+            await doFetch('./manage?dirid=' + lblTitle.dataset.id, 'POST', dat, '', '파일 업로드를 실패했습니다.', async (result)=>{
 				fncClearPopup(divPopup);
                 const jsnRes = await result.json();
                 return await fncInsertFile(jsnRes, false, '업로드를 완료했습니다.', '업로드에 실패한 파일이 있습니다.');

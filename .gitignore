@@ -29,6 +29,7 @@ lerna-debug.log*
 /.nyc_output
 
 # IDEs and editors
+~*.pptx
 /.idea
 .project
 .classpath
