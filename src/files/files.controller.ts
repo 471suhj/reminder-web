@@ -106,12 +106,12 @@ export class FilesController {
 
     @Delete('recycle')
     async delRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        if (body.action !== 'permdel'){throw new BadRequestException();}
         if (body.files.length <= 0){
             return {delarr: [], failed: []};
         }
         await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
-        if (body.action !== 'permdel'){throw new BadRequestException();}
         let resDelArr: RowDataPacket[] = [];
         let resDelFiles: RowDataPacket[] = [];
         await this.mysqlService.doTransaction('files controller permdelete', async (conn)=>{
@@ -153,10 +153,10 @@ export class FilesController {
 
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
     async putRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
+        if (body.action !== 'restore'){throw new BadRequestException();}
         await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
             body.sort, 'recycle');
         let arr: FileIdentReqDto[], arrFail: FileIdentReqDto[], clash_toolong: boolean, namechange: boolean;
-        if (body.action !== 'restore'){throw new BadRequestException();}
         await this.mysqlService.doTransaction('files controller put recycle', async (conn)=>{
             ({arr, arrFail, clash_toolong, namechange} = await this.filesService.restoreFiles(conn, userSer, body.files));
             
@@ -295,7 +295,6 @@ export class FilesController {
     async delManage(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
         switch (body.action){
-            case 'permdel': case 'restore': strMode = 'recycle'; break;
             case 'selected': strMode = 'files'; break;
             case 'unshare': strMode = 'shared'; break;
             case 'bookmark': strMode = 'bookmarks'; break;
@@ -316,15 +315,17 @@ export class FilesController {
                     retVal = await this.filesService.deleteFiles(conn, userSer, body.files, body.from, rb);
                     return;
                 case 'restore':
-                    throw new BadRequestException(); // handled in put(recycle)
+                    throw new BadRequestException('지원되지 않는 명령입니다. PUT(recycle)을 이용하십시오.'); // handled in put(recycle)
                 case 'permdel':
-                    throw new BadRequestException(); // handled in delete(recycle)
+                    throw new BadRequestException('지원되지 않는 명령입니다. DELETE(recycle)을 이용하십시오.'); // handled in delete(recycle)
                 case 'bookmark':
                     retVal = await this.filesService.removeBookmark(conn, userSer, body.files);
                     return;
                 case 'unshare':
                     retVal = await this.filesService.removeShare(conn, userSer, body.files, body.message ?? '', body.from);
                     return;
+                default:
+                    throw new BadRequestException('지원되지 않는 명령입니다.');
             }
         });
         return retVal;

@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { readFileSync } from 'fs';
 import cookieParser from 'cookie-parser';
 import { headerMiddleware } from './header/header.middleware';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
 
@@ -23,6 +24,14 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(headerMiddleware);
   //app.useGlobalGuards(new AuthGuard());
+
+  const config = new DocumentBuilder()
+    .setTitle('ComphyCat Reminder Online')
+    .setDescription('API Specifications for ComphyCat Reminder Online')
+    .setVersion('1.0')
+    .build();
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, documentFactory);
 
   await app.listen(process.env.PORT ?? 3000);
 }
