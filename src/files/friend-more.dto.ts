@@ -1,8 +1,19 @@
-import { FilesArrResDto } from "./files-arr-res.dto";
+import { ApiProperty } from "@nestjs/swagger";
+import { UserInsertResDto } from "./user-insert-res.dto";
 
 export class FriendMoreDto {
-    addarr: FilesArrResDto['arrFriend'];
+
+    @ApiProperty({
+        type: [UserInsertResDto]
+    })
+    addarr: UserInsertResDto[];
+
+    @ApiProperty()
     loadMore: boolean;
+
+    @ApiProperty()
     needRefresh: boolean;
-    needReload: boolean; // unused
+
+    @ApiProperty()
+    needReload: boolean;
 }

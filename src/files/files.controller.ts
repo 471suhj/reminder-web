@@ -1,10 +1,10 @@
 import { Controller, Get, Render, Query, Param, BadRequestException, ParseIntPipe, ParseBoolPipe, ParseDatePipe, Post, Body, Put, Delete, Logger, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, Redirect, Req } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { User } from 'src/user/user.decorator';
-import { FilesGetResDto } from './files-get-res.dto';
+import { FileGetResDto } from './file-get-res.dto';
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { FilesService } from './files.service';
-import { FilesMoreDto } from './files-more.dto';
+import { FileMoreDto } from './file-more.dto';
 import { FileUpdateDto } from './file-update.dto';
 import { FileDeleteDto } from './file-delete.dto';
 import { FileShareDto } from './file-share.dto';
@@ -25,7 +25,9 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { FileResolutionService } from './file-resolution.service';
 import { FileUtilsService } from './file-utils.service';
+import { ApiAcceptedResponse, ApiCreatedResponse, ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
 
+@ApiExtraModels(FileMoreDto, FriendMoreDto)
 @Controller('files')
 export class FilesController {
     constructor(
@@ -40,7 +42,7 @@ export class FilesController {
 
     @Get()
     @Render('files/files')
-    async getFiles(@User() userSer: number, @Query('dirid', new ParseIntPipe({optional: true})) dirid: number|undefined): Promise<FilesGetResDto> {
+    async getFiles(@User() userSer: number, @Query('dirid', new ParseIntPipe({optional: true})) dirid: number|undefined): Promise<FileGetResDto> {
         if (dirid === undefined){
             dirid = await this.fileUtilsService.getUserRoot(userSer, 'files');
         }
@@ -53,10 +55,11 @@ export class FilesController {
 
     @Get('inbox')
     @Render('files/files')
-    async getInbox(@User() userSer: number): Promise<FilesGetResDto> {
+    async getInbox(@User() userSer: number): Promise<FileGetResDto> {
         return await this.fileResolutionService.renderFilesPage(userSer, await this.fileUtilsService.getUserRoot(userSer, 'inbox'))
     }
 
+    @ApiOkResponse({schema: {oneOf: [{$ref: getSchemaPath(FileMoreDto)}, {$ref: getSchemaPath(FriendMoreDto)}]}})
     @Get('loadmore') // files, shared, bookmarks, inbox, recycle
     async getLoadmore(
         @User() userSer: number,
@@ -67,7 +70,7 @@ export class FilesController {
         @Query('lastrenamed', new ParseDatePipe()) lastrenamed: Date,
         @Query('sortincr', ParseBoolPipe) sortincr: boolean,
         @Query('mode') mode: string // files, profile, shared, friends, bookmarks, recycle
-    ): Promise<FilesMoreDto|FriendMoreDto>{
+    ): Promise<FileMoreDto|FriendMoreDto>{
         switch (mode){
             case 'files':
                 return await this.fileResolutionService.loadFileMore(userSer, dirId, lastrenamed, startAfter, timestamp, {criteria: sort, incr: sortincr});
@@ -88,22 +91,23 @@ export class FilesController {
     
     @Get('bookmarks')
     @Render('files/bookmarks')
-    async getBookmarks(@User() userSer: number): Promise<FilesGetResDto> {
+    async getBookmarks(@User() userSer: number): Promise<FileGetResDto> {
         return await this.fileResolutionService.renderSharedPage(userSer, 'bookmarks');
     }
 
     @Get('shared')
     @Render('files/shared')
-    async getShared(@User() userSer: number): Promise<FilesGetResDto>{
+    async getShared(@User() userSer: number): Promise<FileGetResDto>{
         return await this.fileResolutionService.renderSharedPage(userSer, 'shared');
     }
 
     @Get('recycle')
     @Render('files/recycle')
-    async getRecycle(@User() userSer: number): Promise<FilesGetResDto>{
+    async getRecycle(@User() userSer: number): Promise<FileGetResDto>{
         return await this.fileResolutionService.renderSharedPage(userSer, 'recycle');
     }
 
+    @ApiOkResponse({type: FileDelResDto})
     @Delete('recycle')
     async delRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'permdel'){throw new BadRequestException();}
@@ -151,6 +155,7 @@ export class FilesController {
         return retVal;
     }
 
+    @ApiOkResponse({type: FileDelResDto})
     @Put('recycle') // unlike other places, shouldn't abort process when alreadyexists is set
     async putRecycle(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'restore'){throw new BadRequestException();}
@@ -170,6 +175,7 @@ export class FilesController {
     }
 
     // rename, create directory, create files from files
+    @ApiOkResponse({type: FileMoveResDto})
     @Put('manage') // 'before's in FilesArrResDto are not ignored.
     async putManage(@User() userSer: number, @Body() body: FileUpdateDto): Promise<FileMoveResDto>{
         // share: file only! no folders!!
@@ -197,13 +203,9 @@ export class FilesController {
         return retVal!;
     }
 
+    @ApiCreatedResponse({type: FileMoveResDto})
     @Post('manage')
     async postManage(@User() userSer: number, @Req() req: Request, @Query('dirid', ParseIntPipe) dirid: number): Promise<FileMoveResDto> {
-        let reqOrigin = req.headers['sec-fetch-site'];
-        if (reqOrigin !== 'same-origin' && reqOrigin !== 'same-site'){
-            throw new BadRequestException();
-        }
-
         let retVal = new FileMoveResDto();
         const dir = await this.fileUtilsService.getUserRoot(userSer, 'upload_tmp');
         if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, dirid, 'dir', 'fileonly', false)){
@@ -295,6 +297,7 @@ export class FilesController {
     }
 
     // delete from files, bookmarks and shared
+    @ApiOkResponse({type: FileDelResDto})
     @Delete(['manage', 'bookmark']) // do not delete system dirs
     async delManage(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         let strMode: 'files' | 'bookmarks' | 'recycle' | 'shared';
@@ -335,6 +338,7 @@ export class FilesController {
         return retVal;
     }
 
+    @ApiOkResponse({type: FileDelResDto})
     @Put('bookmark')
     async putBookmark(@User() userSer: number, @Body() body: FileDeleteDto): Promise<FileDelResDto>{
         if (body.action !== 'bookmark'){throw new BadRequestException();}
@@ -347,6 +351,7 @@ export class FilesController {
 
     // sharing from files or profile
     // addarr is prepared with the assumption that the window is profile.
+    @ApiOkResponse({type: FileShareResDto})
     @Put('share')
     async putShare(@User() userSer: number, @Body() body: FileShareDto): Promise<FileShareResDto>{
         if (body.friends.length <= 0){
@@ -405,6 +410,7 @@ export class FilesController {
     }
 
     // copy and move from files
+    @ApiOkResponse({type: FileMoveResDto})
     @Put('move') // copy_origin eventually marks only copied 'files'
     async putMove(@User() userSer: number, @Body() body: FileMoveDto): Promise<FileMoveResDto>{
         await this.fileResolutionService.resolveLoadmore(userSer, body.files, body.last.id, body.last.timestamp,
@@ -566,6 +572,7 @@ export class FilesController {
         return retVal;
     }
 
+    @ApiOkResponse({type: 'object', example: {success: false, failmessage: 'failed due to this.'}})
     @Put('inbox-save')
     async putInbox(@User() userSer: number, @Body() body: InboxSaveDto): Promise<{success: boolean, failmessage?: string}>{
         let retVal = {success: true};
@@ -585,6 +592,7 @@ export class FilesController {
     }
 
     // get list for dialogs
+    @ApiOkResponse({type: FileListResDto})
     @Get('list')
     async getList(
         @User() userSer: number,

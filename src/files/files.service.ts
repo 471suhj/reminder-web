@@ -3,7 +3,6 @@ import { MysqlService } from 'src/mysql/mysql.service';
 import { RowDataPacket, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { FileDelResDto } from './file-del-res.dto';
 import { FileIdentReqDto } from './file-ident-req.dto';
-import { FilesArrResDto } from './files-arr-res.dto';
 import { FileShareResDto } from './file-share-res.dto';
 import { FileMoveResDto } from './file-move-res.dto';
 import { SortModeDto } from './sort-mode.dto';
@@ -17,6 +16,7 @@ import { join } from 'node:path';
 import { UnshareNotifDto } from 'src/home/unshare-notif.dto';
 import { FileUtilsService } from './file-utils.service';
 import { FileResolutionService } from './file-resolution.service';
+import { FileInsertResDto } from './file-insert-res.dto';
 
 @Injectable()
 export class FilesService {
@@ -192,12 +192,12 @@ export class FilesService {
     // deals with both move and copy. use 'del' parameter
     async moveFiles_rename(
         conn: PoolConnection, userSer: number, del: boolean, from: number, to: number, arr_: readonly {file_serial: number, file_name: string, type: string, timestamp: Date, modif: Date}[]
-    ): Promise<{arrFail: [number, Date][], addarr: FilesArrResDto['arr'], delarr: {id: number, timestamp: string|Date}[]}> {
+    ): Promise<{arrFail: [number, Date][], addarr: FileInsertResDto[], delarr: {id: number, timestamp: string|Date}[]}> {
         if (arr_.length <= 0){
             return {arrFail: [], addarr: [], delarr: []};
         }
         const arrFail: [number, Date][] = [];
-        const addarr: FilesArrResDto['arr'] = [];
+        const addarr: FileInsertResDto[] = [];
         const delarr: {id: number, timestamp: Date}[] = [];
         for (let i = 0; i < arr_.length; i++) {
             let newname = arr_[i].file_name;

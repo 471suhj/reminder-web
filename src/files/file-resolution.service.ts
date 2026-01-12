@@ -3,11 +3,11 @@ import { MysqlService } from "src/mysql/mysql.service";
 import { FilesService } from "./files.service";
 import { BadRequestException, forwardRef, Inject, InternalServerErrorException, Logger } from "@nestjs/common";
 import { FileUtilsService } from "./file-utils.service";
-import { FilesGetResDto } from "./files-get-res.dto";
+import { FileGetResDto } from "./file-get-res.dto";
 import { SysdirType } from "./sysdir.type";
 import { PrefsService } from "src/prefs/prefs.service";
 import { SortModeDto } from "./sort-mode.dto";
-import { FilesMoreDto } from "./files-more.dto";
+import { FileMoreDto } from "./file-more.dto";
 import { Efile } from "src/mysql/file.entity";
 import { DataSource, FindOptionsOrder, FindOptionsWhere, LessThan, MoreThan } from "typeorm";
 import { Ebookmark } from "src/mysql/bookmark.entity";
@@ -16,10 +16,11 @@ import { Erecycle } from "src/mysql/recycle.entity";
 import { FriendMoreDto } from "./friend-more.dto";
 import { Efriend_mul } from "src/mysql/friend_mul.entity";
 import { RowDataPacket } from "mysql2";
-import { FilesArrResDto } from "./files-arr-res.dto";
 import { FileIdentReqDto } from "./file-ident-req.dto";
 import { FileIdentResDto } from "./file-ident-res.dto";
 import { Connection } from "mysql2/promise";
+import { UserInsertResDto } from "./user-insert-res.dto";
+import { FileInsertResDto } from "./file-insert-res.dto";
 
 export class FileResolutionService {
 
@@ -33,8 +34,8 @@ export class FileResolutionService {
 
     private readonly logger = new Logger(FileResolutionService.name);
 
-    async renderFilesPage(userSer: number, dirid: number): Promise<FilesGetResDto>{
-        let retObj: FilesGetResDto = new FilesGetResDto();
+    async renderFilesPage(userSer: number, dirid: number): Promise<FileGetResDto>{
+        let retObj: FileGetResDto = new FileGetResDto();
         // includes user verification
         const {path, pathHtml, parentId, dirName, lastRenamed, issys} = await this.fileUtilsService.getDirInfo(await this.mysqlService.getSQL(), userSer, dirid);
         retObj.countItem = 'false';
@@ -48,11 +49,11 @@ export class FileResolutionService {
         return retObj;
     }
 
-    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FilesGetResDto>{
+    async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FileGetResDto>{
         if (!SysdirType.arr.includes(dirType)){
             throw new BadRequestException('요청된 폴더 종류는 시스템 폴더가 아닙니다.');
         }
-        let retObj: FilesGetResDto = new FilesGetResDto();
+        let retObj: FileGetResDto = new FileGetResDto();
         const dirid = await this.fileUtilsService.getUserRoot(userSer, dirType);
 
         retObj.countItem = 'false';
@@ -69,7 +70,7 @@ export class FileResolutionService {
 
     async loadFileMore(userSer: number, dir: number, dirDate: Date, lastFile: number, lastTime: Date, sort: SortModeDto){
         let crit = ['type', ...this.fileUtilsService.translateColumnBase(sort.criteria, 'files')];
-        let retVal = new FilesMoreDto();
+        let retVal = new FileMoreDto();
         retVal.loadMore = true;
         try{
         await this.dataSource.transaction(async manager=>{
@@ -160,7 +161,7 @@ export class FileResolutionService {
     // create a view for this!
     async loadBookmarkMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
         let crit = ['type', ...this.fileUtilsService.translateColumnBase(sort.criteria, 'bookmarks')];
-        let retVal = new FilesMoreDto();
+        let retVal = new FileMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
@@ -240,7 +241,7 @@ export class FileResolutionService {
 
     async loadSharedMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto, friend?: number){
         let crit = ['type', ...this.fileUtilsService.translateColumnBase(sort.criteria, 'shared')];
-        let retVal = new FilesMoreDto();
+        let retVal = new FileMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
@@ -330,7 +331,7 @@ export class FileResolutionService {
 
     async loadRecycleMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto){
         let crit = ['type', ...this.fileUtilsService.translateColumnBase(sort.criteria, 'recycle')];
-        let retVal = new FilesMoreDto();
+        let retVal = new FileMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
         try{
@@ -466,7 +467,7 @@ export class FileResolutionService {
         return retVal;
     }
 
-    private async loadFriendMore_fillInfo(lst: FilesArrResDto['arrFriend']){
+    private async loadFriendMore_fillInfo(lst: UserInsertResDto[]){
         let mapArr = new Map(lst.map(val=>[val.id, val]));
         let arrSerial = lst.map(val=>val.id);
         if (lst.length <= 0){
@@ -509,7 +510,7 @@ export class FileResolutionService {
         } else {
             return;
         }
-        let ret = new FilesMoreDto();
+        let ret = new FileMoreDto();
         ret.addarr = [{id: lastfile, timestamp: timestamp, date: new Date(), isFolder: true, text: ''}];
         ret.loadMore = true;
         while (ret.loadMore) {
@@ -585,7 +586,7 @@ export class FileResolutionService {
         return files;
     }
 
-    async replaceNames(userSer: number, lst: FilesArrResDto['arr']){
+    async replaceNames(userSer: number, lst: FileInsertResDto[]){
         let arrnames = new Set([-1]);
         for (const val of lst.map(val=>val.shared)){
             if (val === undefined){continue;}// as all of the shared will actually be undefined.
@@ -623,7 +624,7 @@ export class FileResolutionService {
         }
     }
 
-    async resolveSharedNames(lst: FilesArrResDto['arr'], conn?: Connection, lock?: boolean): Promise<void> {
+    async resolveSharedNames(lst: FileInsertResDto[], conn?: Connection, lock?: boolean): Promise<void> {
         if (lst.length <= 0){
             return;
         }

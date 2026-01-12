@@ -16,15 +16,7 @@ export class FileUpdateDto { // createdir: update current folder to have more ch
     action: 'rename'|'createDir'|'createFile';
 
     @ApiProperty({
-        type: 'object',
-        properties: {
-            criteria: {
-                type: 'string'
-            },
-            incr: {
-                type: 'boolean'
-            }
-        },
+        type: SortModeDto,
         description: '현재 파일 목록이 사용하고 있는 정렬 기준을 입력합니다. 폴더의 종류에 따라 입력할 수 있는 값에 차이가 있습니다. 파일 창의 경우 colName, colDate가 허용됩니다.\
         새롭게 추가되는, 또는 이름이 바뀐 파일이 어떤 위치에 추가되어 표시되어야 하는지를 이 정렬 기준을 바탕으로 파악하게 됩니다.'
     })
@@ -40,16 +32,7 @@ export class FileUpdateDto { // createdir: update current folder to have more ch
     id: number; // id of directory
 
     @ApiPropertyOptional({
-        type: 'object',
-        properties: {
-            id: {
-                type: 'number'
-            },
-            timestamp: {
-                type: 'string',
-                example: '2026-01-10T14:17:26.771Z'
-            }
-        },
+        type: FileIdentReqDto,
         description: '이름 바꾸기의 경우 필수 항목, 나머지 작업의 경우 무시됩니다. 이름을 바꾸려는 파일의 파일 번호 (file_serial), timestamp (last_renamed) 정보를 입력합니다.'
     })
     @IsOptional()

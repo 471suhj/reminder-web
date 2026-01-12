@@ -27,15 +27,7 @@ export class FileMoveDto {
     action: 'move'|'copy';
 
     @ApiProperty({
-        type: 'object',
-        properties: {
-            criteria: {
-                type: 'string'
-            },
-            incr: {
-                type: 'boolean'
-            }
-        },
+        type: SortModeDto,
         description: '현재 파일 목록이 사용하고 있는 정렬 기준을 입력합니다. 폴더의 종류에 따라 입력할 수 있는 값에 차이가 있습니다. 파일 창의 경우 colName, colDate가 허용됩니다.\
         이 정보는 일반적으로 두 가지 방법으로 이용됩니다.\n\n\
         우선 정렬 기준은 뒤의 last와 함께 resolveLoadmore()에 활용됩니다. 즉 아직 로드되지 않았지만 선택한 것으로 간주되는 파일 목록을 파악하는 것에 사용됩니다.\n\n\
@@ -47,19 +39,7 @@ export class FileMoveDto {
     sort: SortModeDto;
 
     @ApiProperty({
-        type: 'array',
-        items: {
-            type: 'object',
-            properties: {
-                id: {
-                    type: 'number'
-                },
-                timestamp: {
-                    type: 'string',
-                    example: '2026-01-10T14:17:26.771Z'
-                }
-            }
-        },
+        type: [FileIdentReqDto],
         description: '복사 또는 이동 작업이 이루어질 파일 목록을 입력합니다.'
     })
     @IsArray()
@@ -96,16 +76,7 @@ export class FileMoveDto {
     ignoreTimestamp?: boolean;
 
     @ApiProperty({
-        type: 'object',
-        properties: {
-            id: {
-                type: 'number'
-            },
-            timestamp: {
-                type: 'string',
-                example: '2026-01-10T14:17:26.771Z'
-            }
-        },
+        type: FileIdentReqDto,
         description: '파일 목록에서 마지막에 등장하는 파일의 id, timestamp (last_renamed)를 입력합니다. 이 정보는 resolveLoadmore()에 이용됩니다. \n\n\
         구체적으로는, 파일 창은 첫 20개의 파일만을 처음에 로드하므로, 파일 목록이 아직 모두 로드되지 않은 상태에서 모두 선택을 클릭하면 아직 로드되지 않은 파일 또한 모두 선택된 것으로 간주됩니다. \
         이 경우 로드된 마지막 파일, 즉 last를 바탕으로 files에 명시적으로 나열되지는 않았지만 선택된 것으로 간주되는 파일들의 목록을 파악하게 됩니다.'
