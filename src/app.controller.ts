@@ -112,6 +112,8 @@ export class AppController {
     } else if (addr.length > 320 || !addr.includes('@')) {
       return '잘못된 주소입니다.';
     }
+    addr = addr.normalize();
+    addr = addr.toLowerCase();
     let errOccurred = false;
     this.mysqlService.doTransaction('unsubscribe', async conn=>{
       try{
