@@ -195,102 +195,6 @@ export class FileUtilsService {
         }
     }
 
-    private async processFileStream(doc: FiledatColDto, arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle}, pth: string){
-        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
-        let newbuf = '';
-        let commit = async ()=>{
-            if (newbuf === ''){ // A: end phase. note that two consequent '' may arrive.
-                switch (tmpVar.phase){
-                    case '':
-                        break;
-                    case 'M':
-                        break;
-                    case 'P':
-                        let pairVal = tmpVar.buf.split('=');
-                        if (pairVal.length > 0){
-                            if (!availProp.includes(pairVal[0])){
-                                throw new BadRequestException();
-                            }
-                            doc.metadata[pairVal.shift()!] = pairVal.join('=');
-                        }
-                        break;
-                    case 'N':
-                        if (tmpVar.fh === null){
-                            throw new InternalServerErrorException();
-                        }
-                        await tmpVar.fh.appendFile(tmpVar.buf);
-                        await tmpVar.fh.close();
-                        tmpVar.fh = null;
-                        // push tmpVar.buf, then close the fs.
-                        break;
-                    default: 
-                        throw new BadRequestException();
-                }
-                tmpVar.phase = '';
-                tmpVar.buf = '';
-                return;
-            }
-            if (tmpVar.phase === ''){ // B: start a new phase (no pushing to the buf. step B includes step C.)
-                tmpVar.phase = newbuf.slice(0, 1);
-                newbuf = newbuf.slice(1);
-                tmpVar.buf = '';
-                switch (tmpVar.phase){
-                    case 'N':
-                        tmpVar.fh = await fs.open(join(pth, String(++(tmpVar.idx))), 'wx');
-                        doc.arrlen = tmpVar.idx;
-                        break;
-                }
-            }
-            // C: continue the phase
-            switch (tmpVar.phase){
-                case 'M':
-                    tmpVar.buf = '';
-                    break;
-                case 'P':
-                    tmpVar.buf += newbuf;
-                    if (tmpVar.buf.length > 100){
-                        throw new BadRequestException();
-                    }
-                    break;
-                case 'N':
-                    if (tmpVar.fh === null){
-                        throw new InternalServerErrorException();
-                    }
-                    await tmpVar.fh.appendFile(tmpVar.buf + newbuf);
-                    tmpVar.buf = '';
-                    break;
-                default: 
-                    throw new BadRequestException();
-            }
-        }
-        if (arr.length <= 0){ // empty array is passed only after all the contents are read
-            newbuf = '';
-            commit();
-            return;
-        }
-        for (let i = 0; i < arr.length; i++){
-            let str = arr[i];
-            // newbuf: fill the new content
-            // buf: store previous value if needed
-            // after each 'complete' value, send '' to mark an end
-            // consider 4 cases: ['...', '...&N...'], ['...', '...&A...'], ['...', '&A...'], ['...', '&N...']
-            // the other 2 cases are prevented in advance: ['...&', 'A...'], ['...&', 'N...']
-            if (str.slice(0, 1) === 'A'){
-                tmpVar.buf += '&';
-                tmpVar.buf += str.slice(1);
-            } else if (str === ''){ // to deal with: ['...', '&A...']
-                continue;
-            } else { // delete ''
-                if (i !== 0){
-                    newbuf = '';
-                    await commit();
-                }
-                newbuf = str;
-                await commit();
-            }
-        }
-    }
-
     async uploadMongo(fileSer: number, stream: Readable, userSer: number){
         const availVer = ['0.2', '0.3'];
         let buf = '';
@@ -300,47 +204,48 @@ export class FileUtilsService {
         let objDoc = new FiledatColDto();
         objDoc.serial = fileSer;
         objDoc.user_serial = userSer;
-        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null};
         const dirpath = join(__dirname, `../../filesys/${fileSer}`);
+        const tmpVar = {buf: '', phase: 'M', idx: 0, fh: null, doc: objDoc, pth: dirpath};
         await fs.mkdir(dirpath, {});
 
         let inspected = false;
+        stream.setEncoding('utf8');
         // make sure that no errors are thrown
         stream.on('readable', async ()=>{
             if (asyncErr !== null){stream.resume(); return;} // so that readable will not be called unneccessarily
             try{
                 streamDone = false;
-                let chunk: Buffer;
+                let chunk: string;
                 while ((chunk = stream.read()) !== null){
                     // buf: at first, store all data to validate 'AAMPGRMB'
-                    // after validation, mostly empty, used to prevent sending arrays ending in ''
-                    buf += chunk.toString();
-                    let arrTmp = buf.split('&');
-                    buf = arrTmp.at(-1) ?? '';
-                    if (!inspected){ // if uninspected either inspect or continue;
-                        if (arrTmp.length > 1 || arrTmp[0].length > 17){ // pre-check
+                    // after validation, used only to prevent sending arrays ending in ''
+                    // all arrTmp's first element must not contain the beginning of each element (splitted by '&'). insert '' if this is the case.
+                    buf += chunk;
+                    const arrTmp = buf.split('&');
+                    if (!inspected) {
+                        if (arrTmp.length > 1 || arrTmp[0].length > 30) {
+                            inspected = true;
                             if (arrTmp[0].slice(1, 17) !== 'AAMPGRMBFileVer='){
-                                throw new BadRequestException();
+                                throw new BadRequestException('잘못된 형식의 파일입니다.');
                             }
-                        }
-                        if (arrTmp.length > 1 || arrTmp[0].length > 30){ // can always be inspected
                             if (availVer.includes(arrTmp[0].slice(17))){ // inspected
                                 objDoc.type = 'rmb' + arrTmp[0].slice(17) as typeof objDoc.type;
-                                inspected = true; // flow to the next stage
-                                arrTmp.shift();
                             } else {
-                                throw new BadRequestException();
+                                throw new BadRequestException('지원되지 않는 버전의 파일입니다.');
                             }
-                        } else { // length still 1 and uninspected --> continue;
+                            arrTmp[0] = ''; // first element must not contain the beginning of each element splitted by '&'
+                        } else {
                             return;
                         }
                     }
-                    buf = '';
+                    buf = arrTmp.at(-1) ?? '';
                     if (arrTmp.at(-1) === ''){
                         arrTmp.pop();
                         buf = '&';
                     }
-                    await this.processFileStream(objDoc, arrTmp, tmpVar, dirpath);
+                    if (arrTmp.length > 0) {
+                        await this.uploadMongo_processFileStream(arrTmp, tmpVar);
+                    }
                 }
             } catch (err) {
                 this.logger.error('uploadMongo stream error. see below.');
@@ -370,7 +275,10 @@ export class FileUtilsService {
                 stream.resume();
                 throw asyncErr;
             }
-            await this.processFileStream(objDoc, [], tmpVar, dirpath);
+            if (!inspected) {
+                throw new BadRequestException('잘못된 형식의 파일입니다.');
+            }
+            await this.uploadMongo_processFileStream([], tmpVar);
             if (objDoc.type === 'rmb0.2' && objDoc.arrlen !== 15){
                 objDoc.type = 'rmb0.3';
             }
@@ -386,6 +294,104 @@ export class FileUtilsService {
             } else {
                 throw new InternalServerErrorException();
             }
+        }
+    }
+
+    private async uploadMongo_processFileStream(arr: string[], tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle, doc: FiledatColDto, pth: string}){
+        // note: empty string should be passed to commitFileStream only to close the currently open phase.
+        // empty string should never be passed in other cases.
+        if (arr.length <= 0){ // empty array is passed only after all the contents are read
+            this.uploadMongo_commitFileStream('', tmpVar);
+            return;
+        }
+        if (arr[0] !== '') {
+            await this.uploadMongo_commitFileStream(arr[0], tmpVar);
+        }
+        for (let i = 1; i < arr.length; i++){
+            let str = arr[i];
+            // newbuf: fill the new content
+            // buf: store previous value if needed
+            // after each 'complete' value, send '' to mark an end
+            // consider 4 cases: ['...', '...&N...'], ['...', '...&A...'], ['...', '&A...'], ['...', '&N...']
+            // the other 2 cases are prevented in advance: ['...&', 'A...'], ['...&', 'N...']
+            if (str.slice(0, 1) === 'A'){
+                tmpVar.buf += '&';
+                tmpVar.buf += str.slice(1);
+            } else {
+                await this.uploadMongo_commitFileStream('', tmpVar);
+                if (str !== '') {
+                    await this.uploadMongo_commitFileStream(str, tmpVar);
+                }
+            }
+        }
+    }
+
+    private async uploadMongo_commitFileStream(bufnew: string, tmpVar: {buf: string, phase: string, idx: number, fh: null|FileHandle, doc: FiledatColDto, pth: string}){
+        const availProp = ['FontSize', 'Interval', 'RemStart', 'RemEnd'];
+        if (bufnew === ''){ // A: end phase. note that two consequent '' may arrive.
+            switch (tmpVar.phase){
+                case '':
+                    break;
+                case 'M':
+                    break;
+                case 'P':
+                    let pairVal = tmpVar.buf.split('=');
+                    if (pairVal.length > 0){
+                        if (!availProp.includes(pairVal[0])){
+                            throw new BadRequestException();
+                        }
+                        tmpVar.doc.metadata[pairVal.shift()!] = pairVal.join('=');
+                    }
+                    break;
+                case 'N':
+                    if (tmpVar.fh === null){
+                        throw new InternalServerErrorException();
+                    }
+                    await tmpVar.fh.appendFile(tmpVar.buf);
+                    await tmpVar.fh.close();
+                    tmpVar.fh = null;
+                    // push tmpVar.buf, then close the fs.
+                    break;
+                default: 
+                    throw new BadRequestException();
+            }
+            tmpVar.phase = '';
+            tmpVar.buf = '';
+            return;
+        }
+
+
+        if (tmpVar.phase === ''){ // B: start a new phase (no pushing to the buf. step B includes step C.)
+            tmpVar.phase = bufnew.slice(0, 1);
+            bufnew = bufnew.slice(1);
+            tmpVar.buf = '';
+            switch (tmpVar.phase){
+                case 'N':
+                    tmpVar.fh = await fs.open(join(tmpVar.pth, String(++(tmpVar.idx))), 'wx');
+                    tmpVar.doc.arrlen = tmpVar.idx;
+                    break;
+            }
+        }
+        // C: continue the phase
+        switch (tmpVar.phase){
+            case 'M':
+                tmpVar.buf = '';
+                break;
+            case 'P':
+                tmpVar.buf += bufnew;
+                if (tmpVar.buf.length > 100){
+                    throw new BadRequestException('잘못된 길이의 속성값입니다.');
+                }
+                break;
+            case 'N':
+                if (tmpVar.fh === null){
+                    throw new InternalServerErrorException();
+                }
+                await tmpVar.fh.appendFile(tmpVar.buf + bufnew);
+                tmpVar.buf = '';
+                break;
+            default:
+                throw new BadRequestException('지원되지 않는 속성입니다.');
         }
     }
 

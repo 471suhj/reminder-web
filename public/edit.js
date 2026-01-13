@@ -117,8 +117,8 @@ async function getInitData(){
                 }
             }
             lstItems.children[jsnRes.itmCur - 1].selected = true;
-            txtMain.innerText = jsnRes.txtCur;
-            txtBack.innerText = jsnRes.txtCur;
+            txtMain.textContent = jsnRes.txtCur;
+            txtBack.textContent = jsnRes.txtCur;
 
             fncSetCaret(jsnRes.curLoc);
 
@@ -148,8 +148,8 @@ fncChangeReadonly(true);
 				const jsnRes = await result.json();
 
 				lstItems.children[jsnRes.itmCur - 1].selected = true;
-				txtMain.innerText = jsnRes.txtCur;
-				txtBack.innerText = jsnRes.txtCur;
+				txtMain.textContent = jsnRes.txtCur;
+				txtBack.textContent = jsnRes.txtCur;
 			});
 		});
 	}
