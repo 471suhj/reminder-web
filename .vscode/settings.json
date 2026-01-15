@@ -1,0 +1,6 @@
+{
+  "javascript.validate.enable": false,
+  "javascript.suggest.enabled": false,
+  "javascript.referencesCodeLens.enabled": false,
+  "javascript.format.enable": false
+}

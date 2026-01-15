@@ -35,7 +35,7 @@ export class HomeController {
                 link = '/files/' + itm.file_name;
             }
         } else {
-            link = (isFile ? '/edit?id=' : '/files?id=') + itm.file_serial;
+            link = (isFile ? '/edit?id=' : '/files?dirid=') + itm.file_serial;
         }
         arrFile.push([i % 2 ? 'A' : 'B', i, itm.file_name, 
             isFile ? 'newwin' : 'false', link]);

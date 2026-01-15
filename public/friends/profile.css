@@ -121,6 +121,10 @@
 }
 .listDateShared{
     width: 125px;
+    font-size: small;
+}
+#colDateShared {
+    font-size: medium;
 }
 .listDate{
     width: 125px;

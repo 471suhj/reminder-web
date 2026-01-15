@@ -9,7 +9,7 @@ import { PrefsService } from "src/prefs/prefs.service";
 import { SortModeDto } from "./sort-mode.dto";
 import { FileMoreDto } from "./file-more.dto";
 import { Efile } from "src/mysql/file.entity";
-import { DataSource, FindOptionsOrder, FindOptionsWhere, LessThan, MoreThan } from "typeorm";
+import { DataSource, FindOptionsOrder, FindOptionsWhere, In, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm";
 import { Ebookmark } from "src/mysql/bookmark.entity";
 import { Eshared_def } from "src/mysql/shared_def.entity";
 import { Erecycle } from "src/mysql/recycle.entity";
@@ -240,7 +240,7 @@ export class FileResolutionService {
     }
 
     async loadSharedMore(userSer: number, lastFile: number, lastTime: Date, sort: SortModeDto, friend?: number){
-        let crit = ['type', ...this.fileUtilsService.translateColumnBase(sort.criteria, 'shared')];
+        let crit = [...this.fileUtilsService.translateColumnBase(sort.criteria, 'shared')];
         let retVal = new FileMoreDto();
         retVal.addarr = [];
         retVal.loadMore = true;
@@ -265,33 +265,57 @@ export class FileResolutionService {
                         file_serial: String(lastFile),
                         last_renamed: lastTime,
                         shares: {
-                            user_serial_to: userSer,
+                            user_serial_to: In([userSer, friend]),
                         },
-                        user_serial: friend,
+                        user_serial: In([friend, userSer]),
                     }
                 });
                 if (result.length <= 0){
                     retVal.needRefresh = true;
                     throw new Error('rollback_');
                 }
-                let lenTmp = crit.length;
-                let lenTmp_dbl = friend ? lenTmp * 2 : lenTmp;
-                for (let k = 0; k < lenTmp_dbl; k++){
+                const lenTmp = crit.length;
+                const ulim = friend ? lenTmp * 2 : lenTmp;
+                const myFile = result[0].user_serial === userSer;
+                for (let k = 0; k < ulim; k++){
                     let i = k % lenTmp;
                     wherearr.push({...((i === k) ? whereObj1 : whereObj2)});
                     let j = 0;
-                    wherearr[i].file = {};
+                    wherearr[k].file = {};
                     for (; j < lenTmp - 1 - i; j++){
-                        wherearr[i].file![crit[j]] = result[0][crit[j]];
+                        if (crit[j] === 'date_shared') {
+                            wherearr[k][crit[j]] = result[0].shares[0][crit[j]];
+                        } else {
+                            wherearr[k].file![crit[j]] = result[0][crit[j]];
+                        }
                     }
-                    wherearr[i].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
+                    if (crit[j] === 'date_shared') {
+                        if (!myFile && k === lenTmp) { // not greater than: most detailed criteria only
+                            wherearr[k][crit[j]] = sort.incr ? MoreThanOrEqual(result[0].shares[0][crit[j]]) : LessThanOrEqual(result[0].shares[0][crit[j]]);
+                        } else {
+                            wherearr[k][crit[j]] = sort.incr ? MoreThan(result[0].shares[0][crit[j]]) : LessThan(result[0].shares[0][crit[j]]);
+                        }
+                    } else {
+                        if (!myFile && k === lenTmp) {
+                            wherearr[k].file![crit[j]] = sort.incr ? MoreThanOrEqual(result[0][crit[j]]) : LessThanOrEqual(result[0][crit[j]]);
+                        } else {
+                            wherearr[k].file![crit[j]] = sort.incr ? MoreThan(result[0][crit[j]]) : LessThan(result[0][crit[j]]);
+                        }
+                    }
                 }
             } else {
                 wherearr = friend ? [whereObj1, whereObj2] : [whereObj1];
             }
-            let orderObj = {file: {}};
-            for (const itm of crit){
-                    orderObj.file[itm] = sort.incr ? "ASC" : "DESC";
+            const orderObj = {};
+            for (const itm of crit){ // impossible to order by date_shared in the middle. major pitfall
+                if (itm === 'date_shared') {
+                    orderObj[itm] = sort.incr ? "ASC" : "DESC";
+                } else {
+                    if (orderObj['file'] === undefined) {
+                        orderObj['file'] = {};
+                    }
+                    orderObj['file'][itm] = sort.incr ? "ASC" : "DESC";
+                }
             }
             let result2 = await manager.find(Eshared_def, {
                 relations: {
@@ -555,31 +579,36 @@ export class FileResolutionService {
         let mapRes = new Map<number, FileIdentResDto>();
         let files = files_.slice();
         let filearr = files.map(val=>val.id);
-            if (mode === 'files' && parent === undefined){throw new BadRequestException();}
-            if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
-            let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
-            orderby += `${this.fileUtilsService.translateColumnBase(sort.criteria, 'files').join(' ' + (sort.incr ? 'asc' : 'desc') + ', ')} ${sort.incr ? 'asc' : 'desc'}`;
-            let source: string;
-            let arrParam: Array<number|string|Date|number[]>;
-            if (mode === 'files'){
-                source = `from file where user_serial=? and parent_serial=? `;
-                arrParam = [userSer, parent!, filearr];
-            } else if (mode === 'profile'){
-                source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
-                source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
-                source += `inner join file using (file_serial)`;
-                arrParam = [userSer, friend!, friend!, userSer, filearr]
-            } else {throw new BadRequestException();}
-            let str1 = `select lead(file_serial, 1, -2) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
-            str1 += source;
-            str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
-            str1 += 'for share';
-            let [result] = await conn.query<RowDataPacket[]>(
-                str1, arrParam
-            );
-            for (let i = 0; i < result.length; i++){
-                mapRes.set(result[i].file_serial, {id: Number(result[i].pserial), timestamp: result[i].ptime});
-            }
+        if (mode === 'files' && parent === undefined){throw new BadRequestException();}
+        if (mode === 'profile' && friend === undefined){throw new BadRequestException();}
+        let orderby = `order by type ${sort.incr ? 'asc' : 'desc'}, `
+        if (sort.criteria === 'colDateShared') { // file_shared does not exist, and should be handled separately
+            files.forEach((itm)=>{itm.before = {id: -1, timestamp: new Date()};});
+            return files;
+        }
+
+        orderby += `${this.fileUtilsService.translateColumnBase(sort.criteria, 'files').join(' ' + (sort.incr ? 'asc' : 'desc') + ', ')} ${sort.incr ? 'asc' : 'desc'}`;
+        let source: string;
+        let arrParam: Array<number|string|Date|number[]>;
+        if (mode === 'files'){
+            source = `from file where user_serial=? and parent_serial=? `;
+            arrParam = [userSer, parent!, filearr];
+        } else if (mode === 'profile'){
+            source = `from ((select file_serial from shared_def where user_serial_from=? and user_serial_to=?) union `;
+            source += `(select file_serial from shared_def where user_serial_from=? and user_serial_to=?)) as shared_def `;
+            source += `inner join file using (file_serial)`;
+            arrParam = [userSer, friend!, friend!, userSer, filearr]
+        } else {throw new BadRequestException();}
+        let str1 = `select lead(file_serial, 1, -2) over(${orderby}) as pserial, lead(last_renamed, 1) over(${orderby}) as ptime, file_serial `;
+        str1 += source;
+        str1 = `select * from (${str1}) as tbl where file_serial in (?) `;
+        str1 += 'for share';
+        let [result] = await conn.query<RowDataPacket[]>(
+            str1, arrParam
+        );
+        for (let i = 0; i < result.length; i++){
+            mapRes.set(result[i].file_serial, {id: Number(result[i].pserial), timestamp: result[i].ptime});
+        }
         for (let i = 0; i < files.length; i++){
             files[i].before = mapRes.get(files[i].id);
         }

@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, Res } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, Res } from '@nestjs/common';
 import { MysqlService } from 'src/mysql/mysql.service';
 import { RowDataPacket, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { FileDelResDto } from './file-del-res.dto';
@@ -249,7 +249,7 @@ export class FilesService {
                                     text: inputInfo[0].file_name,
                                     timestamp: inputInfo[0].last_renamed,
                                     bookmarked: inputInfo[0].bookmarked === 'true',
-                                    link: (inputInfo[0].type === 'dir' ? `/files?id=` : `/edit?id=`) + inputInfo[0].file_serial,
+                                    link: (inputInfo[0].type === 'dir' ? `/files?dirid=` : `/edit?id=`) + inputInfo[0].file_serial,
                                     ownerImg: '/graphics/profimg',
                                     shared: ''
                                 })
@@ -614,11 +614,10 @@ export class FilesService {
                 `delete from shared_def where user_serial_to=? and file_serial in (?) `,
                 [userSer, filearr]
             );
-        } else { // from profiels page, either from sender or receiver
-            if (files_.length !== 1){throw new BadRequestException();}
+        } else { // from profiles page, either from sender or receiver
             await conn.query(
-                `delete from shared_def where ((user_serial_from=? and user_serial_to=?) or (user_serial_from=? and user_serial_to=?)) and file_serial=?`,
-                [userSer, friend, friend, userSer, files_[0].id]
+                `delete from shared_def where ((user_serial_from=? and user_serial_to=?) or (user_serial_from=? and user_serial_to=?)) and file_serial in (?)`,
+                [userSer, friend, friend, userSer, files_.map(val=>val.id)]
             );
         }
         retVal.delarr = files_.map(val=>{return {id: val.id, timestamp: val.timestamp};});
@@ -852,8 +851,13 @@ export class FilesService {
         let retVal = new FileMoveResDto();
         retVal.addarr = [];
         retVal.delarr = [];
-        if (!await this.fileUtilsService.checkAccess(conn, userSer, parent, 'dir', 'fileonly')){
-            throw new BadRequestException();
+        if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, parent, 'dir', 'fileonly', false)){
+            throw new ForbiddenException('접근이 금지된 폴더입니다.');
+        }
+        if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, file.id, undefined, 'true', false)){
+            retVal.failed.push([file.id, file.timestamp])
+            retVal.failmessage = '시스템 폴더는 이름을 변경할 수 없습니다.';
+            return retVal;
         }
         // validate timestamp and get file type
         let [result] = await conn.execute<RowDataPacket[]>(
@@ -863,7 +867,7 @@ export class FilesService {
         // if expired
         if (result.length <= 0){
             retVal.expired = true;
-            retVal.failed = [[file.id, file.timestamp.toISOString()]];
+            retVal.failed = [[file.id, file.timestamp]];
             return retVal;
         }
         // if already exists
@@ -873,7 +877,7 @@ export class FilesService {
         );
         if (result.length > 0){
             retVal.alreadyExists = true;
-            retVal.failed = [[file.id, file.timestamp.toISOString()]];
+            retVal.failed = [[file.id, file.timestamp]];
             return retVal;
         }
         await conn.execute(

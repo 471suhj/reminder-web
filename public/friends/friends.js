@@ -72,12 +72,23 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
         if (!divSelected){
             return;
         }
-        const newName = prompt(`${divSelected.children[1].children[2].innerText.slice(1, -1)}의 새 닉네임을 입력해 주세요.`, divSelected.children[1].children[1].innerText);
-        await doFetch('', 'PUT', JSON.stringify({id: Number(divSelected.dataset.id), newname: newName}),
+		const promptMsg = `${divSelected.children[1].children[2].innerText.slice(1, -1)}의 새 닉네임을 입력해 주세요.`;
+		let newNickname = prompt(promptMsg, divSelected.children[1].children[1].innerText);
+		if (newNickname === null){
+			return;
+		}
+		while (newNickname.length > 25){
+			alert('닉네임은 25자를 넘을 수 없습니다.');
+			newNickname = prompt(promptMsg, newNickname);
+			if (newNickname === null){
+				return;
+			}
+		}
+		await doFetch('', 'PUT', JSON.stringify({id: Number(divSelected.dataset.id), newname: newNickname}),
             '닉네임 변경이 완료되었습니다.', '닉네임 변경에 실패했습니다.', async function(result){
 				const jsnRes = await result.json();
 				if (jsnRes.success){
-					divSelected.children[1].children[1].innerText = newName.trim() === '' ? divSelected.dataset.name : newName;
+					divSelected.children[1].children[1].innerText = newNickname.trim() === '' ? divSelected.dataset.name : newNickname;
 				} else if (jsnRes.failmessage) {
 					showMessage(jsnRes.failmessage);
 				} else {

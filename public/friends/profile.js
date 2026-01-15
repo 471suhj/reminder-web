@@ -39,22 +39,46 @@ async function fncInsertFile(jsnRes, last, msgPos, msgNeg, checkItems){
 	numItemCnt = objCnt.numItemCnt;
 }
 
+{
+    let tlbItem = document.getElementById('selectAll');
+    tlbItem.addEventListener('click', ()=>{
+        let allchecked = true;
+        for (const listItem of list.children){
+            if (!listItem.firstElementChild.checked){
+                allchecked = false;
+            }
+            listItem.firstElementChild.checked = true;
+        }
+        if (allchecked){
+            for (const listItem of list.children){
+                listItem.firstElementChild.checked = false;
+            }
+            tlbItem.checked = false;
+        } else {
+            tlbItem.checked = true;
+        }
+    });
+}
 
 {
     let tlbItem = document.getElementById('rename');
     tlbItem.addEventListener('click', async function(){
-        let newNickname = lblNickname.innerText;
-		while ((newNickname = prompt('수정할 닉네임을 입력해 주십시오.', newNickname)).length > 25){
-			alert('닉네임은 25자를 넘을 수 없습니다.');
+		let newNickname = prompt('수정할 닉네임을 입력해 주십시오.', lblNickname.innerText);
+		if (newNickname === null){
+			return;
 		}
-        if (!newNickname){
-            return;
-        }
+		while (newNickname.length > 25){
+			alert('닉네임은 25자를 넘을 수 없습니다.');
+			newNickname = prompt('수정할 닉네임을 입력해 주십시오.', newNickname);
+			if (newNickname === null){
+				return;
+			}
+		}
         await doFetch('./', 'PUT', JSON.stringify({id: Number(lblTitle.dataset.id), newname: newNickname}),
             '닉네임 변경이 완료되었습니다.', '닉네임 변경에 실패했습니다.', async function(result){
 				const jsnRes = await result.json();
 				if (jsnRes.success){
-					lblNickname.innerText = newNickname;
+					lblNickname.innerText = newNickname.trim() === '' ? document.getElementById('origName').innerText : newNickname;
 				} else if (jsnRes.failmessage) {
 					showMessage(jsnRes.failmessage);
 				} else {

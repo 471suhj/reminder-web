@@ -404,7 +404,7 @@ export class FilesController {
             retVal = await this.filesService.addShare(conn, userSer, body.files, body.friends, body.mode, body.message);
         });
         if (body.sort !== undefined){
-            retVal.addarr = retVal.addarr.concat(await this.fileResolutionService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]));
+            await this.fileResolutionService.resolveBefore(await this.mysqlService.getSQL(), userSer, body.sort, retVal!.addarr, 'profile', undefined, body.friends[0]);
         }
         return retVal;
     }

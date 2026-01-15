@@ -131,7 +131,7 @@ export class FileUtilsService {
 
     // default: lock: true
     async checkAccess(conn: Connection, userSer: number, fileSer: number, mode?: 'dir'|'file', nosys?: 'true'|'fileonly', lock: boolean = true){
-        let str1 = `select file_serial from file where user_serial=? and file_serial=? `;
+        let str1 = `select * from file where user_serial=? and file_serial=? `;
         if (mode === 'dir'){
             str1 += `and type='dir' `;
         } else if (mode === 'file'){
@@ -160,6 +160,8 @@ export class FileUtilsService {
                 return ['last_modified', 'file_name'];
             case 'colOwner':
                 return ['user_serial', 'file_name'];
+            case 'colDateShared':
+                return ['date_shared', 'file_name'];
             case 'colPath':
                 if (mode === 'recycle'){return ['parent_path', 'file_name'];} else {break;}
             case 'colDelDate':
