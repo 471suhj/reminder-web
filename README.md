@@ -36,7 +36,7 @@
 - 서비스 내용: Reminder20으로 작성한 파일들을 온라인 개인 저장소에 저장하고, 편집하며, 친구들과 공유할 수 있는 서비스
 - 서비스 이용 안내: **현재 Amazon SES의 production access가 승낙되지 않은 상태로, 사전 지정된 이메일 주소 이외에는 인증번호를 발송할 수 없는 상황입니다. 회원 가입을 희망하시는 분께서는 이메일을 secret@comphycat.uk, 인증 번호를 '케이크'로 입력해 주시면 자동 인증 처리됩니다. 문제가 발생하는 경우 comtrams@outlook.com으로 문의 부탁드립니다. 감사합니다.**
 - 서비스 링크: https://comphycat.uk
-- 서비스 소개 영상: (준비 중)
+- 서비스 소개 영상: https://youtu.be/mEFtugIuUmM
 - 쿼리 설정 등 참고 사항: [READUS 폴더 참고](READUS)
 - 참고 사항: 
 
