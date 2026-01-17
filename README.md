@@ -4,26 +4,38 @@
 
 - [**reminder-web**](#reminder-web의-소개) (현재 프로젝트) (ComphyCat Reminder Online)
     
-    NestJS를 사용한 백엔드 위주의 TypeScript 프로젝트
+    NestJS를 사용한 백엔드 위주의 TypeScript 프로젝트입니다.
 
-    Reminder20의 온라인 버전
+    아래 [기타 프로젝트](#기타-프로젝트)에 기재된 Reminder20의 온라인 버전입니다.
 
-## 참고용 프로젝트
+    자세한 사항은 아래 [reminder-web의 소개](#reminder-web의-소개)를 참고해 주십시오.
+
+## 기타 프로젝트
+
+- [**Reminder20**](https://github.com/471suhj/Reminder20) (ComphyCat Reminder)
+
+    2018/01 ~ 2021/10, 2025/12/23 ~ 2026/01/04
+    
+    개발자: 서정욱
+
+    Visual Basic .NET으로 작성한 Windows 데스크톱 앱으로, 기억하고 싶은 단어 등을 입력하면 일정한 주기로 알려 주는 프로그램입니다. 사용자의 편의성에 초점을 맞추었습니다.
+        
+    - 저장 등 파일 탐색기가 표시되는 기능은 기능별로 마지막에 방문한 경로를 저장합니다.
+        
+    - 임시 저장, 저장 상태 표시, 알림창 표시 위치 저장 등의 기능을 구현했습니다.
+
 
 - [**Reminder94**](https://github.com/471suhj/Reminder94)
 
-    Win32 API를 직접적으로 호출하는 C++ 프로젝트 (개발 초기 단계)
-
     2025/08/27 ~ 2025/09/08
 
-    Reminder20의 새 버전
-- [**Reminder20**](https://github.com/471suhj/Reminder20) (ComphyCat Reminder)
+    개발자: 서정욱
 
-    Visual Basic .NET 프로젝트
-
-    2018/01 ~ 2021/10, 2025/12/23 ~ 2026/01/04
-
-    Reminder94로 이어서 개발 예정
+    C++으로 작성한, Reminder20의 후속 버전으로 Win32 API를 직접 호출합니다.
+    
+    전작과 달리 싱글 인스턴스 프로그램으로, 인터페이스 언어 변경, DPI-aware 지원을 추가했습니다.
+    
+    현재 개발 초기 단계입니다. 현재 위의 reminder-web 개발을 위해 잠시 개발을 중단하였습니다.
 
 # reminder-web의 소개
 
@@ -42,7 +54,7 @@
 
     프런트엔드 위주로 제작한 프로젝트가 아닌 관계로 웹 페이지의 사용자 경험이 이상적이지 않다는 것을 양해 부탁드립니다. 특히 대부분의 키보드 단축키는 작동하지 않을 가능성이 높습니다.
 
-    또한 시간적인 한계로 인해 아직 구현되지 않은 기능이 있습니다. 프로젝트의 규모 및 시간적인 문제로 인해 완성되지 않은 기능이 있으니 양해 부탁드립니다. 특히 회원 정보 변경의 기능들 (이름, 비밀 번호 변경 등)과 파일 편집 기능은 아직 구현되지 않았습니다.
+    또한 시간적인 한계로 인해 아직 구현되지 않은 기능이 있습니다. 프로젝트의 규모 및 시간적인 문제로 인해 완성되지 않은 기능이 있으니 양해 부탁드립니다. 특히 파일 편집 기능은 아직 구현되지 않았습니다.
 
 ## 개발 환경 및 사용 기술
 
@@ -64,7 +76,7 @@
 
 이미지: [READUS/reminder-web-er.bmp](READUS/reminder-web-er.bmp)
 
-![E-R Diagram 대체 텍스트](READUS/reminder-web-er.bmp)
+![E-R Diagram이 텍스트로 대체되었습니다](READUS/reminder-web-er.bmp)
 
 ### 참고
 - 해당 다이어그램은 Relational Dababase가 아닌 MongoDB의 컬렉션은 포함하지 않습니다.
