@@ -65,10 +65,38 @@
 
     MySQL 연결: mysql2, TypeORM (일부 코드의 경우)
 
-    MongoDB 연결: Node.js MongoDB driver
+    MongoDB 연결: MongoDB Node.js driver
 
-- **배포**: Amazon Web Services (AWS) EC2 (도메인: CloudFlare, 이메일 전송: Amazon SES)
+- **배포**: Amazon Web Services (AWS) EC2 (comphycat.uk 도메인: CloudFlare, 이메일 전송: Amazon SES)
+
+    Load balancer를 통해 사용자-Load balancer (Port 443) 사이의 HTTPS 연결을 구성하고, Load balancer가 target group에 속한 EC2 instance의 Port 3000으로 요청을 전달합니다.
+
+    instance 종류는 t3.small, root device type은 EBS입니다.
+
+    pm2를 통해 서비스를 실행합니다.
+
 - **개발 환경**: Windows Subsystem for Linux (WSL2): Ubuntu 24.04.3 on Windows 11 25H2, Visual Studio Code (WSL2)
+
+## 프로젝트의 설치
+
+1. `git clone`을 실행합니다.
+
+    ```
+    git clone https://github.com/471suhj/reminder-web
+    cd reminder-web
+    ```
+
+2. `npm install`을 실행합니다.
+
+3. MySQL, MongoDB를 [위의 버전](#개발-환경-및-사용-기술)에 맞게 설치하고 MySQL을 READUS 폴더의 [mysql_etc.txt](READUS/mysql_etc.txt), [mysql_plan.txt](READUS/mysql_plan.txt)에 따라 구성합니다.
+
+4. MongoDB의 경우에도 READUS 폴더의 [mongo_plan.txt](READUS/mongo_plan.txt)에 따라 인덱스를 구성합니다.
+
+5. `npm run build`를 실행합니다.
+
+6. `env.env` 파일을 생성하고, [READUS/configs.txt](READUS/configs.txt)의 pfx_pass.env 항목의 사항들을 입력합니다. ENCR_PASS는 임의의 값을, MYSQL_PW는 MySQL의 user계정의 비밀 번호를 입력합니다. Google 로그인 연동을 하려는 경우 GOOGLE 항목들에 Google Cloud Console에 등록된 값들을 입력합니다. 입력하지 않는 경우 Google로 로그인 기능을 사용하지 않는다면 문제가 발생하지 않습니다.
+
+7. `node --env-file=env.env dist/main.js`를 실행합니다.
 
 ## Entity-Relationship Diagram
 
