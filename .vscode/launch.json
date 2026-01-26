@@ -17,6 +17,20 @@
             ],
             "type": "node",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Test via NPM",
+            "request": "launch",
+            "runtimeArgs": [
+                "run",
+                "test"
+            ],
+            "runtimeExecutable": "npm",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node",
+            "console": "integratedTerminal"
         }
     ]
 }

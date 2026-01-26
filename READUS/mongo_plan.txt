@@ -50,3 +50,12 @@ db.notification.createIndex({to: 1, read: 1, _id: 1});
 db.notification.createIndex({to: 1, _id: 1});
 
 db.file_data.createIndex({serial: 1}, {unique: true});
+
+// debug
+
+use remweb_test;
+
+db.notification.createIndex({to: 1, read: 1, _id: 1});
+db.notification.createIndex({to: 1, _id: 1});
+
+db.file_data.createIndex({serial: 1}, {unique: true});

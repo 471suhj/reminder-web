@@ -6,9 +6,9 @@ export class MongoService {
     #client: MongoClient;
     #database: Db;
 
-    constructor(){
+    constructor(testenv: boolean){
         this.#client = new MongoClient("mongodb://localhost:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.5.8");
-        this.#database = this.#client.db('reminder_web');
+        this.#database = this.#client.db(testenv ? 'remweb_tst' : 'reminder_web');
     }
 
     getDb(): Db{

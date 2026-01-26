@@ -8,21 +8,22 @@ export class MysqlService {
 
     private readonly logger = new Logger(MysqlService.name);
 
-    constructor(){
+    constructor(testenv: boolean){
         console.log('start: MysqlService');
-        this.initSQL();
+        this.initSQL(testenv);
         this.getSQL();
         console.log('end: MysqlService');
     }
     
-    private async initSQL(): Promise<void> {
+    private async initSQL(testenv: boolean): Promise<void> {
         try{
             this.#pool = await mysql.createPool({
                 host: 'localhost',
                 user: 'user',
-                database: 'reminder_web',
+                database: testenv ? 'remweb_test' : 'reminder_web',
                 password: process.env.MYSQL_PW,
-                flags: ['client_found_rows']
+                flags: ['client_found_rows'],
+                gracefulEnd: true,
             });
             this.#connected = true;
             this.logger.log('mysql connected');

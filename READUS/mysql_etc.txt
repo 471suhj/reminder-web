@@ -1,3 +1,5 @@
+set persist sql_mode = 'ANSI_QUOTES,IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
 create database reminder_web;
 
 create user 'user'@'localhost'
@@ -8,6 +10,12 @@ create user 'user'@'localhost'
 	password reuse interval 0 day
 	password require current;
 
-set persist sql_mode = 'ANSI_QUOTES,IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
-
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES, SHOW VIEW ON reminder_web.* TO 'user'@'localhost';
+
+debug:
+
+create database remweb_test;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES, SHOW VIEW ON remweb_test.* TO 'user'@'localhost';
+
+// run mysql_plan for remweb_test as well

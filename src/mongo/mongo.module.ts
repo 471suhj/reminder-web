@@ -3,7 +3,7 @@ import { MongoService } from './mongo.service';
 
 @Global()
 @Module({
-  providers: [MongoService],
-  exports: [MongoService]
+    providers: [{provide: MongoService, useValue: new MongoService(false)}],
+    exports: [{provide: MongoService, useExisting: MongoService}],
 })
 export class MongoModule {}

@@ -12,8 +12,8 @@ import { Efriend_mul } from './friend_mul.entity';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([Euser, Efile, Eshared_def, Efriend, Efriend_mono, Ebookmark, Erecycle, Efriend_mul])],
-  providers: [MysqlService],
-  exports: [MysqlService],
+    imports: [TypeOrmModule.forFeature([Euser, Efile, Eshared_def, Efriend, Efriend_mono, Ebookmark, Erecycle, Efriend_mul])],
+    providers: [{provide: MysqlService, useValue: new MysqlService(false)}],
+    exports: [{provide: MysqlService, useExisting: MysqlService}],
 })
 export class MysqlModule {}
