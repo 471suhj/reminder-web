@@ -852,11 +852,11 @@ export class FilesService {
         retVal.addarr = [];
         retVal.delarr = [];
         if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, parent, 'dir', 'fileonly', false)){
-            throw new ForbiddenException('접근이 금지된 폴더입니다.');
+            throw new ForbiddenException('잘못된 폴더입니다.');
         }
         if (!await this.fileUtilsService.checkAccess(await this.mysqlService.getSQL(), userSer, file.id, undefined, 'true', false)){
             retVal.failed.push([file.id, file.timestamp])
-            retVal.failmessage = '시스템 폴더는 이름을 변경할 수 없습니다.';
+            retVal.failmessage = '존재하지 않는 파일이거나 내장 폴더입니다.';
             return retVal;
         }
         // validate timestamp and get file type

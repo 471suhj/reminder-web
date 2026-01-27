@@ -51,7 +51,7 @@ export class FileResolutionService {
 
     async renderSharedPage(userSer: number, dirType: SysdirType['val']): Promise<FileGetResDto>{
         if (!SysdirType.arr.includes(dirType)){
-            throw new BadRequestException('요청된 폴더 종류는 시스템 폴더가 아닙니다.');
+            throw new BadRequestException('요청된 폴더 종류는 내장 폴더가 아닙니다.');
         }
         let retObj: FileGetResDto = new FileGetResDto();
         const dirid = await this.fileUtilsService.getUserRoot(userSer, dirType);

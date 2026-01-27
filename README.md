@@ -250,3 +250,15 @@ https://comphycat.uk/api
 ## 코드 고려 사항 - 파일 및 이미지 업로드
 
 파일 (`FilesController.postManage()`가 호출하는 `FileUtilsService.uploadMongo()`) 및 이미지 업로드 (`PrefsController.putUpdateUploadprofimg()`)의 경우 `busboy`의 `Readable` (`node:stream`)을 통해 내용을 전달받으며, 동시에 여러 파일 업로드 요청을 받을 수 있기 때문에 메모리에 내용을 누적하지 않고 Readable의 이벤트에서 내용을 바로 처리하도록 코드를 구성하고 있습니다.
+
+## 코드 고려 사항 - 서비스 최적화 및 검증
+
+현재 최적화 및 검증 작업 과정 중에 있습니다. 최적화와 검증 모두 프로젝트의 일부에 대해서만 순차적으로 적용하고 있습니다.
+
+- 최적화: 쿼리 계획 점검 및 최적화, 코드 가독성 개선.
+
+    현재 FilesController.putMove()에 대해 최적화가 진행되었고, 위의 [복사/이동 기능 개선 및 최적화](#2-복사이동-기능-개선-및-최적화)에서 확인할 수 있습니다.
+
+- 검증: 테스트 코드를 통한 함수의 기능 점검
+
+    현재 FilesService에 대한 테스트 코드 작성이 진행 중에 있습니다. [files.service.spec.ts](src/files/files.service.spec.ts)에서 확인할 수 있습니다.
